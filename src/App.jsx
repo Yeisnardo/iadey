@@ -10,6 +10,7 @@ import Solicitud from "./pages/Solicitud.jsx";
 import Expediente from "./pages/Expediente.jsx";
 import Inspeccion from "./pages/Inspeccion.jsx";
 import Aprobacion from "./pages/Aprobacion.jsx";
+import Contrato from "./pages/Contrato.jsx";
 import RegistroEmprendedor from "./pages/Registro-emprendedor.jsx";
 import Cartera from "./pages/Cartera.jsx";
 
@@ -52,6 +53,7 @@ function App() {
         <Route path="/Expediente" element={<Expediente />} />
         <Route path="/Inspeccion" element={<Inspeccion />} />
         <Route path="/Aprobacion" element={<Aprobacion />} />
+        <Route path="/Contrato" element={<Contrato />} />
         <Route path="/Registro-emprendedor" element={<RegistroEmprendedor />} />
         <Route path="/Cartera" element={<Cartera />} />
 

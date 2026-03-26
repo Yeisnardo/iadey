@@ -33,7 +33,19 @@ import {
   CheckSquare,
   Send,
   Printer,
-  MessageSquare
+  MessageSquare,
+  X,
+  FolderPlus,
+  Save,
+  Camera,
+  Upload,
+  Trash2,
+  Phone,
+  Mail,
+  MapPin,
+  IdCard,
+  Square,
+  CheckSquare as CheckSquareIcon
 } from "lucide-react";
 
 // Importamos nuestros componentes personalizados
@@ -60,6 +72,45 @@ const Aprobacion = () => {
   const [selectedSolicitud, setSelectedSolicitud] = useState(null);
   const [observacionesAprobacion, setObservacionesAprobacion] = useState("");
   const [montoAprobado, setMontoAprobado] = useState("");
+  
+  // Estados para los checkboxes de verificación
+  const [verificaciones, setVerificaciones] = useState({
+    // Documentos del expediente
+    documentos: {
+      cedulaFrente: false,
+      cedulaRespaldo: false,
+      rif: false,
+      planNegocio: false,
+      licenciaActividades: false,
+      fachadaNegocio: false,
+      fotosLocal: false,
+      fotosEquipos: false,
+      registroMercantil: false,
+      estadosFinancieros: false
+    },
+    // Datos del emprendedor
+    datosEmprendedor: {
+      aniosOperando: false,
+      sectorEconomico: false,
+      subsector: false,
+      direccion: false,
+      telefonoContacto: false
+    },
+    // Datos financieros
+    datosFinancieros: {
+      ingresosMensuales: false,
+      egresosMensuales: false,
+      motivoCredito: false,
+      capacidadPago: false,
+      historialCrediticio: false
+    },
+    // Evaluación de riesgo
+    evaluacionRiesgo: {
+      scoreCrediticio: false,
+      garantias: false,
+      relacionDeuda: false
+    }
+  });
 
   // Estados para la DataTable
   const [currentPage, setCurrentPage] = useState(1);
@@ -77,13 +128,59 @@ const Aprobacion = () => {
     sector: ''
   });
 
+  // Lista de requisitos con sus categorías para el modal
+  const requisitosLista = {
+    documentos: [
+      { id: "cedulaFrente", nombre: "Cédula de identidad (frente)", requerido: true },
+      { id: "cedulaRespaldo", nombre: "Cédula de identidad (respaldo)", requerido: true },
+      { id: "rif", nombre: "Registro Único de Información Fiscal (RIF)", requerido: true },
+      { id: "planNegocio", nombre: "Plan de negocio", requerido: true },
+      { id: "licenciaActividades", nombre: "Licencia de actividades económicas", requerido: true },
+      { id: "fachadaNegocio", nombre: "Fachada del negocio", requerido: true },
+      { id: "fotosLocal", nombre: "Fotos del local comercial", requerido: false },
+      { id: "fotosEquipos", nombre: "Fotos de equipos/maquinaria", requerido: false },
+      { id: "registroMercantil", nombre: "Registro Mercantil", requerido: false },
+      { id: "estadosFinancieros", nombre: "Estados Financieros", requerido: false }
+    ],
+    datosEmprendedor: [
+      { id: "aniosOperando", nombre: "Años operando registrados", requerido: true },
+      { id: "sectorEconomico", nombre: "Sector económico definido", requerido: true },
+      { id: "subsector", nombre: "Subsector/actividad específica", requerido: true },
+      { id: "direccion", nombre: "Dirección verificada", requerido: false },
+      { id: "telefonoContacto", nombre: "Teléfono de contacto verificado", requerido: false }
+    ],
+    datosFinancieros: [
+      { id: "ingresosMensuales", nombre: "Ingresos mensuales verificados", requerido: true },
+      { id: "egresosMensuales", nombre: "Egresos mensuales verificados", requerido: true },
+      { id: "motivoCredito", nombre: "Motivo del crédito justificado", requerido: true },
+      { id: "capacidadPago", nombre: "Capacidad de pago evaluada", requerido: true },
+      { id: "historialCrediticio", nombre: "Historial crediticio revisado", requerido: true }
+    ],
+    evaluacionRiesgo: [
+      { id: "scoreCrediticio", nombre: "Score crediticio aceptable", requerido: true },
+      { id: "garantias", nombre: "Garantías suficientes", requerido: true },
+      { id: "relacionDeuda", nombre: "Relación deuda/ingreso aceptable", requerido: true }
+    ]
+  };
+
   // Datos de ejemplo para solicitudes de crédito
   const [solicitudes, setSolicitudes] = useState([
     {
       id: 1,
       codigo: "CR-2024-001",
       emprendimiento: "Restaurante El Sazón",
-      emprendedor: "María González",
+      emprendedor: {
+        id: 1,
+        nombre: "María González",
+        cedula: "V-12345678",
+        telefono: "0412-1234567",
+        email: "maria.gonzalez@email.com",
+        direccion: "Av. Principal, Edif. Central, Caracas",
+        aniosOperando: "3 a 5 años",
+        sectorEconomico: "terciario",
+        subsector: "Hostelería y Turismo",
+        rif: "J-123456789"
+      },
       cedula: "V-12345678",
       sector: "Gastronomía",
       montoSolicitado: 25000,
@@ -93,24 +190,34 @@ const Aprobacion = () => {
       tasaInteres: 12,
       riesgo: "Bajo",
       estado: "Pendiente",
-      documentos: [
-        { nombre: "Plan de Negocios", estado: "completo" },
-        { nombre: "Estados Financieros", estado: "completo" },
-        { nombre: "Registro Mercantil", estado: "completo" }
-      ],
       scoreCrediticio: 85,
       historialCrediticio: "Bueno",
       capacidadPago: "Alta",
       garantias: "Fianza personal",
       analista: "Lic. Rodríguez",
       fechaRevision: null,
-      observaciones: null
+      observaciones: null,
+      motivoCredito: "Ampliación del local y compra de equipos de cocina",
+      ingresosMensuales: 5000,
+      egresosMensuales: 3000,
+      verificacionesGuardadas: null // Guardará las verificaciones realizadas
     },
     {
       id: 2,
       codigo: "CR-2024-002",
       emprendimiento: "Taller Mecánico Rápido",
-      emprendedor: "Juan Pérez",
+      emprendedor: {
+        id: 2,
+        nombre: "Juan Pérez",
+        cedula: "V-87654321",
+        telefono: "0416-7654321",
+        email: "juan.perez@email.com",
+        direccion: "Calle 5, Qta. Rosa, Maracaibo",
+        aniosOperando: "1 a 3 años",
+        sectorEconomico: "secundario",
+        subsector: "Metalurgia y Siderurgia",
+        rif: "J-987654321"
+      },
       cedula: "V-87654321",
       sector: "Servicios Automotrices",
       montoSolicitado: 45000,
@@ -120,24 +227,34 @@ const Aprobacion = () => {
       tasaInteres: 12.5,
       riesgo: "Medio",
       estado: "En Análisis",
-      documentos: [
-        { nombre: "Plan de Negocios", estado: "completo" },
-        { nombre: "Estados Financieros", estado: "pendiente" },
-        { nombre: "Registro Mercantil", estado: "completo" }
-      ],
       scoreCrediticio: 72,
       historialCrediticio: "Regular",
       capacidadPago: "Media",
       garantias: "Maquinaria",
       analista: "Lic. Martínez",
       fechaRevision: null,
-      observaciones: null
+      observaciones: null,
+      motivoCredito: "Compra de elevador hidráulico",
+      ingresosMensuales: 3500,
+      egresosMensuales: 2500,
+      verificacionesGuardadas: null
     },
     {
       id: 3,
       codigo: "CR-2024-003",
       emprendimiento: "Tienda de Ropa Moda",
-      emprendedor: "Carlos Rodríguez",
+      emprendedor: {
+        id: 3,
+        nombre: "Carlos Rodríguez",
+        cedula: "V-11223344",
+        telefono: "0424-1122334",
+        email: "carlos.rodriguez@email.com",
+        direccion: "Av. Libertador, Centro Comercial, Valencia",
+        aniosOperando: "5 a 10 años",
+        sectorEconomico: "terciario",
+        subsector: "Comercio Minorista",
+        rif: "J-456789123"
+      },
       cedula: "V-11223344",
       sector: "Comercio",
       montoSolicitado: 15000,
@@ -147,24 +264,34 @@ const Aprobacion = () => {
       tasaInteres: 11,
       riesgo: "Bajo",
       estado: "Pendiente",
-      documentos: [
-        { nombre: "Plan de Negocios", estado: "completo" },
-        { nombre: "Estados Financieros", estado: "completo" },
-        { nombre: "Registro Mercantil", estado: "completo" }
-      ],
       scoreCrediticio: 88,
       historialCrediticio: "Excelente",
       capacidadPago: "Alta",
       garantias: "Prendaria",
       analista: "Lic. Sánchez",
       fechaRevision: null,
-      observaciones: null
+      observaciones: null,
+      motivoCredito: "Renovación de inventario",
+      ingresosMensuales: 4000,
+      egresosMensuales: 2200,
+      verificacionesGuardadas: null
     },
     {
       id: 4,
       codigo: "CR-2024-004",
       emprendimiento: "Centro Estético Bella Vista",
-      emprendedor: "Ana Martínez",
+      emprendedor: {
+        id: 4,
+        nombre: "Ana Martínez",
+        cedula: "V-99887766",
+        telefono: "0412-9988776",
+        email: "ana.martinez@email.com",
+        direccion: "Calle Real, Casa 23, Barquisimeto",
+        aniosOperando: "",
+        sectorEconomico: "",
+        subsector: "",
+        rif: "J-789123456"
+      },
       cedula: "V-99887766",
       sector: "Salud y Bienestar",
       montoSolicitado: 75000,
@@ -174,24 +301,34 @@ const Aprobacion = () => {
       tasaInteres: 13,
       riesgo: "Alto",
       estado: "Revisión",
-      documentos: [
-        { nombre: "Plan de Negocios", estado: "completo" },
-        { nombre: "Estados Financieros", estado: "completo" },
-        { nombre: "Registro Mercantil", estado: "incompleto" }
-      ],
       scoreCrediticio: 58,
       historialCrediticio: "Regular",
       capacidadPago: "Baja",
       garantias: "Sin garantías suficientes",
       analista: "Lic. Pérez",
       fechaRevision: null,
-      observaciones: "Requiere documentación adicional de avalúo"
+      observaciones: "Requiere documentación adicional de avalúo",
+      motivoCredito: "Apertura de nueva sucursal",
+      ingresosMensuales: 2000,
+      egresosMensuales: 1800,
+      verificacionesGuardadas: null
     },
     {
       id: 5,
       codigo: "CR-2024-005",
       emprendimiento: "Ferretería El Constructor",
-      emprendedor: "Luis Torres",
+      emprendedor: {
+        id: 5,
+        nombre: "Luis Torres",
+        cedula: "V-55443322",
+        telefono: "0416-5544332",
+        email: "luis.torres@email.com",
+        direccion: "Av. Universidad, Edif. Central, Maracay",
+        aniosOperando: "Más de 10 años",
+        sectorEconomico: "secundario",
+        subsector: "Construcción",
+        rif: "J-321654987"
+      },
       cedula: "V-55443322",
       sector: "Construcción",
       montoSolicitado: 120000,
@@ -201,24 +338,66 @@ const Aprobacion = () => {
       tasaInteres: 11.5,
       riesgo: "Medio",
       estado: "Aprobado",
-      documentos: [
-        { nombre: "Plan de Negocios", estado: "completo" },
-        { nombre: "Estados Financieros", estado: "completo" },
-        { nombre: "Registro Mercantil", estado: "completo" }
-      ],
       scoreCrediticio: 78,
       historialCrediticio: "Bueno",
       capacidadPago: "Media-Alta",
       garantias: "Hipotecaria",
       analista: "Lic. Ramírez",
       fechaRevision: "2024-03-10",
-      observaciones: "Aprobado con monto ajustado según capacidad de pago"
+      observaciones: "Aprobado con monto ajustado según capacidad de pago",
+      motivoCredito: "Expansión de inventario",
+      ingresosMensuales: 15000,
+      egresosMensuales: 9000,
+      verificacionesGuardadas: {
+        documentos: {
+          cedulaFrente: true,
+          cedulaRespaldo: true,
+          rif: true,
+          planNegocio: true,
+          licenciaActividades: true,
+          fachadaNegocio: true,
+          fotosLocal: true,
+          fotosEquipos: true,
+          registroMercantil: true,
+          estadosFinancieros: true
+        },
+        datosEmprendedor: {
+          aniosOperando: true,
+          sectorEconomico: true,
+          subsector: true,
+          direccion: true,
+          telefonoContacto: true
+        },
+        datosFinancieros: {
+          ingresosMensuales: true,
+          egresosMensuales: true,
+          motivoCredito: true,
+          capacidadPago: true,
+          historialCrediticio: true
+        },
+        evaluacionRiesgo: {
+          scoreCrediticio: true,
+          garantias: true,
+          relacionDeuda: true
+        }
+      }
     },
     {
       id: 6,
       codigo: "CR-2024-006",
       emprendimiento: "Panadería La Espiga",
-      emprendedor: "Carmen Flores",
+      emprendedor: {
+        id: 6,
+        nombre: "Carmen Flores",
+        cedula: "V-66778899",
+        telefono: "0412-6677889",
+        email: "carmen.flores@email.com",
+        direccion: "Calle Principal, Local 3, Cagua",
+        aniosOperando: "Menos de 1 año",
+        sectorEconomico: "secundario",
+        subsector: "Industria Alimentaria",
+        rif: "J-112233445"
+      },
       cedula: "V-66778899",
       sector: "Alimentos",
       montoSolicitado: 35000,
@@ -228,24 +407,34 @@ const Aprobacion = () => {
       tasaInteres: 12,
       riesgo: "Bajo",
       estado: "Rechazado",
-      documentos: [
-        { nombre: "Plan de Negocios", estado: "completo" },
-        { nombre: "Estados Financieros", estado: "completo" },
-        { nombre: "Registro Mercantil", estado: "completo" }
-      ],
       scoreCrediticio: 45,
       historialCrediticio: "Malo",
       capacidadPago: "Baja",
       garantias: "Sin garantías",
       analista: "Lic. Díaz",
       fechaRevision: "2024-03-08",
-      observaciones: "Rechazado por mal historial crediticio y baja capacidad de pago"
+      observaciones: "Rechazado por mal historial crediticio",
+      motivoCredito: "Compra de hornos industriales",
+      ingresosMensuales: 800,
+      egresosMensuales: 1200,
+      verificacionesGuardadas: null
     },
     {
       id: 7,
       codigo: "CR-2024-007",
       emprendimiento: "Clínica Veterinaria Mascotas",
-      emprendedor: "Roberto Sánchez",
+      emprendedor: {
+        id: 7,
+        nombre: "Roberto Sánchez",
+        cedula: "V-33445566",
+        telefono: "0414-3344556",
+        email: "roberto.sanchez@email.com",
+        direccion: "Av. Bolívar, Centro Profesional, Puerto Ordaz",
+        aniosOperando: "3 a 5 años",
+        sectorEconomico: "terciario",
+        subsector: "Sanidad y Servicios Sociales",
+        rif: "J-998877665"
+      },
       cedula: "V-33445566",
       sector: "Servicios Veterinarios",
       montoSolicitado: 55000,
@@ -255,24 +444,34 @@ const Aprobacion = () => {
       tasaInteres: 12,
       riesgo: "Medio",
       estado: "En Análisis",
-      documentos: [
-        { nombre: "Plan de Negocios", estado: "completo" },
-        { nombre: "Estados Financieros", estado: "completo" },
-        { nombre: "Registro Mercantil", estado: "completo" }
-      ],
       scoreCrediticio: 82,
       historialCrediticio: "Bueno",
       capacidadPago: "Alta",
       garantias: "Equipos médicos",
       analista: "Lic. Torres",
       fechaRevision: null,
-      observaciones: null
+      observaciones: null,
+      motivoCredito: "Equipamiento de quirófano",
+      ingresosMensuales: 6000,
+      egresosMensuales: 3500,
+      verificacionesGuardadas: null
     },
     {
       id: 8,
       codigo: "CR-2024-008",
       emprendimiento: "Gimnasio Fit Life",
-      emprendedor: "Patricia Gómez",
+      emprendedor: {
+        id: 8,
+        nombre: "Patricia Gómez",
+        cedula: "V-77665544",
+        telefono: "0412-7766554",
+        email: "patricia.gomez@email.com",
+        direccion: "Av. Las Américas, Centro Comercial, Mérida",
+        aniosOperando: "5 a 10 años",
+        sectorEconomico: "terciario",
+        subsector: "Ocio y Entretenimiento",
+        rif: "J-556677889"
+      },
       cedula: "V-77665544",
       sector: "Deporte y Recreación",
       montoSolicitado: 85000,
@@ -282,22 +481,334 @@ const Aprobacion = () => {
       tasaInteres: 12.5,
       riesgo: "Medio-Alto",
       estado: "Aprobado Parcial",
-      documentos: [
-        { nombre: "Plan de Negocios", estado: "completo" },
-        { nombre: "Estados Financieros", estado: "completo" },
-        { nombre: "Registro Mercantil", estado: "completo" }
-      ],
       scoreCrediticio: 68,
       historialCrediticio: "Regular",
       capacidadPago: "Media",
       garantias: "Maquinaria y equipo",
       analista: "Lic. Gómez",
       fechaRevision: "2024-03-12",
-      observaciones: "Aprobado parcialmente, se requiere ajustar plan de inversión"
+      observaciones: "Aprobado parcialmente",
+      motivoCredito: "Ampliación de área",
+      ingresosMensuales: 8000,
+      egresosMensuales: 5500,
+      verificacionesGuardadas: null
     }
   ]);
 
-  // Estadísticas de solicitudes
+  // ============================================
+  // FUNCIONES DE VERIFICACIÓN CON CHECKBOX
+  // ============================================
+
+  // Verificar si todos los requisitos requeridos están marcados
+  const verificarRequisitosCompletos = (verificacionesData) => {
+    let todosCompletos = true;
+    const faltantes = [];
+    
+    // Verificar documentos requeridos
+    requisitosLista.documentos.forEach(req => {
+      if (req.requerido && !verificacionesData.documentos[req.id]) {
+        todosCompletos = false;
+        faltantes.push(`📄 ${req.nombre}`);
+      }
+    });
+    
+    // Verificar datos de emprendedor requeridos
+    requisitosLista.datosEmprendedor.forEach(req => {
+      if (req.requerido && !verificacionesData.datosEmprendedor[req.id]) {
+        todosCompletos = false;
+        faltantes.push(`👤 ${req.nombre}`);
+      }
+    });
+    
+    // Verificar datos financieros requeridos
+    requisitosLista.datosFinancieros.forEach(req => {
+      if (req.requerido && !verificacionesData.datosFinancieros[req.id]) {
+        todosCompletos = false;
+        faltantes.push(`💰 ${req.nombre}`);
+      }
+    });
+    
+    // Verificar evaluación de riesgo requeridos
+    requisitosLista.evaluacionRiesgo.forEach(req => {
+      if (req.requerido && !verificacionesData.evaluacionRiesgo[req.id]) {
+        todosCompletos = false;
+        faltantes.push(`⚠️ ${req.nombre}`);
+      }
+    });
+    
+    return {
+      completos: todosCompletos,
+      faltantes: faltantes,
+      totalRequeridos: [...requisitosLista.documentos.filter(r => r.requerido),
+                        ...requisitosLista.datosEmprendedor.filter(r => r.requerido),
+                        ...requisitosLista.datosFinancieros.filter(r => r.requerido),
+                        ...requisitosLista.evaluacionRiesgo.filter(r => r.requerido)].length,
+      completados: [...requisitosLista.documentos.filter(r => r.requerido && verificacionesData.documentos[r.id]),
+                     ...requisitosLista.datosEmprendedor.filter(r => r.requerido && verificacionesData.datosEmprendedor[r.id]),
+                     ...requisitosLista.datosFinancieros.filter(r => r.requerido && verificacionesData.datosFinancieros[r.id]),
+                     ...requisitosLista.evaluacionRiesgo.filter(r => r.requerido && verificacionesData.evaluacionRiesgo[r.id])].length
+    };
+  };
+
+  // Verificar si puede aprobar parcialmente (solo documentos críticos)
+  const verificarAprobacionParcial = (verificacionesData) => {
+    const documentosCriticos = ["cedulaFrente", "cedulaRespaldo", "rif"];
+    const criticosCompletos = documentosCriticos.every(docId => verificacionesData.documentos[docId]);
+    
+    return criticosCompletos;
+  };
+
+  // Calcular progreso de verificación
+  const calcularProgresoVerificacion = (verificacionesData) => {
+    const totalRequeridos = [...requisitosLista.documentos.filter(r => r.requerido),
+                              ...requisitosLista.datosEmprendedor.filter(r => r.requerido),
+                              ...requisitosLista.datosFinancieros.filter(r => r.requerido),
+                              ...requisitosLista.evaluacionRiesgo.filter(r => r.requerido)].length;
+    
+    const completados = [...requisitosLista.documentos.filter(r => r.requerido && verificacionesData.documentos[r.id]),
+                         ...requisitosLista.datosEmprendedor.filter(r => r.requerido && verificacionesData.datosEmprendedor[r.id]),
+                         ...requisitosLista.datosFinancieros.filter(r => r.requerido && verificacionesData.datosFinancieros[r.id]),
+                         ...requisitosLista.evaluacionRiesgo.filter(r => r.requerido && verificacionesData.evaluacionRiesgo[r.id])].length;
+    
+    return totalRequeridos > 0 ? (completados / totalRequeridos) * 100 : 0;
+  };
+
+  // Manejar cambio de checkbox
+  const handleCheckboxChange = (categoria, id) => {
+    setVerificaciones(prev => ({
+      ...prev,
+      [categoria]: {
+        ...prev[categoria],
+        [id]: !prev[categoria][id]
+      }
+    }));
+  };
+
+  // Cargar verificaciones guardadas al abrir modal
+  const cargarVerificacionesGuardadas = (solicitud) => {
+    if (solicitud.verificacionesGuardadas) {
+      setVerificaciones(solicitud.verificacionesGuardadas);
+    } else {
+      // Resetear verificaciones
+      setVerificaciones({
+        documentos: {
+          cedulaFrente: false,
+          cedulaRespaldo: false,
+          rif: false,
+          planNegocio: false,
+          licenciaActividades: false,
+          fachadaNegocio: false,
+          fotosLocal: false,
+          fotosEquipos: false,
+          registroMercantil: false,
+          estadosFinancieros: false
+        },
+        datosEmprendedor: {
+          aniosOperando: false,
+          sectorEconomico: false,
+          subsector: false,
+          direccion: false,
+          telefonoContacto: false
+        },
+        datosFinancieros: {
+          ingresosMensuales: false,
+          egresosMensuales: false,
+          motivoCredito: false,
+          capacidadPago: false,
+          historialCrediticio: false
+        },
+        evaluacionRiesgo: {
+          scoreCrediticio: false,
+          garantias: false,
+          relacionDeuda: false
+        }
+      });
+    }
+  };
+
+  // Guardar verificaciones en la solicitud
+  const guardarVerificaciones = (solicitudId, verificacionesData) => {
+    const updatedSolicitudes = solicitudes.map(sol => 
+      sol.id === solicitudId 
+        ? { ...sol, verificacionesGuardadas: verificacionesData }
+        : sol
+    );
+    setSolicitudes(updatedSolicitudes);
+  };
+
+  // ============================================
+  // FUNCIONES DE APROBACIÓN
+  // ============================================
+
+  const openAprobacionModal = (solicitud) => {
+    setSelectedSolicitud(solicitud);
+    setMontoAprobado(solicitud.montoSolicitado.toString());
+    setObservacionesAprobacion(solicitud.observaciones || "");
+    cargarVerificacionesGuardadas(solicitud);
+    setModalOpen(true);
+  };
+
+  const handleAprobar = () => {
+    if (selectedSolicitud) {
+      const verificacion = verificarRequisitosCompletos(verificaciones);
+      
+      if (!verificacion.completos) {
+        alert(`❌ No se puede aprobar la solicitud. Faltan los siguientes requisitos:\n\n${verificacion.faltantes.join('\n')}\n\nComplete los checkboxes de los requisitos verificados.`);
+        return;
+      }
+      
+      // Guardar verificaciones
+      guardarVerificaciones(selectedSolicitud.id, verificaciones);
+      
+      const updatedSolicitudes = solicitudes.map(sol => 
+        sol.id === selectedSolicitud.id 
+          ? { 
+              ...sol, 
+              estado: "Aprobado",
+              montoAprobado: parseFloat(montoAprobado),
+              fechaRevision: new Date().toISOString().split('T')[0],
+              observaciones: observacionesAprobacion,
+              fechaAprobacion: new Date().toISOString(),
+              aprobadoPor: user.name
+            }
+          : sol
+      );
+      setSolicitudes(updatedSolicitudes);
+      setModalOpen(false);
+      setSelectedSolicitud(null);
+      
+      alert(`✅ Solicitud ${selectedSolicitud.codigo} APROBADA por $${parseFloat(montoAprobado).toLocaleString()}`);
+      
+      const nuevaNotificacion = {
+        id: notifications.length + 1,
+        text: `Solicitud ${selectedSolicitud.codigo} aprobada por $${parseFloat(montoAprobado).toLocaleString()}`,
+        time: "Ahora",
+        read: false
+      };
+      setNotifications([nuevaNotificacion, ...notifications]);
+    }
+  };
+
+  const handleAprobarParcial = () => {
+    if (selectedSolicitud) {
+      const puedeAprobarParcial = verificarAprobacionParcial(verificaciones);
+      
+      if (!puedeAprobarParcial) {
+        alert(`❌ No se puede aprobar parcialmente. Faltan documentos críticos:\n\n• Cédula de identidad (frente)\n• Cédula de identidad (respaldo)\n• Registro Único de Información Fiscal (RIF)\n\nDebe marcar estos checkboxes como verificados.`);
+        return;
+      }
+      
+      const verificacionCompleta = verificarRequisitosCompletos(verificaciones);
+      let mensajeAdvertencia = "";
+      
+      if (!verificacionCompleta.completos) {
+        mensajeAdvertencia = `⚠️ ADVERTENCIA: La solicitud no cumple con todos los requisitos para aprobación completa:\n\n${verificacionCompleta.faltantes.slice(0, 5).join('\n')}${verificacionCompleta.faltantes.length > 5 ? '\n... y más' : ''}\n\n¿Desea aprobar parcialmente de todas formas?`;
+        
+        if (!window.confirm(mensajeAdvertencia)) {
+          return;
+        }
+      }
+      
+      // Guardar verificaciones
+      guardarVerificaciones(selectedSolicitud.id, verificaciones);
+      
+      const updatedSolicitudes = solicitudes.map(sol => 
+        sol.id === selectedSolicitud.id 
+          ? { 
+              ...sol, 
+              estado: "Aprobado Parcial",
+              montoAprobado: parseFloat(montoAprobado),
+              fechaRevision: new Date().toISOString().split('T')[0],
+              observaciones: observacionesAprobacion,
+              fechaAprobacion: new Date().toISOString(),
+              aprobadoPor: user.name,
+              aprobacionParcial: true
+            }
+          : sol
+      );
+      setSolicitudes(updatedSolicitudes);
+      setModalOpen(false);
+      setSelectedSolicitud(null);
+      
+      alert(`⚠️ Solicitud ${selectedSolicitud.codigo} APROBADA PARCIALMENTE por $${parseFloat(montoAprobado).toLocaleString()}`);
+      
+      const nuevaNotificacion = {
+        id: notifications.length + 1,
+        text: `Solicitud ${selectedSolicitud.codigo} aprobada parcialmente`,
+        time: "Ahora",
+        read: false
+      };
+      setNotifications([nuevaNotificacion, ...notifications]);
+    }
+  };
+
+  const handleRechazar = () => {
+    if (selectedSolicitud && window.confirm("¿Está seguro de rechazar esta solicitud?")) {
+      const updatedSolicitudes = solicitudes.map(sol => 
+        sol.id === selectedSolicitud.id 
+          ? { 
+              ...sol, 
+              estado: "Rechazado",
+              fechaRevision: new Date().toISOString().split('T')[0],
+              observaciones: observacionesAprobacion,
+              fechaRechazo: new Date().toISOString(),
+              rechazadoPor: user.name
+            }
+          : sol
+      );
+      setSolicitudes(updatedSolicitudes);
+      setModalOpen(false);
+      setSelectedSolicitud(null);
+      
+      alert(`❌ Solicitud ${selectedSolicitud.codigo} RECHAZADA`);
+      
+      const nuevaNotificacion = {
+        id: notifications.length + 1,
+        text: `Solicitud ${selectedSolicitud.codigo} rechazada`,
+        time: "Ahora",
+        read: false
+      };
+      setNotifications([nuevaNotificacion, ...notifications]);
+    }
+  };
+
+  const handleSolicitarRevision = () => {
+    if (selectedSolicitud) {
+      if (!observacionesAprobacion.trim()) {
+        alert("Por favor, ingrese observaciones para solicitar revisión");
+        return;
+      }
+      
+      const updatedSolicitudes = solicitudes.map(sol => 
+        sol.id === selectedSolicitud.id 
+          ? { 
+              ...sol, 
+              estado: "Revisión",
+              observaciones: observacionesAprobacion,
+              fechaRevisionSolicitada: new Date().toISOString(),
+              revisadoPor: user.name
+            }
+          : sol
+      );
+      setSolicitudes(updatedSolicitudes);
+      setModalOpen(false);
+      setSelectedSolicitud(null);
+      
+      alert(`📋 Solicitud ${selectedSolicitud.codigo} enviada a revisión`);
+      
+      const nuevaNotificacion = {
+        id: notifications.length + 1,
+        text: `Solicitud ${selectedSolicitud.codigo} enviada a revisión`,
+        time: "Ahora",
+        read: false
+      };
+      setNotifications([nuevaNotificacion, ...notifications]);
+    }
+  };
+
+  // ============================================
+  // ESTADÍSTICAS
+  // ============================================
   const estadisticas = {
     total: solicitudes.length,
     pendientes: solicitudes.filter(s => s.estado === "Pendiente").length,
@@ -331,7 +842,6 @@ const Aprobacion = () => {
     pendingTitle: "Solicitudes Recientes"
   };
 
-  // Notificaciones no leídas
   const unreadCount = notifications.filter(n => !n.read).length;
 
   // Funciones de filtrado y ordenamiento
@@ -339,8 +849,8 @@ const Aprobacion = () => {
     const matchesSearch = searchTerm === '' || 
       sol.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sol.emprendimiento.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sol.emprendedor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sol.cedula.includes(searchTerm);
+      sol.emprendedor?.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sol.emprendedor?.cedula.includes(searchTerm);
     
     const matchesEstado = filters.estado === '' || sol.estado === filters.estado;
     const matchesRiesgo = filters.riesgo === '' || sol.riesgo === filters.riesgo;
@@ -365,7 +875,6 @@ const Aprobacion = () => {
     return matchesSearch && matchesEstado && matchesRiesgo && matchesSector && matchesMonto && matchesFecha;
   });
 
-  // Ordenamiento
   const sortedSolicitudes = [...filteredSolicitudes].sort((a, b) => {
     if (sortConfig.key) {
       let aVal = a[sortConfig.key];
@@ -386,12 +895,10 @@ const Aprobacion = () => {
     return 0;
   });
 
-  // Paginación
   const totalPages = Math.ceil(sortedSolicitudes.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
   const paginatedSolicitudes = sortedSolicitudes.slice(startIndex, startIndex + rowsPerPage);
 
-  // Funciones de manejo
   const handleSort = (key) => {
     setSortConfig({
       key,
@@ -416,101 +923,11 @@ const Aprobacion = () => {
   };
 
   const handleViewDetalle = (id) => {
-    console.log('Ver detalle de solicitud:', id);
     navigate(`/solicitud-credito/${id}`);
   };
 
   const handleDownloadDocumentos = (id) => {
     console.log('Descargar documentos de solicitud:', id);
-  };
-
-  const openAprobacionModal = (solicitud) => {
-    setSelectedSolicitud(solicitud);
-    setMontoAprobado(solicitud.montoSolicitado.toString());
-    setObservacionesAprobacion("");
-    setModalOpen(true);
-  };
-
-  const handleAprobar = () => {
-    if (selectedSolicitud) {
-      const updatedSolicitudes = solicitudes.map(sol => 
-        sol.id === selectedSolicitud.id 
-          ? { 
-              ...sol, 
-              estado: "Aprobado",
-              montoAprobado: parseFloat(montoAprobado),
-              fechaRevision: new Date().toISOString().split('T')[0],
-              observaciones: observacionesAprobacion
-            }
-          : sol
-      );
-      setSolicitudes(updatedSolicitudes);
-      setModalOpen(false);
-      setSelectedSolicitud(null);
-      
-      // Notificar éxito
-      alert(`Solicitud ${selectedSolicitud.codigo} aprobada por $${parseFloat(montoAprobado).toLocaleString()}`);
-    }
-  };
-
-  const handleAprobarParcial = () => {
-    if (selectedSolicitud) {
-      const updatedSolicitudes = solicitudes.map(sol => 
-        sol.id === selectedSolicitud.id 
-          ? { 
-              ...sol, 
-              estado: "Aprobado Parcial",
-              montoAprobado: parseFloat(montoAprobado),
-              fechaRevision: new Date().toISOString().split('T')[0],
-              observaciones: observacionesAprobacion
-            }
-          : sol
-      );
-      setSolicitudes(updatedSolicitudes);
-      setModalOpen(false);
-      setSelectedSolicitud(null);
-      
-      alert(`Solicitud ${selectedSolicitud.codigo} aprobada parcialmente por $${parseFloat(montoAprobado).toLocaleString()}`);
-    }
-  };
-
-  const handleRechazar = () => {
-    if (selectedSolicitud && window.confirm("¿Está seguro de rechazar esta solicitud?")) {
-      const updatedSolicitudes = solicitudes.map(sol => 
-        sol.id === selectedSolicitud.id 
-          ? { 
-              ...sol, 
-              estado: "Rechazado",
-              fechaRevision: new Date().toISOString().split('T')[0],
-              observaciones: observacionesAprobacion
-            }
-          : sol
-      );
-      setSolicitudes(updatedSolicitudes);
-      setModalOpen(false);
-      setSelectedSolicitud(null);
-      
-      alert(`Solicitud ${selectedSolicitud.codigo} rechazada`);
-    }
-  };
-
-  const handleSolicitarRevision = () => {
-    if (selectedSolicitud) {
-      const updatedSolicitudes = solicitudes.map(sol => 
-        sol.id === selectedSolicitud.id 
-          ? { 
-              ...sol, 
-              estado: "Revisión",
-              observaciones: observacionesAprobacion
-            }
-          : sol
-      );
-      setSolicitudes(updatedSolicitudes);
-      setModalOpen(false);
-      setSelectedSolicitud(null);
-      
-      alert(`Solicitud ${selectedSolicitud.codigo} enviada a revisión`);
-    }
   };
 
   const resetFilters = () => {
@@ -527,7 +944,6 @@ const Aprobacion = () => {
     setCurrentPage(1);
   };
 
-  // Funciones auxiliares para estilos
   const getEstadoBadge = (estado) => {
     const styles = {
       'Pendiente': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
@@ -559,7 +975,6 @@ const Aprobacion = () => {
     }).format(amount);
   };
 
-  // Manejar logout
   const handleLogout = () => {
     localStorage.removeItem('usuario');
     localStorage.removeItem('rememberToken');
@@ -567,14 +982,12 @@ const Aprobacion = () => {
     navigate('/login');
   };
 
-  // Marcar notificaciones como leídas
   const markAsRead = (id) => {
     setNotifications(notifications.map(n => 
       n.id === id ? { ...n, read: true } : n
     ));
   };
 
-  // Cerrar menús al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (!e.target.closest('.notifications-menu') && !e.target.closest('.user-menu')) {
@@ -585,6 +998,56 @@ const Aprobacion = () => {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
+  // Componente para grupo de checkboxes
+  const CheckboxGroup = ({ titulo, categoria, items, darkMode, icon: Icon }) => {
+    const completados = items.filter(item => verificaciones[categoria][item.id]).length;
+    const total = items.length;
+    const requeridos = items.filter(item => item.requerido).length;
+    const requeridosCompletados = items.filter(item => item.requerido && verificaciones[categoria][item.id]).length;
+    
+    return (
+      <div className={`p-4 rounded-lg border ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            {Icon && <Icon size={18} className="text-[#2A9D8F]" />}
+            <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+              {titulo}
+            </h4>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              {requeridosCompletados}/{requeridos} requeridos
+            </span>
+            <div className="w-16 bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
+              <div 
+                className="bg-[#2A9D8F] h-1.5 rounded-full" 
+                style={{ width: `${(requeridosCompletados / requeridos) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-2">
+          {items.map((item) => (
+            <label key={item.id} className="flex items-start gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={verificaciones[categoria][item.id]}
+                onChange={() => handleCheckboxChange(categoria, item.id)}
+                className="mt-0.5 rounded border-gray-300 text-[#2A9D8F] focus:ring-[#2A9D8F] cursor-pointer"
+              />
+              <div className="flex-1">
+                <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'} ${item.requerido ? 'font-medium' : ''}`}>
+                  {item.nombre}
+                  {item.requerido && <span className="text-red-500 ml-1">*</span>}
+                </span>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className={`min-h-screen flex flex-col ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
@@ -851,7 +1314,6 @@ const Aprobacion = () => {
             <div className={`rounded-xl border ${
               darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
             } overflow-hidden`}>
-              {/* Tabla */}
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
@@ -907,122 +1369,137 @@ const Aprobacion = () => {
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
-                    {paginatedSolicitudes.map((solicitud) => (
-                      <tr key={solicitud.id} className={`${
-                        darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-                      } transition-colors`}>
-                        <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedRows.includes(solicitud.id)}
-                            onChange={() => handleSelectRow(solicitud.id)}
-                            className="rounded border-gray-300 text-[#2A9D8F] focus:ring-[#2A9D8F]"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {solicitud.codigo}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div>
-                            <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                              {solicitud.emprendimiento}
-                            </div>
-                            <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                              {solicitud.emprendedor} | {solicitud.sector}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div>
-                            <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                              {formatCurrency(solicitud.montoSolicitado)}
-                            </div>
-                            {solicitud.montoAprobado && (
-                              <div className={`text-xs ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
-                                Aprobado: {formatCurrency(solicitud.montoAprobado)}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div>
-                            <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              {new Date(solicitud.fechaSolicitud).toLocaleDateString('es-ES', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric'
-                              })}
-                            </div>
-                            <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                              Plazo: {solicitud.plazo} meses
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 text-xs rounded-full ${getEstadoBadge(solicitud.estado)}`}>
-                            {solicitud.estado}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 text-xs rounded-full ${getRiesgoBadge(solicitud.riesgo)}`}>
-                            {solicitud.riesgo}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1">
-                              <div className="w-16 bg-gray-200 rounded-full h-2 dark:bg-gray-700">
-                                <div 
-                                  className="bg-[#2A9D8F] h-2 rounded-full" 
-                                  style={{ width: `${solicitud.scoreCrediticio}%` }}
-                                ></div>
-                              </div>
-                              <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                {solicitud.scoreCrediticio}
-                              </span>
-                            </div>
-                            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                              {solicitud.historialCrediticio}
+                    {paginatedSolicitudes.map((solicitud) => {
+                      const tieneVerificaciones = solicitud.verificacionesGuardadas !== null;
+                      const verificacionEstado = tieneVerificaciones ? 
+                        verificarRequisitosCompletos(solicitud.verificacionesGuardadas) : null;
+                      
+                      return (
+                        <tr key={solicitud.id} className={`${
+                          darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
+                        } transition-colors`}>
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedRows.includes(solicitud.id)}
+                              onChange={() => handleSelectRow(solicitud.id)}
+                              className="rounded border-gray-300 text-[#2A9D8F] focus:ring-[#2A9D8F]"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                              {solicitud.codigo}
                             </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => handleViewDetalle(solicitud.id)}
-                              className={`p-1 rounded-lg ${
-                                darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
-                              } transition-colors`}
-                              title="Ver detalles"
-                            >
-                              <Eye size={18} className="text-[#2A9D8F]" />
-                            </button>
-                            <button
-                              onClick={() => handleDownloadDocumentos(solicitud.id)}
-                              className={`p-1 rounded-lg ${
-                                darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
-                              } transition-colors`}
-                              title="Descargar documentos"
-                            >
-                              <Download size={18} className="text-purple-500" />
-                            </button>
-                            {!solicitud.estado.includes("Aprobado") && solicitud.estado !== "Rechazado" && (
+                          </td>
+                          <td className="px-4 py-3">
+                            <div>
+                              <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                {solicitud.emprendimiento}
+                              </div>
+                              <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                {solicitud.emprendedor?.nombre || solicitud.emprendedor} | {solicitud.sector}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div>
+                              <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                {formatCurrency(solicitud.montoSolicitado)}
+                              </div>
+                              {solicitud.montoAprobado && (
+                                <div className={`text-xs ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
+                                  Aprobado: {formatCurrency(solicitud.montoAprobado)}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div>
+                              <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                {new Date(solicitud.fechaSolicitud).toLocaleDateString('es-ES', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric'
+                                })}
+                              </div>
+                              <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                Plazo: {solicitud.plazo} meses
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 text-xs rounded-full ${getEstadoBadge(solicitud.estado)}`}>
+                              {solicitud.estado}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 text-xs rounded-full ${getRiesgoBadge(solicitud.riesgo)}`}>
+                              {solicitud.riesgo}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1">
+                                <div className="w-16 bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+                                  <div 
+                                    className="bg-[#2A9D8F] h-2 rounded-full" 
+                                    style={{ width: `${solicitud.scoreCrediticio}%` }}
+                                  ></div>
+                                </div>
+                                <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                  {solicitud.scoreCrediticio}
+                                </span>
+                              </div>
+                              {tieneVerificaciones && verificacionEstado && (
+                                <div className="flex items-center gap-1">
+                                  {verificacionEstado.completos ? (
+                                    <CheckCircle size={12} className="text-green-500" />
+                                  ) : (
+                                    <AlertCircle size={12} className="text-yellow-500" />
+                                  )}
+                                  <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                    {verificacionEstado.completados}/{verificacionEstado.totalRequeridos} req.
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-center gap-2">
                               <button
-                                onClick={() => openAprobacionModal(solicitud)}
+                                onClick={() => handleViewDetalle(solicitud.id)}
                                 className={`p-1 rounded-lg ${
                                   darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
                                 } transition-colors`}
-                                title="Evaluar solicitud"
+                                title="Ver detalles"
                               >
-                                <CheckCircle size={18} className="text-green-500" />
+                                <Eye size={18} className="text-[#2A9D8F]" />
                               </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              <button
+                                onClick={() => handleDownloadDocumentos(solicitud.id)}
+                                className={`p-1 rounded-lg ${
+                                  darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
+                                } transition-colors`}
+                                title="Descargar documentos"
+                              >
+                                <Download size={18} className="text-purple-500" />
+                              </button>
+                              {!solicitud.estado.includes("Aprobado") && solicitud.estado !== "Rechazado" && (
+                                <button
+                                  onClick={() => openAprobacionModal(solicitud)}
+                                  className={`p-1 rounded-lg ${
+                                    darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
+                                  } transition-colors`}
+                                  title="Evaluar solicitud"
+                                >
+                                  <CheckCircle size={18} className="text-green-500" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1117,34 +1594,74 @@ const Aprobacion = () => {
               </div>
             </div>
 
-            {/* Modal de Aprobación */}
+            {/* Modal de Aprobación con Checkboxes */}
             {modalOpen && selectedSolicitud && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                <div className={`rounded-xl max-w-2xl w-full ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl`}>
-                  <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                    <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      Evaluación de Solicitud
-                    </h2>
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {selectedSolicitud.codigo} - {selectedSolicitud.emprendimiento}
-                    </p>
+                <div className={`rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl`}>
+                  {/* Header */}
+                  <div className={`sticky top-0 p-6 border-b ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                          Evaluación de Solicitud
+                        </h2>
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          {selectedSolicitud.codigo} - {selectedSolicitud.emprendimiento}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setModalOpen(false)}
+                        className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                      >
+                        <X size={20} className={darkMode ? 'text-gray-400' : 'text-gray-500'} />
+                      </button>
+                    </div>
+                    
+                    {/* Barra de progreso */}
+                    <div className="mt-4">
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Progreso de verificación</span>
+                        <span className="text-[#2A9D8F] font-medium">
+                          {verificarRequisitosCompletos(verificaciones).completados}/{verificarRequisitosCompletos(verificaciones).totalRequeridos} requisitos
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+                        <div 
+                          className="bg-[#2A9D8F] h-2 rounded-full transition-all duration-300" 
+                          style={{ width: `${calcularProgresoVerificacion(verificaciones)}%` }}
+                        ></div>
+                      </div>
+                    </div>
                   </div>
                   
+                  {/* Body con checkboxes */}
                   <div className="p-6 space-y-6">
-                    {/* Información de la solicitud */}
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* Información básica de la solicitud */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-700/30">
                       <div>
-                        <label className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Monto Solicitado</label>
-                        <p className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                        <label className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Monto Solicitado</label>
+                        <p className={`font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                           {formatCurrency(selectedSolicitud.montoSolicitado)}
                         </p>
                       </div>
                       <div>
-                        <label className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Score Crediticio</label>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="flex-1 bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+                        <label className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Plazo</label>
+                        <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                          {selectedSolicitud.plazo} meses
+                        </p>
+                      </div>
+                      <div>
+                        <label className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Tasa Interés</label>
+                        <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                          {selectedSolicitud.tasaInteres}%
+                        </p>
+                      </div>
+                      <div>
+                        <label className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Score Crediticio</label>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-gray-200 rounded-full h-1.5 dark:bg-gray-600">
                             <div 
-                              className="bg-[#2A9D8F] h-2 rounded-full" 
+                              className="bg-[#2A9D8F] h-1.5 rounded-full" 
                               style={{ width: `${selectedSolicitud.scoreCrediticio}%` }}
                             ></div>
                           </div>
@@ -1153,35 +1670,59 @@ const Aprobacion = () => {
                           </span>
                         </div>
                       </div>
-                      <div>
-                        <label className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Plazo</label>
-                        <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                          {selectedSolicitud.plazo} meses
-                        </p>
-                      </div>
-                      <div>
-                        <label className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Tasa de Interés</label>
-                        <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                          {selectedSolicitud.tasaInteres}%
-                        </p>
-                      </div>
                     </div>
+
+                    {/* Checkboxes por categoría */}
+                    <CheckboxGroup
+                      titulo="📄 Documentos del Expediente"
+                      categoria="documentos"
+                      items={requisitosLista.documentos}
+                      darkMode={darkMode}
+                      icon={FileText}
+                    />
+
+                    <CheckboxGroup
+                      titulo="👤 Datos del Emprendedor"
+                      categoria="datosEmprendedor"
+                      items={requisitosLista.datosEmprendedor}
+                      darkMode={darkMode}
+                      icon={User}
+                    />
+
+                    <CheckboxGroup
+                      titulo="💰 Datos Financieros"
+                      categoria="datosFinancieros"
+                      items={requisitosLista.datosFinancieros}
+                      darkMode={darkMode}
+                      icon={DollarSign}
+                    />
+
+                    <CheckboxGroup
+                      titulo="⚠️ Evaluación de Riesgo"
+                      categoria="evaluacionRiesgo"
+                      items={requisitosLista.evaluacionRiesgo}
+                      darkMode={darkMode}
+                      icon={Shield}
+                    />
 
                     {/* Campo para monto aprobado */}
                     <div>
                       <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         Monto a Aprobar
                       </label>
-                      <input
-                        type="number"
-                        value={montoAprobado}
-                        onChange={(e) => setMontoAprobado(e.target.value)}
-                        className={`w-full px-4 py-2 rounded-lg border ${
-                          darkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-200'
-                        } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                      />
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                          type="number"
+                          value={montoAprobado}
+                          onChange={(e) => setMontoAprobado(e.target.value)}
+                          className={`w-full pl-10 pr-4 py-2 rounded-lg border ${
+                            darkMode 
+                              ? 'bg-gray-700 border-gray-600 text-white' 
+                              : 'bg-white border-gray-200'
+                          } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
+                        />
+                      </div>
                       <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Monto máximo: {formatCurrency(selectedSolicitud.montoSolicitado)}
                       </p>
@@ -1195,7 +1736,7 @@ const Aprobacion = () => {
                       <textarea
                         value={observacionesAprobacion}
                         onChange={(e) => setObservacionesAprobacion(e.target.value)}
-                        rows={4}
+                        rows={3}
                         className={`w-full px-4 py-2 rounded-lg border ${
                           darkMode 
                             ? 'bg-gray-700 border-gray-600 text-white' 
@@ -1206,7 +1747,8 @@ const Aprobacion = () => {
                     </div>
                   </div>
 
-                  <div className={`p-6 border-t flex justify-end gap-3 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                  {/* Footer con botones */}
+                  <div className={`sticky bottom-0 p-6 border-t flex justify-end gap-3 ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
                     <button
                       onClick={() => setModalOpen(false)}
                       className={`px-4 py-2 rounded-lg border ${
@@ -1219,26 +1761,30 @@ const Aprobacion = () => {
                     </button>
                     <button
                       onClick={handleSolicitarRevision}
-                      className="px-4 py-2 rounded-lg bg-purple-500 text-white hover:bg-purple-600 transition-colors"
+                      className="px-4 py-2 rounded-lg bg-purple-500 text-white hover:bg-purple-600 transition-colors flex items-center gap-2"
                     >
+                      <MessageSquare size={16} />
                       Solicitar Revisión
                     </button>
                     <button
                       onClick={handleRechazar}
-                      className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+                      className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors flex items-center gap-2"
                     >
+                      <ThumbsDown size={16} />
                       Rechazar
                     </button>
                     <button
                       onClick={handleAprobarParcial}
-                      className="px-4 py-2 rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 transition-colors"
+                      className="px-4 py-2 rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 transition-colors flex items-center gap-2"
                     >
+                      <AlertCircle size={16} />
                       Aprobar Parcial
                     </button>
                     <button
                       onClick={handleAprobar}
-                      className="px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors"
+                      className="px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors flex items-center gap-2"
                     >
+                      <CheckCircle size={16} />
                       Aprobar
                     </button>
                   </div>

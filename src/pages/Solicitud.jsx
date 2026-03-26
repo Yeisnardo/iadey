@@ -22,7 +22,7 @@ import {
   Building,
   ChevronLeft,
   X,
-  Check
+  Check,
 } from "lucide-react";
 
 import Header from "../components/Header";
@@ -46,8 +46,8 @@ const SolicitudesPersona = () => {
     // Paso 1
     motivo: "",
     monto: "",
-    fecha: new Date().toISOString().split('T')[0],
-    
+    fecha: new Date().toISOString().split("T")[0],
+
     // Paso 2 - DATOS DEL EMPRENDIMIENTO (igual que en RegistroEmprendedor)
     aniosOperando: "",
     sectorEconomico: "",
@@ -137,7 +137,7 @@ const SolicitudesPersona = () => {
     name: "Administrador IADEY",
     email: "admin@iadey.gob.ve",
     role: "Administrador",
-    avatar: null
+    avatar: null,
   };
 
   const [notifications, setNotifications] = useState([
@@ -168,7 +168,7 @@ const SolicitudesPersona = () => {
     // DATOS DEL EMPRENDIMIENTO REGISTRADOS
     aniosOperando: "3 a 5 años",
     sectorEconomico: "terciario",
-    subsector: "🛒 Comercio (Minorista, Mayorista, E-commerce)"
+    subsector: "🛒 Comercio (Minorista, Mayorista, E-commerce)",
   });
 
   // ============================================
@@ -201,8 +201,8 @@ const SolicitudesPersona = () => {
         cedula: "cedula_maria.pdf",
         rif: "rif_maria.pdf",
         registroComercio: "registro_panaderia.pdf",
-        estadosFinancieros: "estados_maria.pdf"
-      }
+        estadosFinancieros: "estados_maria.pdf",
+      },
     },
     {
       id: "SOL-002",
@@ -230,8 +230,8 @@ const SolicitudesPersona = () => {
         cedula: "cedula_maria.pdf",
         rif: "rif_maria.pdf",
         registroComercio: "registro_sucursal.pdf",
-        estadosFinancieros: "estados_febrero.pdf"
-      }
+        estadosFinancieros: "estados_febrero.pdf",
+      },
     },
     {
       id: "SOL-003",
@@ -259,9 +259,9 @@ const SolicitudesPersona = () => {
         cedula: "cedula_maria.pdf",
         rif: "rif_maria.pdf",
         registroComercio: "registro_original.pdf",
-        estadosFinancieros: "estados_enero.pdf"
-      }
-    }
+        estadosFinancieros: "estados_enero.pdf",
+      },
+    },
   ]);
 
   // ============================================
@@ -270,29 +270,35 @@ const SolicitudesPersona = () => {
   const stats = {
     totalSolicitudes: solicitudes.length,
     montoTotal: solicitudes.reduce((acc, s) => acc + s.montoSolicitado, 0),
-    solicitudesPendientes: solicitudes.filter(s => s.estatus === "Pendiente").length,
-    solicitudesAprobadas: solicitudes.filter(s => s.estatus === "Aprobado").length,
-    solicitudesRechazadas: solicitudes.filter(s => s.estatus === "Rechazado").length,
+    solicitudesPendientes: solicitudes.filter((s) => s.estatus === "Pendiente")
+      .length,
+    solicitudesAprobadas: solicitudes.filter((s) => s.estatus === "Aprobado")
+      .length,
+    solicitudesRechazadas: solicitudes.filter((s) => s.estatus === "Rechazado")
+      .length,
     montoAprobado: solicitudes
-      .filter(s => s.estatus === "Aprobado")
+      .filter((s) => s.estatus === "Aprobado")
       .reduce((acc, s) => acc + s.montoSolicitado, 0),
     montoPendiente: solicitudes
-      .filter(s => s.estatus === "Pendiente")
-      .reduce((acc, s) => acc + s.montoSolicitado, 0)
+      .filter((s) => s.estatus === "Pendiente")
+      .reduce((acc, s) => acc + s.montoSolicitado, 0),
   };
 
   // ============================================
   // FILTROS
   // ============================================
-  const filteredSolicitudes = solicitudes.filter(solicitud => {
-    const matchesSearch = 
-      solicitud.emprendimiento.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredSolicitudes = solicitudes.filter((solicitud) => {
+    const matchesSearch =
+      solicitud.emprendimiento
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
       solicitud.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       solicitud.destino.toLowerCase().includes(searchTerm.toLowerCase()) ||
       solicitud.analista.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === "todos" || solicitud.estatus === statusFilter;
-    
+
+    const matchesStatus =
+      statusFilter === "todos" || solicitud.estatus === statusFilter;
+
     return matchesSearch && matchesStatus;
   });
 
@@ -311,7 +317,7 @@ const SolicitudesPersona = () => {
 
   const handleEliminar = (solicitudId) => {
     if (window.confirm("¿Está seguro de eliminar esta solicitud?")) {
-      setSolicitudes(solicitudes.filter(s => s.id !== solicitudId));
+      setSolicitudes(solicitudes.filter((s) => s.id !== solicitudId));
     }
   };
 
@@ -338,8 +344,8 @@ const SolicitudesPersona = () => {
       // Paso 1
       motivo: "",
       monto: "",
-      fecha: new Date().toISOString().split('T')[0],
-      
+      fecha: new Date().toISOString().split("T")[0],
+
       // Paso 2 - PRECARGAR DATOS DEL EMPRENDIMIENTO DE LA PERSONA
       aniosOperando: persona.aniosOperando || "",
       sectorEconomico: persona.sectorEconomico || "",
@@ -349,7 +355,11 @@ const SolicitudesPersona = () => {
 
   const handleGuardarSolicitud = () => {
     // Validar campos del paso 2
-    if (!formData.aniosOperando || !formData.sectorEconomico || !formData.subsector) {
+    if (
+      !formData.aniosOperando ||
+      !formData.sectorEconomico ||
+      !formData.subsector
+    ) {
       alert("Por favor completa todos los datos del emprendimiento");
       setCurrentStep(2);
       return;
@@ -364,9 +374,12 @@ const SolicitudesPersona = () => {
 
     // Crear nueva solicitud
     const nuevaSolicitud = {
-      id: `SOL-${String(solicitudes.length + 1).padStart(3, '0')}`,
+      id: `SOL-${String(solicitudes.length + 1).padStart(3, "0")}`,
       fechaSolicitud: formData.fecha,
-      horaSolicitud: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+      horaSolicitud: new Date().toLocaleTimeString("es-ES", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
       emprendimiento: "Nuevo Emprendimiento",
       rifEmprendimiento: "Pendiente",
       direccionEmprendimiento: "Pendiente",
@@ -382,26 +395,26 @@ const SolicitudesPersona = () => {
       egresosMensuales: 0,
       tieneCreditoPrevio: "No",
       analista: user.name,
-      fechaAsignacion: new Date().toISOString().split('T')[0],
+      fechaAsignacion: new Date().toISOString().split("T")[0],
       estatus: "Pendiente",
       observaciones: `Años operando: ${formData.aniosOperando}`,
-      documentos: {}
+      documentos: {},
     };
-    
+
     setSolicitudes([nuevaSolicitud, ...solicitudes]);
     setShowModal(false);
-    
+
     // Resetear formulario
     setCurrentStep(1);
     setFormData({
       motivo: "",
       monto: "",
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: new Date().toISOString().split("T")[0],
       aniosOperando: "",
       sectorEconomico: "",
       subsector: "",
     });
-    
+
     alert("Solicitud guardada exitosamente");
   };
 
@@ -414,62 +427,72 @@ const SolicitudesPersona = () => {
   // ============================================
   const getStatusColor = (estatus) => {
     const colores = {
-      'Pendiente': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-      'Aprobado': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      'Rechazado': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-      'En Proceso': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+      Pendiente:
+        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+      Aprobado:
+        "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      Rechazado: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+      "En Proceso":
+        "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
     };
-    return colores[estatus] || 'bg-gray-100 text-gray-800';
+    return colores[estatus] || "bg-gray-100 text-gray-800";
   };
 
   const getStatusIcon = (estatus) => {
-    switch(estatus) {
-      case 'Pendiente': return <Clock size={14} className="mr-1" />;
-      case 'En Proceso': return <AlertCircle size={14} className="mr-1" />;
-      case 'Aprobado': return <CheckCircle size={14} className="mr-1" />;
-      case 'Rechazado': return <XCircle size={14} className="mr-1" />;
-      default: return null;
+    switch (estatus) {
+      case "Pendiente":
+        return <Clock size={14} className="mr-1" />;
+      case "En Proceso":
+        return <AlertCircle size={14} className="mr-1" />;
+      case "Aprobado":
+        return <CheckCircle size={14} className="mr-1" />;
+      case "Rechazado":
+        return <XCircle size={14} className="mr-1" />;
+      default:
+        return null;
     }
   };
 
   const formatMonto = (monto) => {
-    return new Intl.NumberFormat('es-VE', {
-      style: 'currency',
-      currency: 'VES',
+    return new Intl.NumberFormat("es-VE", {
+      style: "currency",
+      currency: "VES",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(monto);
   };
 
   const formatFecha = (fecha) => {
-    return new Date(fecha).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
+    return new Date(fecha).toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
     });
   };
 
   // ============================================
   // RENDER
   // ============================================
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const handleLogout = () => {
-    localStorage.removeItem('usuario');
-    localStorage.removeItem('rememberToken');
-    window.dispatchEvent(new Event('authChange'));
-    navigate('/login');
+    localStorage.removeItem("usuario");
+    localStorage.removeItem("rememberToken");
+    window.dispatchEvent(new Event("authChange"));
+    navigate("/login");
   };
 
   const markAsRead = (id) => {
-    setNotifications(notifications.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    ));
+    setNotifications(
+      notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    );
   };
 
   return (
-    <div className={`min-h-screen flex flex-col ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
-      <Header 
+    <div
+      className={`min-h-screen flex flex-col ${darkMode ? "dark bg-gray-900" : "bg-gray-50"}`}
+    >
+      <Header
         darkMode={darkMode}
         setDarkMode={setDarkMode}
         sidebarOpen={sidebarOpen}
@@ -486,7 +509,7 @@ const SolicitudesPersona = () => {
       />
 
       <div className="flex flex-1">
-        <Sidebar 
+        <Sidebar
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
           activeTab="creditos"
@@ -494,14 +517,17 @@ const SolicitudesPersona = () => {
           darkMode={darkMode}
         />
 
-        <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'}`}>
+        <main
+          className={`flex-1 transition-all duration-300 ${sidebarOpen ? "lg:ml-64" : "lg:ml-20"}`}
+        >
           <div className="p-4 md:p-6 mt-16">
-            
             {/* BOTÓN VOLVER */}
             <button
               onClick={handleVolver}
               className={`flex items-center gap-2 mb-4 ${
-                darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                darkMode
+                  ? "text-gray-400 hover:text-white"
+                  : "text-gray-600 hover:text-gray-900"
               } transition-colors`}
             >
               <ChevronLeft size={20} />
@@ -511,26 +537,39 @@ const SolicitudesPersona = () => {
             {/* ============================================ */}
             {/* INFORMACIÓN DE LA PERSONA */}
             {/* ============================================ */}
-            <div className={`mb-6 p-6 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+            <div
+              className={`mb-6 p-6 rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg`}
+            >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-4">
-                  <div className={`p-4 rounded-full ${
-                    persona.tipoPersona === 'Jurídica' 
-                      ? 'bg-purple-100 text-purple-600' 
-                      : 'bg-blue-100 text-blue-600'
-                  }`}>
-                    {persona.tipoPersona === 'Jurídica' ? <Building size={32} /> : <User size={32} />}
+                  <div
+                    className={`p-4 rounded-full ${
+                      persona.tipoPersona === "Jurídica"
+                        ? "bg-purple-100 text-purple-600"
+                        : "bg-blue-100 text-blue-600"
+                    }`}
+                  >
+                    {persona.tipoPersona === "Jurídica" ? (
+                      <Building size={32} />
+                    ) : (
+                      <User size={32} />
+                    )}
                   </div>
                   <div>
-                    <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    <h1
+                      className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}
+                    >
                       {persona.nombreCompleto}
                     </h1>
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {persona.tipoPersona} • Registrado desde {formatFecha(persona.fechaRegistro)}
+                    <p
+                      className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}
+                    >
+                      {persona.tipoPersona} • Registrado desde{" "}
+                      {formatFecha(persona.fechaRegistro)}
                     </p>
                   </div>
                 </div>
-                
+
                 {/* BOTÓN NUEVA SOLICITUD */}
                 <button
                   onClick={handleNuevaSolicitud}
@@ -543,73 +582,149 @@ const SolicitudesPersona = () => {
 
               {/* Datos de contacto en tarjetas */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-                <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div
+                  className={`p-3 rounded-lg ${darkMode ? "bg-gray-700" : "bg-gray-50"}`}
+                >
                   <div className="flex items-center gap-2 mb-1">
                     <Phone size={16} className="text-gray-400" />
-                    <span className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Teléfonos</span>
+                    <span
+                      className={`text-xs font-medium ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      Teléfonos
+                    </span>
                   </div>
-                  <p className={`text-sm ${darkMode ? 'text-white' : 'text-gray-800'}`}>{persona.telefono}</p>
+                  <p
+                    className={`text-sm ${darkMode ? "text-white" : "text-gray-800"}`}
+                  >
+                    {persona.telefono}
+                  </p>
                   {persona.telefono2 && (
-                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{persona.telefono2}</p>
+                    <p
+                      className={`text-sm ${darkMode ? "text-gray-300" : "text-gray-600"}`}
+                    >
+                      {persona.telefono2}
+                    </p>
                   )}
                 </div>
 
-                <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div
+                  className={`p-3 rounded-lg ${darkMode ? "bg-gray-700" : "bg-gray-50"}`}
+                >
                   <div className="flex items-center gap-2 mb-1">
                     <Mail size={16} className="text-gray-400" />
-                    <span className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Emails</span>
+                    <span
+                      className={`text-xs font-medium ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      Emails
+                    </span>
                   </div>
-                  <p className={`text-sm ${darkMode ? 'text-white' : 'text-gray-800'}`}>{persona.email}</p>
+                  <p
+                    className={`text-sm ${darkMode ? "text-white" : "text-gray-800"}`}
+                  >
+                    {persona.email}
+                  </p>
                   {persona.email2 && (
-                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{persona.email2}</p>
+                    <p
+                      className={`text-sm ${darkMode ? "text-gray-300" : "text-gray-600"}`}
+                    >
+                      {persona.email2}
+                    </p>
                   )}
                 </div>
 
-                <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div
+                  className={`p-3 rounded-lg ${darkMode ? "bg-gray-700" : "bg-gray-50"}`}
+                >
                   <div className="flex items-center gap-2 mb-1">
                     <MapPin size={16} className="text-gray-400" />
-                    <span className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Dirección</span>
+                    <span
+                      className={`text-xs font-medium ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      Dirección
+                    </span>
                   </div>
-                  <p className={`text-sm ${darkMode ? 'text-white' : 'text-gray-800'}`}>{persona.direccion}</p>
-                  <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  <p
+                    className={`text-sm ${darkMode ? "text-white" : "text-gray-800"}`}
+                  >
+                    {persona.direccion}
+                  </p>
+                  <p
+                    className={`text-sm ${darkMode ? "text-gray-300" : "text-gray-600"}`}
+                  >
                     {persona.municipio}, {persona.estado}
                   </p>
                 </div>
 
-                <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div
+                  className={`p-3 rounded-lg ${darkMode ? "bg-gray-700" : "bg-gray-50"}`}
+                >
                   <div className="flex items-center gap-2 mb-1">
                     <FileText size={16} className="text-gray-400" />
-                    <span className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Documentos</span>
+                    <span
+                      className={`text-xs font-medium ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      Documentos
+                    </span>
                   </div>
-                  <p className={`text-sm ${darkMode ? 'text-white' : 'text-gray-800'}`}>C.I: {persona.cedula}</p>
-                  <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>RIF: {persona.rif}</p>
+                  <p
+                    className={`text-sm ${darkMode ? "text-white" : "text-gray-800"}`}
+                  >
+                    C.I: {persona.cedula}
+                  </p>
+                  <p
+                    className={`text-sm ${darkMode ? "text-gray-300" : "text-gray-600"}`}
+                  >
+                    RIF: {persona.rif}
+                  </p>
                 </div>
               </div>
 
               {/* Mostrar datos del emprendimiento registrados */}
-              <div className={`mt-4 p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-green-50'}`}>
+              <div
+                className={`mt-4 p-3 rounded-lg ${darkMode ? "bg-gray-700" : "bg-green-50"}`}
+              >
                 <div className="flex items-center gap-2 mb-2">
                   <Briefcase size={16} className="text-green-600" />
-                  <span className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <span
+                    className={`text-xs font-medium ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                  >
                     Datos del Emprendimiento Registrados
                   </span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Años operando</p>
-                    <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    <p
+                      className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      Años operando
+                    </p>
+                    <p
+                      className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-800"}`}
+                    >
                       {persona.aniosOperando || "No registrado"}
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Sector económico</p>
-                    <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    <p
+                      className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      Sector económico
+                    </p>
+                    <p
+                      className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-800"}`}
+                    >
                       {persona.sectorEconomico || "No registrado"}
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Subsector</p>
-                    <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    <p
+                      className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      Subsector
+                    </p>
+                    <p
+                      className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-800"}`}
+                    >
                       {persona.subsector || "No registrado"}
                     </p>
                   </div>
@@ -621,35 +736,83 @@ const SolicitudesPersona = () => {
             {/* TARJETAS DE ESTADÍSTICAS */}
             {/* ============================================ */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
-              <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
-                <p className={`text-xs uppercase font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Solicitudes</p>
-                <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{stats.totalSolicitudes}</p>
+              <div
+                className={`p-4 rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg`}
+              >
+                <p
+                  className={`text-xs uppercase font-semibold ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                >
+                  Total Solicitudes
+                </p>
+                <p
+                  className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}
+                >
+                  {stats.totalSolicitudes}
+                </p>
               </div>
-              
-              <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg border-l-4 border-yellow-500`}>
-                <p className={`text-xs uppercase font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Pendientes</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.solicitudesPendientes}</p>
+
+              <div
+                className={`p-4 rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg border-l-4 border-yellow-500`}
+              >
+                <p
+                  className={`text-xs uppercase font-semibold ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                >
+                  Pendientes
+                </p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {stats.solicitudesPendientes}
+                </p>
               </div>
-              
-              <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg border-l-4 border-green-500`}>
-                <p className={`text-xs uppercase font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Aprobadas</p>
-                <p className="text-2xl font-bold text-green-600">{stats.solicitudesAprobadas}</p>
+
+              <div
+                className={`p-4 rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg border-l-4 border-green-500`}
+              >
+                <p
+                  className={`text-xs uppercase font-semibold ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                >
+                  Aprobadas
+                </p>
+                <p className="text-2xl font-bold text-green-600">
+                  {stats.solicitudesAprobadas}
+                </p>
               </div>
-              
-              <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg border-l-4 border-red-500`}>
-                <p className={`text-xs uppercase font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Rechazadas</p>
-                <p className="text-2xl font-bold text-red-600">{stats.solicitudesRechazadas}</p>
+
+              <div
+                className={`p-4 rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg border-l-4 border-red-500`}
+              >
+                <p
+                  className={`text-xs uppercase font-semibold ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                >
+                  Rechazadas
+                </p>
+                <p className="text-2xl font-bold text-red-600">
+                  {stats.solicitudesRechazadas}
+                </p>
               </div>
-              
-              <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg col-span-2`}>
-                <p className={`text-xs uppercase font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Monto Total Solicitado</p>
-                <p className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+
+              <div
+                className={`p-4 rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg col-span-2`}
+              >
+                <p
+                  className={`text-xs uppercase font-semibold ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                >
+                  Monto Total Solicitado
+                </p>
+                <p
+                  className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}
+                >
                   {formatMonto(stats.montoTotal)}
                 </p>
               </div>
-              
-              <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
-                <p className={`text-xs uppercase font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Monto Aprobado</p>
+
+              <div
+                className={`p-4 rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg`}
+              >
+                <p
+                  className={`text-xs uppercase font-semibold ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                >
+                  Monto Aprobado
+                </p>
                 <p className={`text-lg font-bold text-green-600`}>
                   {formatMonto(stats.montoAprobado)}
                 </p>
@@ -661,28 +824,31 @@ const SolicitudesPersona = () => {
             {/* ============================================ */}
             <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
               <div className="relative w-full sm:w-96">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <Search
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                  size={20}
+                />
                 <input
                   type="text"
                   placeholder="Buscar por emprendimiento, ID, destino o analista..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className={`w-full pl-10 pr-4 py-2 rounded-lg border ${
-                    darkMode 
-                      ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400' 
-                      : 'bg-white border-gray-200 placeholder-gray-500'
+                    darkMode
+                      ? "bg-gray-800 border-gray-700 text-white placeholder-gray-400"
+                      : "bg-white border-gray-200 placeholder-gray-500"
                   } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
                 />
               </div>
-              
+
               <div className="flex gap-2 w-full sm:w-auto">
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className={`px-4 py-2 rounded-lg border ${
-                    darkMode 
-                      ? 'bg-gray-800 border-gray-700 text-white' 
-                      : 'bg-white border-gray-200'
+                    darkMode
+                      ? "bg-gray-800 border-gray-700 text-white"
+                      : "bg-white border-gray-200"
                   } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
                 >
                   <option value="todos">Todos los estados</option>
@@ -696,83 +862,130 @@ const SolicitudesPersona = () => {
             {/* ============================================ */}
             {/* TABLA DE SOLICITUDES */}
             {/* ============================================ */}
-            <div className={`rounded-xl overflow-hidden ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+            <div
+              className={`rounded-xl overflow-hidden ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg`}
+            >
               {filteredSolicitudes.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <thead
+                      className={`${darkMode ? "bg-gray-700" : "bg-gray-50"}`}
+                    >
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">ID</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Fecha</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Emprendimiento</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Monto</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Plazo</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Destino</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Analista</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estatus</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          ID
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Fecha
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Emprendimiento
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Monto
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Plazo
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Destino
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Analista
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Estatus
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Acciones
+                        </th>
                       </tr>
                     </thead>
-                    <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                    <tbody
+                      className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-200"}`}
+                    >
                       {filteredSolicitudes.map((solicitud) => (
-                        <tr 
-                          key={solicitud.id} 
-                          className={`${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} transition-colors`}
+                        <tr
+                          key={solicitud.id}
+                          className={`${darkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"} transition-colors`}
                         >
                           <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`text-sm font-mono font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <span
+                              className={`text-sm font-mono font-medium ${darkMode ? "text-white" : "text-gray-900"}`}
+                            >
                               {solicitud.id}
                             </span>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex flex-col">
-                              <span className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                              <span
+                                className={`text-xs ${darkMode ? "text-gray-300" : "text-gray-600"}`}
+                              >
                                 {formatFecha(solicitud.fechaSolicitud)}
                               </span>
-                              <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                              <span
+                                className={`text-xs ${darkMode ? "text-gray-500" : "text-gray-400"}`}
+                              >
                                 {solicitud.horaSolicitud}
                               </span>
                             </div>
-                           </td>
+                          </td>
                           <td className="px-4 py-3">
                             <div className="flex flex-col">
-                              <span className={`text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                              <span
+                                className={`text-sm ${darkMode ? "text-white" : "text-gray-900"}`}
+                              >
                                 {solicitud.emprendimiento}
                               </span>
-                              <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                              <span
+                                className={`text-xs ${darkMode ? "text-gray-500" : "text-gray-400"}`}
+                              >
                                 {solicitud.rifEmprendimiento}
                               </span>
                             </div>
-                           </td>
+                          </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex items-center">
-                              <DollarSign size={14} className="mr-1 text-green-500" />
-                              <span className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                              <DollarSign
+                                size={14}
+                                className="mr-1 text-green-500"
+                              />
+                              <span
+                                className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-900"}`}
+                              >
                                 {formatMonto(solicitud.montoSolicitado)}
                               </span>
                             </div>
-                           </td>
+                          </td>
                           <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                            <span
+                              className={`text-sm ${darkMode ? "text-gray-300" : "text-gray-600"}`}
+                            >
                               {solicitud.plazo} meses
                             </span>
-                           </td>
+                          </td>
                           <td className="px-4 py-3">
-                            <span className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                            <span
+                              className={`text-xs ${darkMode ? "text-gray-300" : "text-gray-600"}`}
+                            >
                               {solicitud.destino}
                             </span>
-                           </td>
+                          </td>
                           <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                            <span
+                              className={`text-sm ${darkMode ? "text-gray-300" : "text-gray-600"}`}
+                            >
                               {solicitud.analista}
                             </span>
-                           </td>
+                          </td>
                           <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs rounded-full flex items-center w-fit ${getStatusColor(solicitud.estatus)}`}>
+                            <span
+                              className={`px-2 py-1 text-xs rounded-full flex items-center w-fit ${getStatusColor(solicitud.estatus)}`}
+                            >
                               {getStatusIcon(solicitud.estatus)}
                               {solicitud.estatus}
                             </span>
-                           </td>
+                          </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <button
@@ -797,7 +1010,7 @@ const SolicitudesPersona = () => {
                                 <Trash2 size={16} />
                               </button>
                             </div>
-                           </td>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -806,11 +1019,17 @@ const SolicitudesPersona = () => {
               ) : (
                 <div className="p-12 text-center">
                   <FileText size={48} className="mx-auto text-gray-400 mb-4" />
-                  <p className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  <p
+                    className={`text-lg ${darkMode ? "text-gray-300" : "text-gray-600"}`}
+                  >
                     No hay solicitudes para mostrar
                   </p>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-4`}>
-                    {searchTerm ? 'Intente con otros términos de búsqueda' : 'Esta persona no tiene solicitudes registradas'}
+                  <p
+                    className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"} mb-4`}
+                  >
+                    {searchTerm
+                      ? "Intente con otros términos de búsqueda"
+                      : "Esta persona no tiene solicitudes registradas"}
                   </p>
                   {!searchTerm && (
                     <button
@@ -827,34 +1046,65 @@ const SolicitudesPersona = () => {
 
             {/* Resumen de la persona */}
             {filteredSolicitudes.length > 0 && (
-              <div className={`mt-6 p-4 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-blue-50'}`}>
-                <h3 className={`text-sm font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+              <div
+                className={`mt-6 p-4 rounded-lg ${darkMode ? "bg-gray-800" : "bg-blue-50"}`}
+              >
+                <h3
+                  className={`text-sm font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-800"}`}
+                >
                   Resumen de {persona.nombreCompleto}
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total solicitado</p>
-                    <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    <p
+                      className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      Total solicitado
+                    </p>
+                    <p
+                      className={`text-sm font-bold ${darkMode ? "text-white" : "text-gray-800"}`}
+                    >
                       {formatMonto(stats.montoTotal)}
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Monto aprobado</p>
+                    <p
+                      className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      Monto aprobado
+                    </p>
                     <p className={`text-sm font-bold text-green-600`}>
                       {formatMonto(stats.montoAprobado)}
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Tasa de aprobación</p>
-                    <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {stats.totalSolicitudes > 0 
-                        ? Math.round((stats.solicitudesAprobadas / stats.totalSolicitudes) * 100) 
-                        : 0}%
+                    <p
+                      className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      Tasa de aprobación
+                    </p>
+                    <p
+                      className={`text-sm font-bold ${darkMode ? "text-white" : "text-gray-800"}`}
+                    >
+                      {stats.totalSolicitudes > 0
+                        ? Math.round(
+                            (stats.solicitudesAprobadas /
+                              stats.totalSolicitudes) *
+                              100,
+                          )
+                        : 0}
+                      %
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Promedio por solicitud</p>
-                    <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    <p
+                      className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      Promedio por solicitud
+                    </p>
+                    <p
+                      className={`text-sm font-bold ${darkMode ? "text-white" : "text-gray-800"}`}
+                    >
                       {formatMonto(stats.montoTotal / stats.totalSolicitudes)}
                     </p>
                   </div>
@@ -869,34 +1119,43 @@ const SolicitudesPersona = () => {
           {showModal && (
             <div className="fixed inset-0 z-50 overflow-y-auto">
               {/* Fondo oscuro */}
-              <div 
+              <div
                 className="fixed inset-0 bg-black transition-opacity duration-300"
-                style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
+                style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
                 onClick={() => setShowModal(false)}
               ></div>
-              
+
               {/* Modal */}
               <div className="flex min-h-full items-center justify-center p-4">
-                <div className={`relative w-full max-w-3xl rounded-xl ${
-                  darkMode ? 'bg-gray-800' : 'bg-white'
-                } shadow-2xl transform transition-all`}>
-                  
+                <div
+                  className={`relative w-full max-w-3xl rounded-xl ${
+                    darkMode ? "bg-gray-800" : "bg-white"
+                  } shadow-2xl transform transition-all`}
+                >
                   {/* Header del Modal */}
-                  <div className={`px-6 py-4 border-b ${
-                    darkMode ? 'border-gray-700' : 'border-gray-200'
-                  } flex items-center justify-between`}>
+                  <div
+                    className={`px-6 py-4 border-b ${
+                      darkMode ? "border-gray-700" : "border-gray-200"
+                    } flex items-center justify-between`}
+                  >
                     <div>
-                      <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      <h2
+                        className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}
+                      >
                         Nueva Solicitud de Crédito
                       </h2>
-                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <p
+                        className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}
+                      >
                         Para: {persona.nombreCompleto}
                       </p>
                     </div>
                     <button
                       onClick={() => setShowModal(false)}
                       className={`p-2 rounded-lg ${
-                        darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+                        darkMode
+                          ? "hover:bg-gray-700 text-gray-400"
+                          : "hover:bg-gray-100 text-gray-600"
                       } transition-colors`}
                     >
                       <X size={20} />
@@ -910,29 +1169,43 @@ const SolicitudesPersona = () => {
                       {[1, 2].map((step) => (
                         <React.Fragment key={step}>
                           <div className="flex items-center">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                              currentStep >= step 
-                                ? 'bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white' 
-                                : darkMode 
-                                  ? 'bg-gray-700 text-gray-400' 
-                                  : 'bg-gray-200 text-gray-600'
-                            }`}>
+                            <div
+                              className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                currentStep >= step
+                                  ? "bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white"
+                                  : darkMode
+                                    ? "bg-gray-700 text-gray-400"
+                                    : "bg-gray-200 text-gray-600"
+                              }`}
+                            >
                               {currentStep > step ? <Check size={16} /> : step}
                             </div>
-                            <span className={`ml-2 text-sm hidden sm:block ${
-                              currentStep >= step 
-                                ? darkMode ? 'text-white' : 'text-gray-800'
-                                : darkMode ? 'text-gray-500' : 'text-gray-400'
-                            }`}>
-                              {step === 1 ? 'Datos del Crédito' : 'Datos del Emprendimiento'}
+                            <span
+                              className={`ml-2 text-sm hidden sm:block ${
+                                currentStep >= step
+                                  ? darkMode
+                                    ? "text-white"
+                                    : "text-gray-800"
+                                  : darkMode
+                                    ? "text-gray-500"
+                                    : "text-gray-400"
+                              }`}
+                            >
+                              {step === 1
+                                ? "Datos del Crédito"
+                                : "Datos del Emprendimiento"}
                             </span>
                           </div>
                           {step < 2 && (
-                            <div className={`flex-1 h-0.5 mx-4 ${
-                              currentStep > step 
-                                ? 'bg-gradient-to-r from-[#264653] to-[#2A9D8F]' 
-                                : darkMode ? 'bg-gray-700' : 'bg-gray-200'
-                            }`} />
+                            <div
+                              className={`flex-1 h-0.5 mx-4 ${
+                                currentStep > step
+                                  ? "bg-gradient-to-r from-[#264653] to-[#2A9D8F]"
+                                  : darkMode
+                                    ? "bg-gray-700"
+                                    : "bg-gray-200"
+                              }`}
+                            />
                           )}
                         </React.Fragment>
                       ))}
@@ -941,54 +1214,65 @@ const SolicitudesPersona = () => {
                     {/* PASO 1: MOTIVO, MONTO Y FECHA */}
                     {currentStep === 1 && (
                       <div className="space-y-4">
-                        <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                        <h3
+                          className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}
+                        >
                           Datos del Crédito
                         </h3>
-                        
+
                         <div>
-                          <label className={`block text-sm font-medium mb-2 ${
-                            darkMode ? 'text-gray-300' : 'text-gray-700'
-                          }`}>
-                            Motivo del préstamo <span className="text-red-500">*</span>
+                          <label
+                            className={`block text-sm font-medium mb-2 ${
+                              darkMode ? "text-gray-300" : "text-gray-700"
+                            }`}
+                          >
+                            Motivo del préstamo{" "}
+                            <span className="text-red-500">*</span>
                           </label>
-                          <select
+                          <textarea
                             name="motivo"
                             value={formData.motivo}
                             onChange={handleChange}
+                            rows="3"
                             className={`w-full px-4 py-2 rounded-lg border ${
-                              darkMode 
-                                ? 'bg-gray-700 border-gray-600 text-white' 
-                                : 'bg-white border-gray-300'
-                            } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
+                              darkMode
+                                ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                                : "bg-white border-gray-300 placeholder-gray-500"
+                            } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] resize-none`}
+                            placeholder="Describa detalladamente el motivo del préstamo..."
                             required
+                          />
+                          <p
+                            className={`text-xs mt-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}
                           >
-                            <option value="">Seleccione un motivo</option>
-                            <option value="Capital de trabajo">Capital de trabajo</option>
-                            <option value="Compra de mercadería">Compra de mercadería</option>
-                            <option value="Compra de equipos">Compra de equipos</option>
-                            <option value="Adecuación de local">Adecuación de local</option>
-                            <option value="Ampliación de negocio">Ampliación de negocio</option>
-                            <option value="Refinanciamiento">Refinanciamiento</option>
-                          </select>
+                            Describa el propósito del crédito, cómo será
+                            utilizado y los beneficios esperados.
+                          </p>
                         </div>
 
                         <div>
-                          <label className={`block text-sm font-medium mb-2 ${
-                            darkMode ? 'text-gray-300' : 'text-gray-700'
-                          }`}>
-                            Monto solicitado (Bs.) <span className="text-red-500">*</span>
+                          <label
+                            className={`block text-sm font-medium mb-2 ${
+                              darkMode ? "text-gray-300" : "text-gray-700"
+                            }`}
+                          >
+                            Monto solicitado (Bs.){" "}
+                            <span className="text-red-500">*</span>
                           </label>
                           <div className="relative">
-                            <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                            <DollarSign
+                              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                              size={18}
+                            />
                             <input
                               type="number"
                               name="monto"
                               value={formData.monto}
                               onChange={handleChange}
                               className={`w-full pl-10 pr-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-300'
+                                darkMode
+                                  ? "bg-gray-700 border-gray-600 text-white"
+                                  : "bg-white border-gray-300"
                               } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
                               placeholder="0.00"
                               min="0"
@@ -999,22 +1283,28 @@ const SolicitudesPersona = () => {
                         </div>
 
                         <div>
-                          <label className={`block text-sm font-medium mb-2 ${
-                            darkMode ? 'text-gray-300' : 'text-gray-700'
-                          }`}>
-                            Fecha de solicitud <span className="text-red-500">*</span>
+                          <label
+                            className={`block text-sm font-medium mb-2 ${
+                              darkMode ? "text-gray-300" : "text-gray-700"
+                            }`}
+                          >
+                            Fecha de solicitud{" "}
+                            <span className="text-red-500">*</span>
                           </label>
                           <div className="relative">
-                            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                            <Calendar
+                              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                              size={18}
+                            />
                             <input
                               type="date"
                               name="fecha"
                               value={formData.fecha}
                               onChange={handleChange}
                               className={`w-full pl-10 pr-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-300'
+                                darkMode
+                                  ? "bg-gray-700 border-gray-600 text-white"
+                                  : "bg-white border-gray-300"
                               } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
                               required
                             />
@@ -1026,30 +1316,38 @@ const SolicitudesPersona = () => {
                     {/* PASO 2: DATOS DEL EMPRENDIMIENTO */}
                     {currentStep === 2 && (
                       <div className="space-y-4">
-                        <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                          Datos del Emprendimiento (Registrados por el emprendedor)
+                        <h3
+                          className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}
+                        >
+                          Datos del Emprendimiento (Registrados por el
+                          emprendedor)
                         </h3>
 
                         <div className="space-y-5">
                           {/* CAMPO 1: Años operando (SELECT) */}
                           <div>
-                            <label className={`block text-sm font-medium mb-2 ${
-                              darkMode ? 'text-gray-300' : 'text-gray-700'
-                            }`}>
-                              Años Operando <span className="text-red-500">*</span>
+                            <label
+                              className={`block text-sm font-medium mb-2 ${
+                                darkMode ? "text-gray-300" : "text-gray-700"
+                              }`}
+                            >
+                              Años Operando{" "}
+                              <span className="text-red-500">*</span>
                             </label>
                             <select
                               name="aniosOperando"
                               value={formData.aniosOperando || ""}
                               onChange={handleChange}
                               className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-300'
+                                darkMode
+                                  ? "bg-gray-700 border-gray-600 text-white"
+                                  : "bg-white border-gray-300"
                               } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
                               required
                             >
-                              <option value="">Selecciona tiempo operando</option>
+                              <option value="">
+                                Selecciona tiempo operando
+                              </option>
                               {añosOperando.map((año) => (
                                 <option key={año} value={año}>
                                   {año}
@@ -1060,19 +1358,22 @@ const SolicitudesPersona = () => {
 
                           {/* CAMPO 2: Sector Económico (SELECT) */}
                           <div>
-                            <label className={`block text-sm font-medium mb-2 ${
-                              darkMode ? 'text-gray-300' : 'text-gray-700'
-                            }`}>
-                              Sector Económico <span className="text-red-500">*</span>
+                            <label
+                              className={`block text-sm font-medium mb-2 ${
+                                darkMode ? "text-gray-300" : "text-gray-700"
+                              }`}
+                            >
+                              Sector Económico{" "}
+                              <span className="text-red-500">*</span>
                             </label>
                             <select
                               name="sectorEconomico"
                               value={formData.sectorEconomico || ""}
                               onChange={handleChange}
                               className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-300'
+                                darkMode
+                                  ? "bg-gray-700 border-gray-600 text-white"
+                                  : "bg-white border-gray-300"
                               } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
                               required
                             >
@@ -1087,10 +1388,13 @@ const SolicitudesPersona = () => {
 
                           {/* CAMPO 3: Subsector (SELECT DEPENDIENTE) */}
                           <div>
-                            <label className={`block text-sm font-medium mb-2 ${
-                              darkMode ? 'text-gray-300' : 'text-gray-700'
-                            }`}>
-                              Subsector / Actividad Específica <span className="text-red-500">*</span>
+                            <label
+                              className={`block text-sm font-medium mb-2 ${
+                                darkMode ? "text-gray-300" : "text-gray-700"
+                              }`}
+                            >
+                              Subsector / Actividad Específica{" "}
+                              <span className="text-red-500">*</span>
                             </label>
                             <select
                               name="subsector"
@@ -1098,34 +1402,41 @@ const SolicitudesPersona = () => {
                               onChange={handleChange}
                               disabled={!formData.sectorEconomico}
                               className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white disabled:opacity-50 disabled:bg-gray-800' 
-                                  : 'bg-white border-gray-300 disabled:opacity-50 disabled:bg-gray-100'
+                                darkMode
+                                  ? "bg-gray-700 border-gray-600 text-white disabled:opacity-50 disabled:bg-gray-800"
+                                  : "bg-white border-gray-300 disabled:opacity-50 disabled:bg-gray-100"
                               } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
                               required
                             >
                               <option value="">Selecciona un subsector</option>
                               {formData.sectorEconomico &&
-                                subsectoresPorSector[formData.sectorEconomico]?.map(
-                                  (subsector) => (
-                                    <option key={subsector} value={subsector}>
-                                      {subsector}
-                                    </option>
-                                  ),
-                                )}
+                                subsectoresPorSector[
+                                  formData.sectorEconomico
+                                ]?.map((subsector) => (
+                                  <option key={subsector} value={subsector}>
+                                    {subsector}
+                                  </option>
+                                ))}
                             </select>
                           </div>
 
                           {/* Mensaje informativo */}
-                          <div className={`p-4 rounded-lg mt-4 ${
-                            darkMode ? 'bg-blue-900/30' : 'bg-blue-50'
-                          }`}>
-                            <p className={`text-sm flex items-start gap-2 ${
-                              darkMode ? 'text-blue-300' : 'text-blue-800'
-                            }`}>
-                              <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+                          <div
+                            className={`p-4 rounded-lg mt-4 ${
+                              darkMode ? "bg-blue-900/30" : "bg-blue-50"
+                            }`}
+                          >
+                            <p
+                              className={`text-sm flex items-start gap-2 ${
+                                darkMode ? "text-blue-300" : "text-blue-800"
+                              }`}
+                            >
+                              <AlertCircle
+                                size={18}
+                                className="flex-shrink-0 mt-0.5"
+                              />
                               <span>
-                                Estos son los datos que el emprendedor registró. 
+                                Estos son los datos que el emprendedor registró.
                                 Puedes actualizarlos si es necesario.
                               </span>
                             </p>
@@ -1138,16 +1449,20 @@ const SolicitudesPersona = () => {
                     <div className="flex justify-between mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
                       <button
                         type="button"
-                        onClick={() => currentStep > 1 ? setCurrentStep(currentStep - 1) : setShowModal(false)}
+                        onClick={() =>
+                          currentStep > 1
+                            ? setCurrentStep(currentStep - 1)
+                            : setShowModal(false)
+                        }
                         className={`px-4 py-2 rounded-lg ${
-                          darkMode 
-                            ? 'bg-gray-700 text-white hover:bg-gray-600' 
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          darkMode
+                            ? "bg-gray-700 text-white hover:bg-gray-600"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                         } transition-colors`}
                       >
-                        {currentStep === 1 ? 'Cancelar' : 'Anterior'}
+                        {currentStep === 1 ? "Cancelar" : "Anterior"}
                       </button>
-                      
+
                       <div className="flex gap-2">
                         {currentStep < 2 ? (
                           <button
