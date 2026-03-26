@@ -59,7 +59,7 @@ const Footer = ({ darkMode }) => {
               IADEY
             </h3>
             <p className="text-sm leading-relaxed">
-              Instituto de Apoyo al Desarrollo Económico de Yucatán. 
+              Instituto de Desarrollo Desarrollo Económico del Estado Yaracuy. 
               Impulsando el crecimiento de emprendedores y empresas.
             </p>
             <div className="flex space-x-4">
