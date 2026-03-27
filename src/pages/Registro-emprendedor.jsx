@@ -42,85 +42,11 @@ const RegistroEmprendedor = () => {
     parroquia: "",
     tipo_persona: "emprendedor",
 
-    // Datos del emprendimiento - SOLO 3 CAMPOS
-    aniosOperando: "",
-    sectorEconomico: "",
-    subsector: "",
-
     // Datos de cuenta
     email: "",
     password: "",
     confirmPassword: "",
   });
-
-  // ============================================
-  // DATOS PARA LOS SELECTORES
-  // ============================================
-
-  // SELECTOR 1: SECTORES ECONÓMICOS
-  const sectoresEconomicos = [
-    { valor: "primario", etiqueta: "🌱 Sector Primario (Recursos Naturales)" },
-    {
-      valor: "secundario",
-      etiqueta: "🏭 Sector Secundario (Transformación/Industria)",
-    },
-    { valor: "terciario", etiqueta: "💼 Sector Terciario (Servicios)" },
-    {
-      valor: "cuaternario",
-      etiqueta: "🧠 Sector Cuaternario (Conocimiento e I+D)",
-    },
-    { valor: "quinario", etiqueta: "🏛️ Sector Quinario (Alta Dirección)" },
-  ];
-
-  // SELECTOR 2: SUBSECTORES (dependen del sector seleccionado)
-  const subsectoresPorSector = {
-    primario: [
-      "🌾 Agricultura (Cereales, Fruticultura, Horticultura)",
-      "🐄 Ganadería (Bovina, Avicultura, Apicultura)",
-      "🐟 Pesca y Acuicultura (Bajura, Piscifactorías)",
-      "🌲 Silvicultura (Madera, Corcho, Resinas)",
-      "⛏️ Minería (Metálica, Canteras, Piedras preciosas)",
-      "🛢️ Extracción de Petróleo y Gas",
-    ],
-    secundario: [
-      "🥩 Industria Alimentaria (Cárnica, Láctea, Bebidas)",
-      "👕 Industria Textil (Confección, Calzado)",
-      "🧪 Industria Química (Farmacéutica, Cosmética)",
-      "⚙️ Metalurgia y Siderurgia (Acero, Aluminio)",
-      "🚗 Industria Automotriz (Vehículos, Autopartes)",
-      "🔌 Industria Eléctrica y Electrónica",
-      "🏗️ Construcción (Edificación, Obra civil)",
-      "🪑 Industria Maderera y del Mueble",
-      "📄 Industria Papelera y Artes Gráficas",
-      "🥤 Industria del Plástico y Caucho",
-      "⚡ Energía (Generación, Renovables)",
-    ],
-    terciario: [
-      "🛒 Comercio (Minorista, Mayorista, E-commerce)",
-      "🚚 Transporte y Logística",
-      "🏨 Hostelería y Turismo (Hoteles, Restaurantes)",
-      "💰 Servicios Financieros (Banca, Seguros, Fintech)",
-      "🏢 Servicios Inmobiliarios",
-      "📚 Educación (Colegios, Universidades, E-learning)",
-      "🏥 Sanidad y Servicios Sociales",
-      "👔 Servicios Profesionales (Abogados, Consultores)",
-      "💻 Tecnologías de la Información (TI)",
-      "🎬 Ocio, Cultura y Entretenimiento",
-      "💇 Servicios Personales (Peluquerías, Funerarias)",
-    ],
-    cuaternario: [
-      "🔬 Investigación y Desarrollo (Biotecnología, Nanotecnología)",
-      "🤖 Alta Tecnología (IA, Robótica, Big Data)",
-      "📊 Servicios Avanzados (Consultoría estratégica)",
-      "🎓 Educación Superior e Investigación",
-    ],
-    quinario: [
-      "👔 Alta Dirección (CEO, Consejos de Administración)",
-      "🏛️ Sector Público de Alto Nivel (Ministerios, Diplomacia)",
-      "❤️ ONGs, Fundaciones y Asociaciones",
-      "🎭 Liderazgo Social y Cultural",
-    ],
-  };
 
   // Datos de Yaracuy
   const municipiosYaracuy = [
@@ -157,14 +83,6 @@ const RegistroEmprendedor = () => {
     Veroes: ["Farriar", "El Farrial"],
   };
 
-  const añosOperando = [
-    "Menos de 1 año",
-    "1 a 3 años",
-    "3 a 5 años",
-    "5 a 10 años",
-    "Más de 10 años",
-  ];
-
   useEffect(() => {
     setIsVisible(true);
   }, []);
@@ -181,14 +99,6 @@ const RegistroEmprendedor = () => {
       setFormData((prev) => ({
         ...prev,
         parroquia: "",
-      }));
-    }
-
-    // Resetear subsector cuando cambia sector
-    if (name === "sectorEconomico") {
-      setFormData((prev) => ({
-        ...prev,
-        subsector: "",
       }));
     }
   };
@@ -213,20 +123,6 @@ const RegistroEmprendedor = () => {
       setCurrentStep(2);
       setRegistroError("");
     } else if (currentStep === 2) {
-      // Validar solo los 3 campos del emprendimiento
-      if (
-        !formData.aniosOperando ||
-        !formData.sectorEconomico ||
-        !formData.subsector
-      ) {
-        setRegistroError(
-          "Por favor completa todos los datos del emprendimiento",
-        );
-        return;
-      }
-      setCurrentStep(3);
-      setRegistroError("");
-    } else if (currentStep === 3) {
       if (!formData.email || !formData.password || !formData.confirmPassword) {
         setRegistroError("Por favor completa todos los campos de cuenta");
         return;
@@ -266,8 +162,7 @@ const RegistroEmprendedor = () => {
   const renderStepIndicator = () => {
     const steps = [
       { number: 1, title: "Datos Personales", icon: User },
-      { number: 2, title: "Emprendimiento", icon: Briefcase },
-      { number: 3, title: "Cuenta", icon: Mail },
+      { number: 2, title: "Cuenta", icon: Mail },
     ];
 
     return (
@@ -537,93 +432,9 @@ const RegistroEmprendedor = () => {
             )}
 
             {/* ============================================ */}
-            {/* PASO 2: DATOS DEL EMPRENDIMIENTO - SOLO 3 CAMPOS */}
+            {/* PASO 2: DATOS DE CUENTA */}
             {/* ============================================ */}
             {currentStep === 2 && (
-              <>
-                <div className="space-y-5">
-                  {/* Años operando */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Años Operando *
-                    </label>
-                    <select
-                      name="aniosOperando"
-                      value={formData.aniosOperando}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#264653] focus:border-transparent"
-                    >
-                      <option value="">Selecciona tiempo operando</option>
-                      {añosOperando.map((año) => (
-                        <option key={año} value={año}>
-                          {año}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Sector Económico */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Sector Económico *
-                    </label>
-                    <select
-                      name="sectorEconomico"
-                      value={formData.sectorEconomico}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#264653] focus:border-transparent"
-                    >
-                      <option value="">Selecciona un sector</option>
-                      {sectoresEconomicos.map((sector) => (
-                        <option key={sector.valor} value={sector.valor}>
-                          {sector.etiqueta}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Subsector (dependiente) */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Subsector / Actividad Específica *
-                    </label>
-                    <select
-                      name="subsector"
-                      value={formData.subsector}
-                      onChange={handleChange}
-                      disabled={!formData.sectorEconomico}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#264653] focus:border-transparent disabled:opacity-50 disabled:bg-gray-100"
-                    >
-                      <option value="">Selecciona un subsector</option>
-                      {formData.sectorEconomico &&
-                        subsectoresPorSector[formData.sectorEconomico]?.map(
-                          (subsector) => (
-                            <option key={subsector} value={subsector}>
-                              {subsector}
-                            </option>
-                          ),
-                        )}
-                    </select>
-                  </div>
-
-                  {/* Mensaje informativo */}
-                  <div className="bg-blue-50 p-4 rounded-lg mt-4">
-                    <p className="text-sm text-blue-800 flex items-start gap-2">
-                      <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
-                      <span>
-                        Selecciona el sector económico y luego el subsector
-                        específico de tu emprendimiento.
-                      </span>
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* ============================================ */}
-            {/* PASO 3: DATOS DE CUENTA */}
-            {/* ============================================ */}
-            {currentStep === 3 && (
               <>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -760,7 +571,7 @@ const RegistroEmprendedor = () => {
                   </>
                 ) : (
                   <>
-                    {currentStep === 3 ? "Completar Registro" : "Siguiente"}
+                    {currentStep === 2 ? "Completar Registro" : "Siguiente"}
                     <ArrowRight size={18} />
                   </>
                 )}

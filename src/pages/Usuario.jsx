@@ -68,8 +68,6 @@ const Usuario = () => {
     cedula: "",
     telefono: "",
     rol: "",
-    departamento: "",
-    cargo: "",
     estado: "Activo"
   });
 
@@ -82,7 +80,6 @@ const Usuario = () => {
   const [filters, setFilters] = useState({
     rol: '',
     estado: '',
-    departamento: '',
     fechaDesde: '',
     fechaHasta: ''
   });
@@ -97,8 +94,6 @@ const Usuario = () => {
       cedula: "V-12345678",
       telefono: "0412-1234567",
       rol: "Administrador",
-      departamento: "Dirección General",
-      cargo: "Directora General",
       estado: "Activo",
       fechaRegistro: "2024-01-15",
       ultimoAcceso: "2024-03-12 14:30:00",
@@ -114,8 +109,6 @@ const Usuario = () => {
       cedula: "V-87654321",
       telefono: "0416-7654321",
       rol: "Inspector",
-      departamento: "Dirección de Inspecciones",
-      cargo: "Inspector Jefe",
       estado: "Activo",
       fechaRegistro: "2024-01-20",
       ultimoAcceso: "2024-03-12 09:15:00",
@@ -131,8 +124,6 @@ const Usuario = () => {
       cedula: "V-11223344",
       telefono: "0424-1122334",
       rol: "Analista de Crédito",
-      departamento: "Dirección de Crédito",
-      cargo: "Analista Senior",
       estado: "Activo",
       fechaRegistro: "2024-01-25",
       ultimoAcceso: "2024-03-11 16:45:00",
@@ -148,8 +139,6 @@ const Usuario = () => {
       cedula: "V-99887766",
       telefono: "0414-9988776",
       rol: "Asistente",
-      departamento: "Atención al Ciudadano",
-      cargo: "Asistente Administrativa",
       estado: "Inactivo",
       fechaRegistro: "2024-02-01",
       ultimoAcceso: "2024-02-28 11:20:00",
@@ -165,8 +154,6 @@ const Usuario = () => {
       cedula: "V-55443322",
       telefono: "0412-5544332",
       rol: "Inspector",
-      departamento: "Dirección de Inspecciones",
-      cargo: "Inspector de Campo",
       estado: "Activo",
       fechaRegistro: "2024-02-10",
       ultimoAcceso: "2024-03-12 08:30:00",
@@ -182,8 +169,6 @@ const Usuario = () => {
       cedula: "V-66778899",
       telefono: "0416-6677889",
       rol: "Analista de Crédito",
-      departamento: "Dirección de Crédito",
-      cargo: "Analista Junior",
       estado: "Bloqueado",
       fechaRegistro: "2024-02-15",
       ultimoAcceso: "2024-03-10 10:15:00",
@@ -199,8 +184,6 @@ const Usuario = () => {
       cedula: "V-33445566",
       telefono: "0424-3344556",
       rol: "Supervisor",
-      departamento: "Dirección de Inspecciones",
-      cargo: "Supervisor de Inspecciones",
       estado: "Activo",
       fechaRegistro: "2024-02-20",
       ultimoAcceso: "2024-03-11 14:20:00",
@@ -216,8 +199,6 @@ const Usuario = () => {
       cedula: "V-77665544",
       telefono: "0412-7766554",
       rol: "Administrador",
-      departamento: "TI",
-      cargo: "Administrador de Sistemas",
       estado: "Activo",
       fechaRegistro: "2024-01-10",
       ultimoAcceso: "2024-03-12 13:45:00",
@@ -235,18 +216,6 @@ const Usuario = () => {
     { value: "Analista de Crédito", label: "Analista de Crédito", permisos: "Evaluación de créditos" },
     { value: "Asistente", label: "Asistente", permisos: "Gestión documental" },
     { value: "Consultor", label: "Consultor", permisos: "Solo consulta" }
-  ];
-
-  // Departamentos
-  const departamentos = [
-    "Dirección General",
-    "Dirección de Inspecciones",
-    "Dirección de Crédito",
-    "Atención al Ciudadano",
-    "TI",
-    "Recursos Humanos",
-    "Finanzas",
-    "Jurídico"
   ];
 
   // Estadísticas de usuarios
@@ -303,7 +272,6 @@ const Usuario = () => {
     
     const matchesRol = filters.rol === '' || user.rol === filters.rol;
     const matchesEstado = filters.estado === '' || user.estado === filters.estado;
-    const matchesDepartamento = filters.departamento === '' || user.departamento === filters.departamento;
     
     let matchesFecha = true;
     if (filters.fechaDesde && filters.fechaHasta) {
@@ -313,7 +281,7 @@ const Usuario = () => {
       matchesFecha = userDate >= desde && userDate <= hasta;
     }
     
-    return matchesSearch && matchesRol && matchesEstado && matchesDepartamento && matchesFecha;
+    return matchesSearch && matchesRol && matchesEstado && matchesFecha;
   });
 
   // Ordenamiento
@@ -381,8 +349,6 @@ const Usuario = () => {
       cedula: user.cedula,
       telefono: user.telefono,
       rol: user.rol,
-      departamento: user.departamento,
-      cargo: user.cargo,
       estado: user.estado
     });
     setModalMode("edit");
@@ -398,8 +364,6 @@ const Usuario = () => {
       cedula: "",
       telefono: "",
       rol: "",
-      departamento: "",
-      cargo: "",
       estado: "Activo"
     });
     setModalMode("create");
@@ -464,7 +428,6 @@ const Usuario = () => {
     setFilters({
       rol: '',
       estado: '',
-      departamento: '',
       fechaDesde: '',
       fechaHasta: ''
     });
@@ -674,7 +637,7 @@ const Usuario = () => {
               <div className={`mb-6 p-4 rounded-lg border ${
                 darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
               }`}>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <select
                     value={filters.rol}
                     onChange={(e) => setFilters({...filters, rol: e.target.value})}
@@ -703,21 +666,6 @@ const Usuario = () => {
                     <option value="Activo">Activo</option>
                     <option value="Inactivo">Inactivo</option>
                     <option value="Bloqueado">Bloqueado</option>
-                  </select>
-
-                  <select
-                    value={filters.departamento}
-                    onChange={(e) => setFilters({...filters, departamento: e.target.value})}
-                    className={`px-3 py-2 rounded-lg border ${
-                      darkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white' 
-                        : 'bg-white border-gray-200'
-                    }`}
-                  >
-                    <option value="">Todos los departamentos</option>
-                    {departamentos.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
                   </select>
 
                   <div className="flex gap-2">
@@ -794,13 +742,6 @@ const Usuario = () => {
                           <ArrowUpDown size={14} />
                         </div>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                          onClick={() => handleSort('departamento')}>
-                        <div className="flex items-center gap-2">
-                          Departamento
-                          <ArrowUpDown size={14} />
-                        </div>
-                      </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Estado
                       </th>
@@ -853,14 +794,6 @@ const Usuario = () => {
                           <span className={`px-2 py-1 text-xs rounded-full ${getRolBadge(usuario.rol)}`}>
                             {usuario.rol}
                           </span>
-                         </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                            {usuario.departamento}
-                          </span>
-                          <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            {usuario.cargo}
-                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-col gap-1">
@@ -934,8 +867,8 @@ const Usuario = () => {
                               <Trash2 size={18} className="text-red-500" />
                             </button>
                           </div>
-                        </td>
-                      </tr>
+                         </td>
+                       </tr>
                     ))}
                   </tbody>
                 </table>
@@ -1177,40 +1110,6 @@ const Usuario = () => {
                           </div>
                           <div>
                             <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Departamento *
-                            </label>
-                            <select
-                              value={formData.departamento}
-                              onChange={(e) => setFormData({...formData, departamento: e.target.value})}
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                            >
-                              <option value="">Seleccionar departamento</option>
-                              {departamentos.map(dept => (
-                                <option key={dept} value={dept}>{dept}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Cargo
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.cargo}
-                              onChange={(e) => setFormData({...formData, cargo: e.target.value})}
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                            />
-                          </div>
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                               Estado
                             </label>
                             <select
@@ -1268,18 +1167,6 @@ const Usuario = () => {
                             <label className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Rol</label>
                             <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                               {selectedUser.rol}
-                            </p>
-                          </div>
-                          <div>
-                            <label className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Departamento</label>
-                            <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                              {selectedUser.departamento}
-                            </p>
-                          </div>
-                          <div>
-                            <label className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cargo</label>
-                            <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                              {selectedUser.cargo}
                             </p>
                           </div>
                           <div>

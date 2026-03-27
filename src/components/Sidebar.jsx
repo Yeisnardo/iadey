@@ -49,8 +49,9 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
     { id: "entrepreneur-file", icon: Briefcase, text: "Expediente de emprendedor", path: "/Expediente" },
     { id: "inspection", icon: ClipboardCheck, text: "Inspección de emprendimiento", path: "/Inspeccion" },
     { id: "approval", icon: Handshake, text: "Aprobación solicitud de crédito", path: "/aprobacion" },
+    { id: "banck", icon: Handshake, text: "Listado para Credito a banco", path: "/Bancarios" },
     { id: "contract", icon: FileSignature, text: "Gestión de contrato", path: "/Contrato" },
-    { id: "disbursement", icon: CreditCard, text: "Desembolso y cuota", path: "/desembolso" },
+    { id: "disbursement", icon: CreditCard, text: "Desembolso", path: "/desembolso" },
     { id: "payment", icon: Landmark , text: "Pago de cuota", path: "/pago" },
     { id: "credit-request", icon: FileSearch , text: "Cartera", path: "/Cartera" }
   ];
