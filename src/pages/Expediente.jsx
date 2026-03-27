@@ -1,5 +1,3 @@
-// pages/Dashboard.jsx (versión actualizada con búsqueda de emprendedor y captura de documentos)
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
