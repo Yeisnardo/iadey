@@ -85,6 +85,11 @@ const CreditContracts = () => {
     { id: 4, text: "Solicitud de crédito aprobada", time: "1 día", read: true },
   ]);
   
+  // Constantes para los cálculos
+  const FLAT_PORCENTAJE = 5; // 5% flat
+  const INTERES_PORCENTAJE = 10; // 10% interés
+  const CUOTAS_FIJAS = 12; // 12 cuotas fijas
+
   // Estados para el formulario de contrato
   const [formData, setFormData] = useState({
     codigo: "",
@@ -94,9 +99,10 @@ const CreditContracts = () => {
     telefono: "",
     email: "",
     emprendimiento: "",
-    monto: "",
-    tasaInteres: "12",
-    plazo: "12",
+    montoDolares: "",
+    montoBolivares: "",
+    tasaInteres: INTERES_PORCENTAJE.toString(),
+    plazo: CUOTAS_FIJAS.toString(),
     cuotaMensual: "",
     fechaInicio: new Date().toISOString().split('T')[0],
     fechaVencimiento: "",
@@ -106,7 +112,7 @@ const CreditContracts = () => {
     garantias: "",
     observaciones: "",
     cuotasPagadas: 0,
-    totalCuotas: 12,
+    totalCuotas: CUOTAS_FIJAS,
     saldoPendiente: "",
     historialPagos: []
   });
@@ -141,25 +147,28 @@ const CreditContracts = () => {
       codigo: "CRE-2024-0001",
       emprendedor: "María González Pérez",
       cedula: "V-12345678",
+      telefono: "0412-1234567",
+      email: "maria@email.com",
       emprendimiento: "Restaurante El Sazón",
-      monto: 25000,
-      tasaInteres: 12,
-      plazo: 24,
-      cuotaMensual: 1176.47,
+      montoDolares: 25000,
+      montoBolivares: 950000,
+      tasaInteres: 10,
+      plazo: 12,
+      cuotaMensual: 2291.67,
       fechaInicio: "2024-01-15",
-      fechaVencimiento: "2026-01-15",
+      fechaVencimiento: "2025-01-15",
       estado: "Activo",
       tipoCredito: "Ordinario",
       cuotasPagadas: 3,
-      totalCuotas: 24,
-      saldoPendiente: 22058.82,
+      totalCuotas: 12,
+      saldoPendiente: 25000,
       destino: "Compra de equipos de cocina y remodelación del local",
       garantias: "Equipos adquiridos como garantía",
       observaciones: "Cliente con buen historial crediticio",
       historialPagos: [
-        { fecha: "2024-02-15", monto: 1176.47, estado: "Pagado", referencia: "PAG-001" },
-        { fecha: "2024-03-15", monto: 1176.47, estado: "Pagado", referencia: "PAG-002" },
-        { fecha: "2024-04-15", monto: 1176.47, estado: "Pagado", referencia: "PAG-003" }
+        { fecha: "2024-02-15", monto: 2291.67, estado: "Pagado", referencia: "PAG-001" },
+        { fecha: "2024-03-15", monto: 2291.67, estado: "Pagado", referencia: "PAG-002" },
+        { fecha: "2024-04-15", monto: 2291.67, estado: "Pagado", referencia: "PAG-003" }
       ]
     },
     {
@@ -167,24 +176,27 @@ const CreditContracts = () => {
       codigo: "CRE-2024-0002",
       emprendedor: "Juan Pérez Rodríguez",
       cedula: "V-87654321",
+      telefono: "0416-7654321",
+      email: "juan@email.com",
       emprendimiento: "Taller Mecánico Rápido",
-      monto: 15000,
+      montoDolares: 15000,
+      montoBolivares: 570000,
       tasaInteres: 10,
-      plazo: 18,
-      cuotaMensual: 902.78,
+      plazo: 12,
+      cuotaMensual: 1375,
       fechaInicio: "2024-02-01",
-      fechaVencimiento: "2025-08-01",
+      fechaVencimiento: "2025-02-01",
       estado: "Activo",
       tipoCredito: "Microcrédito",
       cuotasPagadas: 2,
-      totalCuotas: 18,
-      saldoPendiente: 13541.67,
+      totalCuotas: 12,
+      saldoPendiente: 15000,
       destino: "Compra de herramientas y equipos de diagnóstico",
       garantias: "Maquinaria y herramientas",
       observaciones: "",
       historialPagos: [
-        { fecha: "2024-03-01", monto: 902.78, estado: "Pagado", referencia: "PAG-004" },
-        { fecha: "2024-04-01", monto: 902.78, estado: "Pagado", referencia: "PAG-005" }
+        { fecha: "2024-03-01", monto: 1375, estado: "Pagado", referencia: "PAG-004" },
+        { fecha: "2024-04-01", monto: 1375, estado: "Pagado", referencia: "PAG-005" }
       ]
     },
     {
@@ -192,17 +204,20 @@ const CreditContracts = () => {
       codigo: "CRE-2024-0003",
       emprendedor: "Carlos Rodríguez Silva",
       cedula: "V-11223344",
+      telefono: "0424-1122334",
+      email: "carlos@email.com",
       emprendimiento: "Tienda de Ropa Moda",
-      monto: 50000,
-      tasaInteres: 15,
-      plazo: 36,
-      cuotaMensual: 1733.33,
+      montoDolares: 50000,
+      montoBolivares: 1900000,
+      tasaInteres: 10,
+      plazo: 12,
+      cuotaMensual: 4583.33,
       fechaInicio: "2024-01-10",
-      fechaVencimiento: "2027-01-10",
+      fechaVencimiento: "2025-01-10",
       estado: "Pendiente",
       tipoCredito: "Expansión",
       cuotasPagadas: 0,
-      totalCuotas: 36,
+      totalCuotas: 12,
       saldoPendiente: 50000,
       destino: "Ampliación del local y compra de inventario",
       garantias: "Local comercial",
@@ -214,24 +229,27 @@ const CreditContracts = () => {
       codigo: "CRE-2023-0012",
       emprendedor: "Ana Martínez López",
       cedula: "V-55667788",
+      telefono: "0412-5566778",
+      email: "ana@email.com",
       emprendimiento: "Distribuidora de Alimentos",
-      monto: 80000,
-      tasaInteres: 11,
-      plazo: 48,
-      cuotaMensual: 2072.92,
+      montoDolares: 80000,
+      montoBolivares: 3040000,
+      tasaInteres: 10,
+      plazo: 12,
+      cuotaMensual: 7333.33,
       fechaInicio: "2023-06-01",
-      fechaVencimiento: "2027-06-01",
+      fechaVencimiento: "2024-06-01",
       estado: "Activo",
       tipoCredito: "Ordinario",
       cuotasPagadas: 10,
-      totalCuotas: 48,
-      saldoPendiente: 62916.67,
+      totalCuotas: 12,
+      saldoPendiente: 80000,
       destino: "Compra de vehículo de distribución",
       garantias: "Vehículo",
       observaciones: "Pagos al día",
       historialPagos: [
-        { fecha: "2023-07-01", monto: 2072.92, estado: "Pagado", referencia: "PAG-010" },
-        { fecha: "2023-08-01", monto: 2072.92, estado: "Pagado", referencia: "PAG-011" }
+        { fecha: "2023-07-01", monto: 7333.33, estado: "Pagado", referencia: "PAG-010" },
+        { fecha: "2023-08-01", monto: 7333.33, estado: "Pagado", referencia: "PAG-011" }
       ]
     },
     {
@@ -239,24 +257,27 @@ const CreditContracts = () => {
       codigo: "CRE-2023-0015",
       emprendedor: "Luis Torres Méndez",
       cedula: "V-99887766",
+      telefono: "0416-9988776",
+      email: "luis@email.com",
       emprendimiento: "Servicios de Tecnología",
-      monto: 35000,
-      tasaInteres: 12,
-      plazo: 24,
-      cuotaMensual: 1647.06,
+      montoDolares: 35000,
+      montoBolivares: 1330000,
+      tasaInteres: 10,
+      plazo: 12,
+      cuotaMensual: 3208.33,
       fechaInicio: "2023-12-01",
-      fechaVencimiento: "2025-12-01",
+      fechaVencimiento: "2024-12-01",
       estado: "Vencido",
       tipoCredito: "Ordinario",
       cuotasPagadas: 4,
-      totalCuotas: 24,
-      saldoPendiente: 29323.53,
+      totalCuotas: 12,
+      saldoPendiente: 35000,
       destino: "Compra de servidores y equipos de red",
       garantias: "Equipos tecnológicos",
       observaciones: "Cliente con retraso en pagos",
       historialPagos: [
-        { fecha: "2024-01-01", monto: 1647.06, estado: "Pagado", referencia: "PAG-015" },
-        { fecha: "2024-02-01", monto: 1647.06, estado: "Pagado", referencia: "PAG-016" }
+        { fecha: "2024-01-01", monto: 3208.33, estado: "Pagado", referencia: "PAG-015" },
+        { fecha: "2024-02-01", monto: 3208.33, estado: "Pagado", referencia: "PAG-016" }
       ]
     },
     {
@@ -264,11 +285,14 @@ const CreditContracts = () => {
       codigo: "CRE-2024-0004",
       emprendedor: "Elena Sánchez Díaz",
       cedula: "V-44332211",
+      telefono: "0412-4433221",
+      email: "elena@email.com",
       emprendimiento: "Panadería La Espiga",
-      monto: 10000,
-      tasaInteres: 8,
+      montoDolares: 10000,
+      montoBolivares: 380000,
+      tasaInteres: 10,
       plazo: 12,
-      cuotaMensual: 869.57,
+      cuotaMensual: 916.67,
       fechaInicio: "2024-03-01",
       fechaVencimiento: "2025-03-01",
       estado: "Aprobado",
@@ -316,41 +340,22 @@ const CreditContracts = () => {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Calcular cuota mensual
-  const calcularCuotaMensual = (monto, tasaAnual, plazoMeses) => {
-    if (tasaAnual === 0) return monto / plazoMeses;
-    const tasaMensual = tasaAnual / 100 / 12;
-    const cuota = monto * tasaMensual * Math.pow(1 + tasaMensual, plazoMeses) / (Math.pow(1 + tasaMensual, plazoMeses) - 1);
-    return cuota;
+  // Función para calcular el monto en bolívares basado en el monto en dólares
+  const calcularMontoBolivares = (montoDolares) => {
+    if (!montoDolares || montoDolares <= 0) return 0;
+    const tasaCambio = 40;
+    const montoBs = montoDolares * tasaCambio;
+    const montoConFlat = montoBs * (1 - FLAT_PORCENTAJE / 100);
+    return Math.round(montoConFlat * 100) / 100;
   };
 
-  // Actualizar cuota mensual cuando cambian los datos
-  useEffect(() => {
-    if (formData.monto && formData.tasaInteres && formData.plazo) {
-      const montoNum = parseFloat(formData.monto);
-      const tasaNum = parseFloat(formData.tasaInteres);
-      const plazoNum = parseFloat(formData.plazo);
-      
-      if (montoNum > 0 && plazoNum > 0) {
-        const cuota = calcularCuotaMensual(montoNum, tasaNum, plazoNum);
-        setFormData(prev => ({
-          ...prev,
-          cuotaMensual: cuota.toFixed(2),
-          saldoPendiente: montoNum.toFixed(2),
-          totalCuotas: plazoNum
-        }));
-        
-        // Calcular fecha de vencimiento
-        const fechaInicio = new Date(formData.fechaInicio);
-        const fechaVenc = new Date(fechaInicio);
-        fechaVenc.setMonth(fechaVenc.getMonth() + plazoNum);
-        setFormData(prev => ({
-          ...prev,
-          fechaVencimiento: fechaVenc.toISOString().split('T')[0]
-        }));
-      }
-    }
-  }, [formData.monto, formData.tasaInteres, formData.plazo, formData.fechaInicio]);
+  // Función para calcular la cuota mensual
+  const calcularCuotaMensual = (montoDolares) => {
+    if (!montoDolares || montoDolares <= 0) return 0;
+    const montoConInteres = montoDolares * (1 + INTERES_PORCENTAJE / 100);
+    const cuota = montoConInteres / CUOTAS_FIJAS;
+    return Math.round(cuota * 100) / 100;
+  };
 
   // Generar código de contrato
   const generarCodigoContrato = () => {
@@ -359,6 +364,38 @@ const CreditContracts = () => {
     const nuevoNumero = contratosAño.length + 1;
     return `CRE-${año}-${String(nuevoNumero).padStart(4, '0')}`;
   };
+
+  // Actualizar cálculos cuando cambia el monto en dólares
+  useEffect(() => {
+    if (formData.montoDolares && parseFloat(formData.montoDolares) > 0) {
+      const montoDolaresNum = parseFloat(formData.montoDolares);
+      const montoBolivares = calcularMontoBolivares(montoDolaresNum);
+      const cuotaMensual = calcularCuotaMensual(montoDolaresNum);
+      const saldoPendiente = montoDolaresNum;
+      
+      setFormData(prev => ({
+        ...prev,
+        montoBolivares: montoBolivares.toFixed(2),
+        cuotaMensual: cuotaMensual.toFixed(2),
+        saldoPendiente: saldoPendiente.toFixed(2),
+        totalCuotas: CUOTAS_FIJAS,
+        plazo: CUOTAS_FIJAS.toString()
+      }));
+    }
+  }, [formData.montoDolares]);
+
+  // Actualizar fecha de vencimiento cuando cambia la fecha de inicio
+  useEffect(() => {
+    if (formData.fechaInicio) {
+      const fechaInicio = new Date(formData.fechaInicio);
+      const fechaVenc = new Date(fechaInicio);
+      fechaVenc.setMonth(fechaVenc.getMonth() + CUOTAS_FIJAS);
+      setFormData(prev => ({
+        ...prev,
+        fechaVencimiento: fechaVenc.toISOString().split('T')[0]
+      }));
+    }
+  }, [formData.fechaInicio]);
 
   // Abrir modal para nuevo contrato
   const handleNewContract = () => {
@@ -371,9 +408,10 @@ const CreditContracts = () => {
       telefono: "",
       email: "",
       emprendimiento: "",
-      monto: "",
-      tasaInteres: "12",
-      plazo: "12",
+      montoDolares: "",
+      montoBolivares: "",
+      tasaInteres: INTERES_PORCENTAJE.toString(),
+      plazo: CUOTAS_FIJAS.toString(),
       cuotaMensual: "",
       fechaInicio: new Date().toISOString().split('T')[0],
       fechaVencimiento: "",
@@ -383,7 +421,7 @@ const CreditContracts = () => {
       garantias: "",
       observaciones: "",
       cuotasPagadas: 0,
-      totalCuotas: 12,
+      totalCuotas: CUOTAS_FIJAS,
       saldoPendiente: "",
       historialPagos: []
     });
@@ -395,7 +433,8 @@ const CreditContracts = () => {
     setSelectedContract(contract);
     setFormData({
       ...contract,
-      monto: contract.monto.toString(),
+      montoDolares: contract.montoDolares.toString(),
+      montoBolivares: contract.montoBolivares.toString(),
       tasaInteres: contract.tasaInteres.toString(),
       plazo: contract.plazo.toString(),
       cuotaMensual: contract.cuotaMensual.toString()
@@ -405,18 +444,32 @@ const CreditContracts = () => {
 
   // Guardar contrato
   const handleSaveContract = () => {
+    const montoDolaresNum = parseFloat(formData.montoDolares);
+    const montoBolivaresNum = parseFloat(formData.montoBolivares);
     const cuotaNum = parseFloat(formData.cuotaMensual);
-    const montoNum = parseFloat(formData.monto);
     
-    if (!formData.emprendedor || !formData.monto || !formData.plazo) {
-      alert("Por favor, complete los campos requeridos");
+    if (!formData.emprendedor || !formData.montoDolares) {
+      alert("Por favor, complete los campos requeridos (Emprendedor y Monto en Dólares)");
+      return;
+    }
+    
+    if (montoDolaresNum <= 0) {
+      alert("El monto en dólares debe ser mayor a 0");
       return;
     }
     
     if (selectedContract) {
       const updatedContracts = contracts.map(c => 
         c.id === selectedContract.id 
-          ? { ...c, ...formData, monto: montoNum, cuotaMensual: cuotaNum }
+          ? { 
+              ...c, 
+              ...formData, 
+              montoDolares: montoDolaresNum, 
+              montoBolivares: montoBolivaresNum,
+              cuotaMensual: cuotaNum,
+              totalCuotas: CUOTAS_FIJAS,
+              plazo: CUOTAS_FIJAS
+            }
           : c
       );
       setContracts(updatedContracts);
@@ -431,8 +484,11 @@ const CreditContracts = () => {
       const newContract = {
         id: contracts.length + 1,
         ...formData,
-        monto: montoNum,
+        montoDolares: montoDolaresNum,
+        montoBolivares: montoBolivaresNum,
         cuotaMensual: cuotaNum,
+        totalCuotas: CUOTAS_FIJAS,
+        plazo: CUOTAS_FIJAS,
         historialPagos: []
       };
       setContracts([newContract, ...contracts]);
@@ -497,12 +553,10 @@ const CreditContracts = () => {
     const updatedContracts = contracts.map(c => {
       if (c.id === selectedContract.id) {
         const nuevasCuotasPagadas = c.cuotasPagadas + 1;
-        const nuevoSaldo = c.saldoPendiente - nuevoPago.monto;
         const nuevoEstado = nuevasCuotasPagadas === c.totalCuotas ? "Pagado" : c.estado;
         return {
           ...c,
           cuotasPagadas: nuevasCuotasPagadas,
-          saldoPendiente: nuevoSaldo,
           historialPagos: [nuevoPago, ...c.historialPagos],
           estado: nuevoEstado
         };
@@ -551,8 +605,8 @@ const CreditContracts = () => {
     const matchesTipo = !filters.tipoCredito || contract.tipoCredito === filters.tipoCredito;
     const matchesFechaDesde = !filters.fechaDesde || contract.fechaInicio >= filters.fechaDesde;
     const matchesFechaHasta = !filters.fechaHasta || contract.fechaInicio <= filters.fechaHasta;
-    const matchesMontoMin = !filters.montoMin || contract.monto >= parseFloat(filters.montoMin);
-    const matchesMontoMax = !filters.montoMax || contract.monto <= parseFloat(filters.montoMax);
+    const matchesMontoMin = !filters.montoMin || contract.montoDolares >= parseFloat(filters.montoMin);
+    const matchesMontoMax = !filters.montoMax || contract.montoDolares <= parseFloat(filters.montoMax);
     
     return matchesSearch && matchesTab && matchesEstado && matchesTipo && 
            matchesFechaDesde && matchesFechaHasta && matchesMontoMin && matchesMontoMax;
@@ -584,8 +638,9 @@ const CreditContracts = () => {
     activos: contracts.filter(c => c.estado === "Activo").length,
     pendientes: contracts.filter(c => c.estado === "Pendiente" || c.estado === "Aprobado").length,
     vencidos: contracts.filter(c => c.estado === "Vencido").length,
-    montoTotal: contracts.reduce((sum, c) => sum + c.monto, 0),
-    tasaPromedio: (contracts.reduce((sum, c) => sum + c.tasaInteres, 0) / contracts.length).toFixed(1)
+    montoTotalDolares: contracts.reduce((sum, c) => sum + c.montoDolares, 0),
+    montoTotalBolivares: contracts.reduce((sum, c) => sum + c.montoBolivares, 0),
+    tasaPromedio: INTERES_PORCENTAJE
   };
 
   const getStatusBadge = (status) => {
@@ -625,6 +680,10 @@ const CreditContracts = () => {
   // Formatear moneda
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'USD' }).format(amount);
+  };
+
+  const formatCurrencyBs = (amount) => {
+    return new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'VES' }).format(amount);
   };
 
   const handleLogout = () => {
@@ -680,7 +739,6 @@ const CreditContracts = () => {
 
         <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'}`}>
           <div className="p-4 md:p-6 mt-16">
-            {/* Contenido de Contratos de Crédito */}
             <div className="space-y-6">
               {/* Encabezado */}
               <div className="mb-6">
@@ -718,10 +776,10 @@ const CreditContracts = () => {
                   <div className="flex items-center justify-between mb-2">
                     <DollarSign className="text-yellow-500" size={24} />
                     <span className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {formatCurrency(stats.montoTotal)}
+                      {formatCurrency(stats.montoTotalDolares)}
                     </span>
                   </div>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Monto Total Otorgado</p>
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Monto Total Otorgado (USD)</p>
                 </div>
                 
                 <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
@@ -731,7 +789,7 @@ const CreditContracts = () => {
                       {stats.tasaPromedio}%
                     </span>
                   </div>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Tasa de Interés Promedio</p>
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Tasa de Interés Anual</p>
                 </div>
               </div>
 
@@ -879,7 +937,7 @@ const CreditContracts = () => {
                       className={`px-3 py-2 rounded-lg border ${
                         darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
                       }`}
-                      placeholder="Monto mínimo"
+                      placeholder="Monto mínimo (USD)"
                     />
 
                     <input
@@ -889,7 +947,7 @@ const CreditContracts = () => {
                       className={`px-3 py-2 rounded-lg border ${
                         darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
                       }`}
-                      placeholder="Monto máximo"
+                      placeholder="Monto máximo (USD)"
                     />
                   </div>
                   <div className="flex justify-end mt-4">
@@ -922,23 +980,19 @@ const CreditContracts = () => {
                           Emprendedor
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                            onClick={() => handleSort('monto')}>
+                            onClick={() => handleSort('montoDolares')}>
                           <div className="flex items-center gap-2">
-                            Monto
+                            Monto (USD)
                             <ArrowUpDown size={14} />
                           </div>
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                            onClick={() => handleSort('tasaInteres')}>
-                          <div className="flex items-center gap-2">
-                            Tasa
-                            <ArrowUpDown size={14} />
-                          </div>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Monto (Bs)
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                            onClick={() => handleSort('plazo')}>
+                            onClick={() => handleSort('cuotaMensual')}>
                           <div className="flex items-center gap-2">
-                            Plazo
+                            Cuota
                             <ArrowUpDown size={14} />
                           </div>
                         </th>
@@ -981,17 +1035,17 @@ const CreditContracts = () => {
                             </td>
                             <td className="px-4 py-3">
                               <span className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                {formatCurrency(contract.monto)}
+                                {formatCurrency(contract.montoDolares)}
                               </span>
                             </td>
                             <td className="px-4 py-3">
                               <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                {contract.tasaInteres}%
+                                {formatCurrencyBs(contract.montoBolivares)}
                               </span>
                             </td>
                             <td className="px-4 py-3">
                               <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                {contract.plazo} meses
+                                {formatCurrency(contract.cuotaMensual)}
                               </span>
                             </td>
                             <td className="px-4 py-3">
@@ -1167,8 +1221,7 @@ const CreditContracts = () => {
         </main>
       </div>
 
-      {/* Modales (igual que antes, se mantienen igual) */}
-      {/* Modal para crear/editar contrato */}
+      {/* Modal para crear/editar contrato - Continuación del código */}
       {showContractModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className={`rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto ${
@@ -1269,7 +1322,7 @@ const CreditContracts = () => {
                       <select
                         value={formData.emprendedorId}
                         onChange={(e) => {
-                          const emp = emprendedores.find(e => e.id === parseInt(e.target.value));
+                          const emp = emprendedores.find(emp => emp.id === parseInt(e.target.value));
                           if (emp) {
                             setFormData({
                               ...formData,
@@ -1353,60 +1406,103 @@ const CreditContracts = () => {
                     <DollarSign size={20} className="text-[#2A9D8F]" />
                     Datos del Crédito
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-4">
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      <strong>Condiciones del crédito:</strong> Flat del {FLAT_PORCENTAJE}% (se resta al monto en bolívares), 
+                      Interés del {INTERES_PORCENTAJE}% sobre el monto en dólares, {CUOTAS_FIJAS} cuotas fijas.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Monto del Crédito ($) *
+                        Monto del Crédito (USD) *
                       </label>
-                      <input
-                        type="number"
-                        value={formData.monto}
-                        onChange={(e) => setFormData({...formData, monto: e.target.value})}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                        }`}
-                        placeholder="0.00"
-                      />
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                          type="number"
+                          value={formData.montoDolares}
+                          onChange={(e) => setFormData({...formData, montoDolares: e.target.value})}
+                          className={`w-full pl-10 pr-3 py-2 rounded-lg border ${
+                            darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
+                          }`}
+                          placeholder="0.00"
+                          step="0.01"
+                        />
+                      </div>
+                      <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Monto que recibe el emprendedor en USD
+                      </p>
                     </div>
                     <div>
                       <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Tasa de Interés (%) *
+                        Monto en Bolívares (Bs)
                       </label>
-                      <input
-                        type="number"
-                        value={formData.tasaInteres}
-                        onChange={(e) => setFormData({...formData, tasaInteres: e.target.value})}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                        }`}
-                        step="0.1"
-                      />
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">Bs</span>
+                        <input
+                          type="text"
+                          value={formData.montoBolivares}
+                          readOnly
+                          className={`w-full pl-10 pr-3 py-2 rounded-lg border bg-gray-100 ${
+                            darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
+                          }`}
+                        />
+                      </div>
+                      <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Monto en Bs después de aplicar el flat del {FLAT_PORCENTAJE}%
+                      </p>
                     </div>
                     <div>
                       <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Plazo (meses) *
+                        Tasa de Interés
                       </label>
-                      <input
-                        type="number"
-                        value={formData.plazo}
-                        onChange={(e) => setFormData({...formData, plazo: e.target.value})}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                        }`}
-                      />
+                      <div className="relative">
+                        <Percent className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                          type="text"
+                          value={`${INTERES_PORCENTAJE}%`}
+                          readOnly
+                          className={`w-full pl-10 pr-3 py-2 rounded-lg border bg-gray-100 ${
+                            darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
+                          }`}
+                        />
+                      </div>
                     </div>
                     <div>
                       <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Cuota Mensual ($)
+                        Plazo
                       </label>
-                      <input
-                        type="text"
-                        value={formData.cuotaMensual}
-                        readOnly
-                        className={`w-full px-3 py-2 rounded-lg border bg-gray-100 ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
-                        }`}
-                      />
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                          type="text"
+                          value={`${CUOTAS_FIJAS} meses`}
+                          readOnly
+                          className={`w-full pl-10 pr-3 py-2 rounded-lg border bg-gray-100 ${
+                            darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
+                          }`}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Cuota Mensual (USD)
+                      </label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                          type="text"
+                          value={formData.cuotaMensual}
+                          readOnly
+                          className={`w-full pl-10 pr-3 py-2 rounded-lg border bg-gray-100 ${
+                            darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
+                          }`}
+                        />
+                      </div>
+                      <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        (Monto USD + {INTERES_PORCENTAJE}% interés) / {CUOTAS_FIJAS} cuotas
+                      </p>
                     </div>
                     <div>
                       <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -1424,18 +1520,21 @@ const CreditContracts = () => {
                         ))}
                       </select>
                     </div>
-                    <div>
+                    <div className="md:col-span-2">
                       <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         Fecha de Vencimiento
                       </label>
-                      <input
-                        type="date"
-                        value={formData.fechaVencimiento}
-                        readOnly
-                        className={`w-full px-3 py-2 rounded-lg border bg-gray-100 ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
-                        }`}
-                      />
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                          type="date"
+                          value={formData.fechaVencimiento}
+                          readOnly
+                          className={`w-full pl-10 pr-3 py-2 rounded-lg border bg-gray-100 ${
+                            darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
+                          }`}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1605,8 +1704,12 @@ const CreditContracts = () => {
                   </h3>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Monto:</span>
-                      <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{formatCurrency(selectedContract.monto)}</span>
+                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Monto (USD):</span>
+                      <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{formatCurrency(selectedContract.montoDolares)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Monto (Bs):</span>
+                      <span className={darkMode ? 'text-white' : 'text-gray-800'}>{formatCurrencyBs(selectedContract.montoBolivares)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Tasa Interés:</span>
@@ -1758,7 +1861,7 @@ const CreditContracts = () => {
       )}
 
       {/* Modal para registrar pago */}
-      {showPaymentModal && selectedContract && (
+      {showPaymentModal && selectedContract && selectedPayment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className={`rounded-xl w-full max-w-md ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
@@ -1783,13 +1886,13 @@ const CreditContracts = () => {
               <div className="space-y-4">
                 <div>
                   <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Monto a Pagar ($)
+                    Monto a Pagar (USD)
                   </label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                     <input
                       type="number"
-                      value={selectedPayment?.monto}
+                      value={selectedPayment.monto}
                       onChange={(e) => setSelectedPayment({...selectedPayment, monto: e.target.value})}
                       className={`w-full pl-10 pr-3 py-2 rounded-lg border ${
                         darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
@@ -1809,7 +1912,7 @@ const CreditContracts = () => {
                     <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                     <input
                       type="date"
-                      value={selectedPayment?.fecha}
+                      value={selectedPayment.fecha}
                       onChange={(e) => setSelectedPayment({...selectedPayment, fecha: e.target.value})}
                       className={`w-full pl-10 pr-3 py-2 rounded-lg border ${
                         darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
@@ -1823,7 +1926,7 @@ const CreditContracts = () => {
                   </label>
                   <input
                     type="text"
-                    value={selectedPayment?.referencia}
+                    value={selectedPayment.referencia}
                     onChange={(e) => setSelectedPayment({...selectedPayment, referencia: e.target.value})}
                     className={`w-full px-3 py-2 rounded-lg border ${
                       darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
@@ -1836,7 +1939,7 @@ const CreditContracts = () => {
                     Observaciones
                   </label>
                   <textarea
-                    value={selectedPayment?.observaciones}
+                    value={selectedPayment.observaciones}
                     onChange={(e) => setSelectedPayment({...selectedPayment, observaciones: e.target.value})}
                     rows={2}
                     className={`w-full px-3 py-2 rounded-lg border ${

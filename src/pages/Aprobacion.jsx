@@ -72,6 +72,7 @@ const Aprobacion = () => {
   const [selectedSolicitud, setSelectedSolicitud] = useState(null);
   const [observacionesAprobacion, setObservacionesAprobacion] = useState("");
   const [montoAprobado, setMontoAprobado] = useState("");
+  const [tipoControl, setTipoControl] = useState("controlInterno"); // "controlInterno" o "controlBanco"
   
   // Estados para los checkboxes de verificación
   const [verificaciones, setVerificaciones] = useState({
@@ -200,7 +201,8 @@ const Aprobacion = () => {
       motivoCredito: "Ampliación del local y compra de equipos de cocina",
       ingresosMensuales: 5000,
       egresosMensuales: 3000,
-      verificacionesGuardadas: null // Guardará las verificaciones realizadas
+      verificacionesGuardadas: null,
+      tipoControl: null
     },
     {
       id: 2,
@@ -237,7 +239,8 @@ const Aprobacion = () => {
       motivoCredito: "Compra de elevador hidráulico",
       ingresosMensuales: 3500,
       egresosMensuales: 2500,
-      verificacionesGuardadas: null
+      verificacionesGuardadas: null,
+      tipoControl: null
     },
     {
       id: 3,
@@ -274,7 +277,8 @@ const Aprobacion = () => {
       motivoCredito: "Renovación de inventario",
       ingresosMensuales: 4000,
       egresosMensuales: 2200,
-      verificacionesGuardadas: null
+      verificacionesGuardadas: null,
+      tipoControl: null
     },
     {
       id: 4,
@@ -311,7 +315,8 @@ const Aprobacion = () => {
       motivoCredito: "Apertura de nueva sucursal",
       ingresosMensuales: 2000,
       egresosMensuales: 1800,
-      verificacionesGuardadas: null
+      verificacionesGuardadas: null,
+      tipoControl: null
     },
     {
       id: 5,
@@ -380,7 +385,8 @@ const Aprobacion = () => {
           garantias: true,
           relacionDeuda: true
         }
-      }
+      },
+      tipoControl: "controlInterno"
     },
     {
       id: 6,
@@ -417,7 +423,8 @@ const Aprobacion = () => {
       motivoCredito: "Compra de hornos industriales",
       ingresosMensuales: 800,
       egresosMensuales: 1200,
-      verificacionesGuardadas: null
+      verificacionesGuardadas: null,
+      tipoControl: null
     },
     {
       id: 7,
@@ -454,7 +461,8 @@ const Aprobacion = () => {
       motivoCredito: "Equipamiento de quirófano",
       ingresosMensuales: 6000,
       egresosMensuales: 3500,
-      verificacionesGuardadas: null
+      verificacionesGuardadas: null,
+      tipoControl: null
     },
     {
       id: 8,
@@ -491,7 +499,8 @@ const Aprobacion = () => {
       motivoCredito: "Ampliación de área",
       ingresosMensuales: 8000,
       egresosMensuales: 5500,
-      verificacionesGuardadas: null
+      verificacionesGuardadas: null,
+      tipoControl: null
     }
   ]);
 
@@ -644,6 +653,7 @@ const Aprobacion = () => {
     setSelectedSolicitud(solicitud);
     setMontoAprobado(solicitud.montoSolicitado.toString());
     setObservacionesAprobacion(solicitud.observaciones || "");
+    setTipoControl("controlInterno");
     cargarVerificacionesGuardadas(solicitud);
     setModalOpen(true);
   };
@@ -669,7 +679,8 @@ const Aprobacion = () => {
               fechaRevision: new Date().toISOString().split('T')[0],
               observaciones: observacionesAprobacion,
               fechaAprobacion: new Date().toISOString(),
-              aprobadoPor: user.name
+              aprobadoPor: user.name,
+              tipoControl: tipoControl
             }
           : sol
       );
@@ -677,11 +688,11 @@ const Aprobacion = () => {
       setModalOpen(false);
       setSelectedSolicitud(null);
       
-      alert(`✅ Solicitud ${selectedSolicitud.codigo} APROBADA por $${parseFloat(montoAprobado).toLocaleString()}`);
+      alert(`✅ Solicitud ${selectedSolicitud.codigo} APROBADA por $${parseFloat(montoAprobado).toLocaleString()} (${tipoControl === "controlInterno" ? "Control Interno" : "Control Banco"})`);
       
       const nuevaNotificacion = {
         id: notifications.length + 1,
-        text: `Solicitud ${selectedSolicitud.codigo} aprobada por $${parseFloat(montoAprobado).toLocaleString()}`,
+        text: `Solicitud ${selectedSolicitud.codigo} aprobada por $${parseFloat(montoAprobado).toLocaleString()} (${tipoControl === "controlInterno" ? "Control Interno" : "Control Banco"})`,
         time: "Ahora",
         read: false
       };
@@ -722,7 +733,8 @@ const Aprobacion = () => {
               observaciones: observacionesAprobacion,
               fechaAprobacion: new Date().toISOString(),
               aprobadoPor: user.name,
-              aprobacionParcial: true
+              aprobacionParcial: true,
+              tipoControl: tipoControl
             }
           : sol
       );
@@ -730,11 +742,11 @@ const Aprobacion = () => {
       setModalOpen(false);
       setSelectedSolicitud(null);
       
-      alert(`⚠️ Solicitud ${selectedSolicitud.codigo} APROBADA PARCIALMENTE por $${parseFloat(montoAprobado).toLocaleString()}`);
+      alert(`⚠️ Solicitud ${selectedSolicitud.codigo} APROBADA PARCIALMENTE por $${parseFloat(montoAprobado).toLocaleString()} (${tipoControl === "controlInterno" ? "Control Interno" : "Control Banco"})`);
       
       const nuevaNotificacion = {
         id: notifications.length + 1,
-        text: `Solicitud ${selectedSolicitud.codigo} aprobada parcialmente`,
+        text: `Solicitud ${selectedSolicitud.codigo} aprobada parcialmente (${tipoControl === "controlInterno" ? "Control Interno" : "Control Banco"})`,
         time: "Ahora",
         read: false
       };
@@ -964,6 +976,15 @@ const Aprobacion = () => {
       'Alto': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
     };
     return styles[riesgo] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getTipoControlBadge = (tipoControl) => {
+    if (!tipoControl) return null;
+    const styles = {
+      'controlInterno': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      'controlBanco': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200'
+    };
+    return styles[tipoControl] || 'bg-gray-100 text-gray-800';
   };
 
   const formatCurrency = (amount) => {
@@ -1363,6 +1384,9 @@ const Aprobacion = () => {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Score
                       </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Tipo Control
+                      </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
                       </th>
@@ -1463,6 +1487,13 @@ const Aprobacion = () => {
                                 </div>
                               )}
                             </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            {solicitud.tipoControl && (
+                              <span className={`px-2 py-1 text-xs rounded-full ${getTipoControlBadge(solicitud.tipoControl)}`}>
+                                {solicitud.tipoControl === "controlInterno" ? "Control Interno" : "Control Banco"}
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-center gap-2">
@@ -1669,6 +1700,54 @@ const Aprobacion = () => {
                             {selectedSolicitud.scoreCrediticio}
                           </span>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Select para tipo de control */}
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Tipo de Control
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setTipoControl("controlInterno")}
+                          className={`p-3 rounded-lg border-2 transition-all ${
+                            tipoControl === "controlInterno"
+                              ? "border-[#2A9D8F] bg-[#2A9D8F]/10 text-[#2A9D8F]"
+                              : darkMode 
+                                ? "border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500" 
+                                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                          }`}
+                        >
+                          <div className="flex items-center justify-center gap-2">
+                            <Shield size={18} />
+                            <span className="font-medium">Control Interno</span>
+                          </div>
+                          <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Evaluación realizada por el comité interno
+                          </p>
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={() => setTipoControl("controlBanco")}
+                          className={`p-3 rounded-lg border-2 transition-all ${
+                            tipoControl === "controlBanco"
+                              ? "border-[#2A9D8F] bg-[#2A9D8F]/10 text-[#2A9D8F]"
+                              : darkMode 
+                                ? "border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500" 
+                                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                          }`}
+                        >
+                          <div className="flex items-center justify-center gap-2">
+                            <Building size={18} />
+                            <span className="font-medium">Control Banco</span>
+                          </div>
+                          <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Evaluación realizada por la entidad bancaria
+                          </p>
+                        </button>
                       </div>
                     </div>
 
