@@ -144,7 +144,7 @@ const RegistroEmprendedor = () => {
     const edad = hoy.getFullYear() - fechaNacimiento.getFullYear();
     const mes = hoy.getMonth() - fechaNacimiento.getMonth();
     if (mes < 0 || (mes === 0 && hoy.getDate() < fechaNacimiento.getDate())) {
-      edad--;
+      edad;
     }
     if (edad < 18) {
       setRegistroError("Debes ser mayor de 18 años para registrarte");
