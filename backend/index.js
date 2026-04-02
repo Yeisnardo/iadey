@@ -5,6 +5,10 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Importar rutas
+const usuarioRoutes = require('./routes/usuarios');
+const personaRoutes = require('./routes/persona');
+
 // Configurar CORS para aceptar peticiones de Vercel
 const corsOptions = {
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -30,6 +34,12 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK' });
 });
+
+// ============================================
+// REGISTRAR RUTAS DE API
+// ============================================
+app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/persona', personaRoutes);
 
 // Iniciar servidor
 app.listen(PORT, () => {
