@@ -16,6 +16,8 @@ import {
   Home,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import personaAPI from '../services/api_persona';
+import usuarioAPI from '../services/api_usuario'; // ← Importar el servicio de usuario
 
 const RegistroEmprendedor = () => {
   const navigate = useNavigate();
@@ -29,6 +31,7 @@ const RegistroEmprendedor = () => {
   const [registroError, setRegistroError] = useState("");
   const [registroExitoso, setRegistroExitoso] = useState(false);
   
+  // Datos a enviar
   const [formData, setFormData] = useState({
     // Datos personales
     nacionalidad: "",
@@ -141,10 +144,10 @@ const RegistroEmprendedor = () => {
 
     const fechaNacimiento = new Date(formData.fechaNacimiento);
     const hoy = new Date();
-    const edad = hoy.getFullYear() - fechaNacimiento.getFullYear();
+    let edad = hoy.getFullYear() - fechaNacimiento.getFullYear();
     const mes = hoy.getMonth() - fechaNacimiento.getMonth();
     if (mes < 0 || (mes === 0 && hoy.getDate() < fechaNacimiento.getDate())) {
-      edad;
+      edad--;
     }
     if (edad < 18) {
       setRegistroError("Debes ser mayor de 18 años para registrarte");
@@ -251,6 +254,19 @@ const RegistroEmprendedor = () => {
     return true;
   };
 
+  // Formatear cédula para enviar al backend
+  const formatearCedula = (cedula, nacionalidad) => {
+    // Si ya tiene el formato V-12345678, mantenerlo
+    if (cedula.match(/^[VE]-\d+$/i)) {
+      return cedula.toUpperCase();
+    }
+    // Si solo tiene números, agregar la nacionalidad
+    if (/^\d+$/.test(cedula)) {
+      return `${nacionalidad.toUpperCase()}-${cedula}`;
+    }
+    return cedula;
+  };
+
   // Handlers
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -267,6 +283,7 @@ const RegistroEmprendedor = () => {
     }
   };
 
+  // Enviar datos al backend
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -281,12 +298,62 @@ const RegistroEmprendedor = () => {
         setRegistroError("");
 
         try {
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-          console.log("Datos de registro:", formData);
+          // Formatear cédula correctamente
+          const cedulaFormateada = formatearCedula(formData.cedula, formData.nacionalidad);
+          
+          // Preparar datos para persona
+          const datosPersona = {
+            nacionalidad: formData.nacionalidad,
+            cedula: cedulaFormateada,
+            nombres: formData.nombres,
+            apellidos: formData.apellidos,
+            fechaNacimiento: formData.fechaNacimiento,
+            telefono: formData.telefono,
+            correo: formData.correo,
+            estado_civil: formData.estado_civil,
+            direccion: formData.direccion,
+            estado: formData.estado,
+            municipio: formData.municipio,
+            parroquia: formData.parroquia,
+            tipo_persona: formData.tipo_persona,
+            email: formData.email, // Guardar el email de login también en persona si es necesario
+          };
+
+          // Preparar datos para usuario
+          const datosUsuario = {
+            cedula_usuario: cedulaFormateada,
+            email: formData.email,
+            clave: formData.password,
+            rol: "emprendedor",
+            estatus: "activo",
+          };
+
+          console.log("Enviando datos de persona:", datosPersona);
+          console.log("Enviando datos de usuario:", datosUsuario);
+          
+          // PRIMERO: Crear la persona
+          const personaResult = await personaAPI.createPersona(datosPersona);
+          console.log("Persona creada exitosamente:", personaResult);
+          
+          // SEGUNDO: Crear el usuario asociado
+          const usuarioResult = await usuarioAPI.createUsuario(datosUsuario);
+          console.log("Usuario creado exitosamente:", usuarioResult);
+          
+          // Registro exitoso
           setRegistroExitoso(true);
           setTimeout(() => navigate("/login"), 3000);
+          
         } catch (error) {
-          setRegistroError("Error al procesar el registro. Por favor intenta nuevamente");
+          console.error("Error en registro:", error);
+          
+          // Manejar errores específicos del backend
+          if (error.response?.data?.message) {
+            setRegistroError(error.response.data.message);
+          } else if (error.response?.data?.error) {
+            setRegistroError(error.response.data.error);
+          } else {
+            setRegistroError("Error al procesar el registro. Por favor intenta nuevamente");
+          }
         } finally {
           setIsLoading(false);
         }
@@ -299,7 +366,7 @@ const RegistroEmprendedor = () => {
     setRegistroError("");
   };
 
-  // Renderizado de componentes
+  // Renderizado de componentes (igual que antes)
   const renderStepIndicator = () => {
     const steps = [
       { number: 1, title: "Datos Personales", icon: User },
@@ -647,7 +714,7 @@ const RegistroEmprendedor = () => {
             ¡Registro Exitoso!
           </h2>
           <p className="text-gray-600 mb-6">
-            Tu solicitud ha sido enviada correctamente. Recibirás un correo de confirmación.
+            Tu cuenta ha sido creada correctamente. Ya puedes iniciar sesión.
           </p>
           <p className="text-sm text-gray-500">Serás redirigido al login...</p>
         </div>
