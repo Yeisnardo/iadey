@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 5000;
 // Importar rutas
 const usuarioRoutes = require('./routes/usuarios');
 const personaRoutes = require('./routes/persona');
-const { testConnection } = require('./db');
+const { testConnection } = require('./config/conexion');
 
 // Configurar CORS para aceptar peticiones de Vercel
 const corsOptions = {
