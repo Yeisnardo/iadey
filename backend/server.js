@@ -1,7 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const { Pool } = require('pg');
+
+
+// Importaciones de las rutas
+const personaRoutes = require('../backend/routes/personaRoutes');
+const usuarioRoutes = require('../backend/routes/usuarioRoutes');
 
 dotenv.config();
 
@@ -11,25 +15,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-const pool = new Pool(
-  process.env.NODE_ENV === 'production' 
-    ? {
-        connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false }
-      }
-    : {
-        user: process.env.DB_USER,
-        password: process.env.DB_PASSWORD,
-        host: process.env.DB_HOST,
-        port: process.env.DB_PORT,
-        database: process.env.DB_NAME,
-      }
-);
-
-pool.connect((err) => {
-  if (err) console.error('❌ Error PostgreSQL:', err);
-  else console.log('✅ PostgreSQL conectado');
-});
+// Rutas
+app.use('/api', personaRoutes);
+app.use('/api', usuarioRoutes);
 
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Servidor funcionando' });

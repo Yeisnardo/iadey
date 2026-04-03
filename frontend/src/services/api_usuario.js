@@ -1,112 +1,137 @@
-import axios from 'axios';
+import api from './api_principal';
 
-// Detectar URL del backend según entorno
-const getBaseUrl = () => {
-  if (process.env.NODE_ENV === 'production') {
-    return process.env.REACT_APP_API_URL || 'https://backend-prueba-lwhh.onrender.com';
-  }
-  return 'http://localhost:5000';
-};
-
-const API_BASE_URL = getBaseUrl();
-
-console.log(`🌐 API URL: ${API_BASE_URL}`);
-
-// Crear instancia de axios
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Interceptor para errores
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error('API Error:', error.response?.data || error.message);
-    return Promise.reject(error);
-  }
-);
-
-// ============================================
-// SERVICIOS DE USUARIO
-// ============================================
-
-// Crear un nuevo usuario
-const createUsuario = async (usuario) => {
-  const response = await api.post('/api/usuarios', usuario);
-  return response.data;
-};
-
-// Obtener un usuario por cédula
-const getUsuario = async (cedula_usuario) => {
-  const response = await api.get(`/api/usuarios/${cedula_usuario}`);
-  return response.data;
-};
-
-// Obtener todos los usuarios
-const getUsuarios = async () => {
-  const response = await api.get('/api/usuarios');
-  return response.data;
-};
-
-// Actualizar un usuario por cédula
-const updateUsuario = async (cedula_usuario, usuario) => {
-  const response = await api.put(`/api/usuarios/${cedula_usuario}`, usuario);
-  return response.data;
-};
-
-// Eliminar un usuario por cédula
-const deleteUsuario = async (cedula_usuario) => {
-  const response = await api.delete(`/api/usuarios/${cedula_usuario}`);
-  return response.data;
-};
-
-// Actualizar estatus del usuario
-const updateUsuarioEstatus = async (cedula_usuario, estatus) => {
-  const response = await api.put(`/api/usuarios/${cedula_usuario}/estatus`, { estatus });
-  return response.data;
-};
-
-// Verificar contraseña del usuario
-const verifyPassword = async (cedula_usuario, password) => {
-  const response = await api.post('/api/usuarios/verify-password', {
-    cedula_usuario,
-    password
-  });
-  return response.data;
-};
-
-// Actualizar contraseña del usuario
-const updatePassword = async (cedula_usuario, clave) => {
-  const response = await api.put(`/api/usuarios/${cedula_usuario}/password`, { clave });
-  return response.data;
-};
-
-// Logout del usuario
-const logoutUsuario = async () => {
-  const response = await api.post('/api/usuarios/logout');
-  return response.data;
-};
-
-// ============================================
-// EXPORTAR TODOS LOS SERVICIOS
-// ============================================
-
-export default {
-  // Instancia de axios (por si la necesitas directamente)
-  api,
+const usuarioAPI = {
+  // ========== AUTENTICACIÓN ==========
   
-  // Servicios de usuario
-  createUsuario,
-  getUsuario,
-  getUsuarios,
-  updateUsuario,
-  deleteUsuario,
-  updateUsuarioEstatus,
-  verifyPassword,
-  updatePassword,
-  logoutUsuario,
+  // Iniciar sesión
+  login: async (email, clave) => {
+    try {
+      const response = await api.post('/login', { email, clave });
+      if (response.data.success) {
+        // Guardar token y datos del usuario
+        if (response.data.token) {
+          localStorage.setItem('token', response.data.token);
+        }
+        localStorage.setItem('user', JSON.stringify(response.data.data));
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error en login:', error);
+      throw error.response?.data || { error: 'Error al iniciar sesión' };
+    }
+  },
+
+  // Cerrar sesión
+  logout: () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  },
+
+  // Obtener usuario actual
+  getCurrentUser: () => {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
+  },
+
+  // Verificar si está autenticado
+  isAuthenticated: () => {
+    return !!localStorage.getItem('token');
+  },
+
+  // Obtener token
+  getToken: () => {
+    return localStorage.getItem('token');
+  },
+
+  // ========== CRUD USUARIOS ==========
+
+  // Obtener todos los usuarios
+  getAllUsuarios: async () => {
+    try {
+      const response = await api.get('/usuarios');
+      return response.data;
+    } catch (error) {
+      console.error('Error en getAllUsuarios:', error);
+      throw error.response?.data || { error: 'Error al obtener los usuarios' };
+    }
+  },
+
+  // Obtener usuario por ID
+  getUsuarioById: async (id) => {
+    try {
+      const response = await api.get(`/usuarios/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error en getUsuarioById:', error);
+      throw error.response?.data || { error: 'Error al obtener el usuario' };
+    }
+  },
+
+  // Obtener usuario por email
+  getUsuarioByEmail: async (email) => {
+    try {
+      const response = await api.get(`/usuarios/email/${email}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error en getUsuarioByEmail:', error);
+      throw error.response?.data || { error: 'Error al obtener el usuario por email' };
+    }
+  },
+
+  // Crear nuevo usuario
+  createUsuario: async (usuarioData) => {
+    try {
+      const response = await api.post('/usuarios', usuarioData);
+      return response.data;
+    } catch (error) {
+      console.error('Error en createUsuario:', error);
+      throw error.response?.data || { error: 'Error al crear el usuario' };
+    }
+  },
+
+  // Actualizar usuario
+  updateUsuario: async (id, usuarioData) => {
+    try {
+      const response = await api.put(`/usuarios/${id}`, usuarioData);
+      return response.data;
+    } catch (error) {
+      console.error('Error en updateUsuario:', error);
+      throw error.response?.data || { error: 'Error al actualizar el usuario' };
+    }
+  },
+
+  // Cambiar contraseña
+  updatePassword: async (id, nuevaClave) => {
+    try {
+      const response = await api.put(`/usuarios/${id}/password`, { nuevaClave });
+      return response.data;
+    } catch (error) {
+      console.error('Error en updatePassword:', error);
+      throw error.response?.data || { error: 'Error al cambiar la contraseña' };
+    }
+  },
+
+  // Cambiar estatus del usuario (activo, inactivo, bloqueado)
+  cambiarEstatus: async (id, estatus) => {
+    try {
+      const response = await api.put(`/usuarios/${id}/estatus`, { estatus });
+      return response.data;
+    } catch (error) {
+      console.error('Error en cambiarEstatus:', error);
+      throw error.response?.data || { error: 'Error al cambiar el estatus' };
+    }
+  },
+
+  // Eliminar usuario
+  deleteUsuario: async (id) => {
+    try {
+      const response = await api.delete(`/usuarios/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error en deleteUsuario:', error);
+      throw error.response?.data || { error: 'Error al eliminar el usuario' };
+    }
+  },
 };
+
+export default usuarioAPI;

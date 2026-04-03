@@ -1,88 +1,82 @@
-import axios from 'axios';
+import api from './api_principal';
 
-// Detectar URL del backend según entorno
-const getBaseUrl = () => {
-  if (process.env.NODE_ENV === 'production') {
-    return process.env.REACT_APP_API_URL || 'https://backend-prueba-lwhh.onrender.com';
-  }
-  return 'http://localhost:5000';
-};
-
-const API_BASE_URL = getBaseUrl();
-
-console.log(`🌐 API URL: ${API_BASE_URL}`);
-
-// Crear instancia de axios
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
+const personaAPI = {
+  // Obtener todas las personas
+  getAllPersonas: async () => {
+    try {
+      const response = await api.get('/personas');
+      return response.data;
+    } catch (error) {
+      console.error('Error en getAllPersonas:', error);
+      throw error.response?.data || { error: 'Error al obtener las personas' };
+    }
   },
-});
 
-// Interceptor para errores
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error('API Error:', error.response?.data || error.message);
-    return Promise.reject(error);
-  }
-);
+  // Obtener persona por ID
+  getPersonaById: async (id) => {
+    try {
+      const response = await api.get(`/personas/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error en getPersonaById:', error);
+      throw error.response?.data || { error: 'Error al obtener la persona' };
+    }
+  },
 
-// ============================================
-// SERVICIOS DE PERSONA
-// ============================================
+  // Obtener persona por cédula
+  getPersonaByCedula: async (cedula) => {
+    try {
+      const response = await api.get(`/personas/cedula/${cedula}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error en getPersonaByCedula:', error);
+      throw error.response?.data || { error: 'Error al obtener la persona por cédula' };
+    }
+  },
 
-// Crear una nueva persona (versión completa)
-const createPersona = async (persona) => {
-  const response = await api.post('/api/persona', persona);
-  return response.data;
+  // Obtener personas por tipo (emprendedor, cliente, admin)
+  getPersonasByTipo: async (tipo) => {
+    try {
+      const response = await api.get(`/personas/tipo/${tipo}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error en getPersonasByTipo:', error);
+      throw error.response?.data || { error: 'Error al obtener personas por tipo' };
+    }
+  },
+
+  // Crear nueva persona
+  createPersona: async (personaData) => {
+    try {
+      const response = await api.post('/personas', personaData);
+      return response.data;
+    } catch (error) {
+      console.error('Error en createPersona:', error);
+      throw error.response?.data || { error: 'Error al crear la persona' };
+    }
+  },
+
+  // Actualizar persona
+  updatePersona: async (id, personaData) => {
+    try {
+      const response = await api.put(`/personas/${id}`, personaData);
+      return response.data;
+    } catch (error) {
+      console.error('Error en updatePersona:', error);
+      throw error.response?.data || { error: 'Error al actualizar la persona' };
+    }
+  },
+
+  // Eliminar persona
+  deletePersona: async (id) => {
+    try {
+      const response = await api.delete(`/personas/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error en deletePersona:', error);
+      throw error.response?.data || { error: 'Error al eliminar la persona' };
+    }
+  },
 };
 
-// Crear persona con campos básicos
-const createPersonaBasica = async (persona) => {
-  const response = await api.post('/api/persona/basica', persona);
-  return response.data;
-};
-
-// Obtener una persona por cédula
-const getPersona = async (cedula) => {
-  const response = await api.get(`/api/persona/${cedula}`);
-  return response.data;
-};
-
-// Obtener todas las personas
-const getPersonas = async () => {
-  const response = await api.get('/api/persona');
-  return response.data;
-};
-
-// Actualizar una persona por cédula
-const updatePersona = async (cedula, persona) => {
-  const response = await api.put(`/api/persona/${cedula}`, persona);
-  return response.data;
-};
-
-// Eliminar una persona por cédula
-const deletePersona = async (cedula) => {
-  const response = await api.delete(`/api/persona/${cedula}`);
-  return response.data;
-};
-
-// ============================================
-// EXPORTAR TODOS LOS SERVICIOS
-// ============================================
-
-export default {
-  // Instancia de axios (por si la necesitas directamente)
-  api,
-  
-  // Servicios de persona
-  createPersona,
-  createPersonaBasica,
-  getPersona,
-  getPersonas,
-  updatePersona,
-  deletePersona,
-};
+export default personaAPI;
