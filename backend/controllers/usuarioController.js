@@ -31,10 +31,10 @@ const usuarioController = {
     }
   },
 
-  // Obtener usuario por email
-  async getByEmail(req, res) {
+  // Obtener usuario por cédula (reemplaza a getByEmail)
+  async getByCedula(req, res) {
     try {
-      const usuario = await UsuarioModel.getByEmail(req.params.email);
+      const usuario = await UsuarioModel.getByCedula(req.params.cedula_usuario);
       if (!usuario) {
         return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
       }
@@ -45,16 +45,10 @@ const usuarioController = {
     }
   },
 
-  // Crear usuario
+  // Crear usuario (sin email)
   async create(req, res) {
     try {
-      const { cedula_usuario, email, clave, rol, estatus } = req.body;
-
-      // Verificar si ya existe el email
-      const existeEmail = await UsuarioModel.getByEmail(email);
-      if (existeEmail) {
-        return res.status(400).json({ success: false, error: 'Ya existe un usuario con este email' });
-      }
+      const { cedula_usuario, clave, rol, estatus } = req.body;
 
       // Verificar si ya existe la cédula
       const existeCedula = await UsuarioModel.getByCedula(cedula_usuario);
@@ -68,10 +62,9 @@ const usuarioController = {
 
       const nuevoUsuario = await UsuarioModel.create({
         cedula_usuario,
-        email,
         clave: claveHasheada,
-        rol,
-        estatus
+        rol: rol || 'emprendedor',
+        estatus: estatus || 'activo'
       });
 
       res.status(201).json({ success: true, data: nuevoUsuario });
@@ -80,11 +73,11 @@ const usuarioController = {
     }
   },
 
-  // Actualizar usuario
+  // Actualizar usuario (sin email)
   async update(req, res) {
     try {
-      const { email, rol, estatus } = req.body;
-      const usuario = await UsuarioModel.update(req.params.id, { email, rol, estatus });
+      const { rol, estatus } = req.body;
+      const usuario = await UsuarioModel.update(req.params.id, { rol, estatus });
       if (!usuario) {
         return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
       }
@@ -139,12 +132,13 @@ const usuarioController = {
     }
   },
 
-  // Login
+  // Login (usando cédula en lugar de email)
   async login(req, res) {
     try {
-      const { email, clave } = req.body;
+      const { cedula_usuario, clave } = req.body;
       
-      const usuario = await UsuarioModel.getByEmail(email);
+      // Buscar por cédula en lugar de email
+      const usuario = await UsuarioModel.getByCedula(cedula_usuario);
       if (!usuario) {
         return res.status(401).json({ success: false, error: 'Credenciales incorrectas' });
       }
@@ -159,7 +153,7 @@ const usuarioController = {
       }
 
       // Actualizar último acceso
-      await UsuarioModel.updateUltimoAcceso(email);
+      await UsuarioModel.updateUltimoAcceso(cedula_usuario);
 
       const { clave: _, ...usuarioSinClave } = usuario;
       res.json({ success: true, data: usuarioSinClave });

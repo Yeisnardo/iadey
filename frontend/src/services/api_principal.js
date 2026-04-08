@@ -1,21 +1,22 @@
 import axios from 'axios';
 
-// ========== CONFIGURACIÓN PARA LOCAL Y RENDER ==========
-// Detecta automáticamente el entorno y usa la URL correcta
-
+// Configuración que funciona en LOCAL y en VERCEl
 const getBaseURL = () => {
-  // Si estamos en desarrollo (localhost)
+  // Desarrollo local
   if (import.meta.env.DEV) {
     return 'http://localhost:3000/api';
   }
   
-  // Si estamos en producción (Render)
+  // Producción (Vercel)
   if (import.meta.env.PROD) {
-    // Usar variable de entorno o URL fija de Render
-    return import.meta.env.VITE_API_URL || 'https://iadey-1.onrender.com/api';
+    // Primero intenta usar la variable de entorno
+    if (import.meta.env.VITE_API_URL) {
+      return import.meta.env.VITE_API_URL;
+    }
+    // Fallback a la URL de Render
+    return 'https://iadey-1.onrender.com/api';
   }
   
-  // Fallback
   return 'http://localhost:3000/api';
 };
 
@@ -24,45 +25,30 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 15000, // 15 segundos
+  timeout: 15000,
 });
 
-// ========== INTERCEPTOR PARA AGREGAR TOKEN ==========
+// Interceptor para agregar token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
-    // Log para debug (opcional)
-    if (import.meta.env.DEV) {
-      console.log(`📡 ${config.method.toUpperCase()} ${config.baseURL}${config.url}`);
-    }
-    
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// ========== INTERCEPTOR PARA MANEJAR ERRORES ==========
+// Interceptor para manejar errores
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Error 401 = No autorizado
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
-    
-    // Error 503 = Servicio no disponible
-    if (error.response?.status === 503) {
-      console.error('Servidor no disponible (503). El backend en Render puede estar inactivo.');
-    }
-    
     return Promise.reject(error);
   }
 );

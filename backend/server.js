@@ -17,7 +17,7 @@ app.use(express.json());
 
 // Rutas
 app.use('/api', personaRoutes);
-app.use('/api', usuarioRoutes);
+app.use('/api/usuarios', usuarioRoutes);
 
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Servidor funcionando' });

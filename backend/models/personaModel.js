@@ -1,27 +1,27 @@
 const pool = require('../config/db');
 
 class PersonaModel {
-  // Obtener todas las personas
+  // Obtener todas las persona
   static async getAll() {
-    const result = await pool.query('SELECT * FROM personas ORDER BY id');
+    const result = await pool.query('SELECT * FROM persona ORDER BY id');
     return result.rows;
   }
 
   // Obtener persona por ID
   static async getById(id) {
-    const result = await pool.query('SELECT * FROM personas WHERE id = $1', [id]);
+    const result = await pool.query('SELECT * FROM persona WHERE id = $1', [id]);
     return result.rows[0];
   }
 
   // Obtener persona por cédula
   static async getByCedula(cedula) {
-    const result = await pool.query('SELECT * FROM personas WHERE cedula = $1', [cedula]);
+    const result = await pool.query('SELECT * FROM persona WHERE cedula = $1', [cedula]);
     return result.rows[0];
   }
 
   // Obtener persona por correo
   static async getByCorreo(correo) {
-    const result = await pool.query('SELECT * FROM personas WHERE correo = $1', [correo]);
+    const result = await pool.query('SELECT * FROM persona WHERE correo = $1', [correo]);
     return result.rows[0];
   }
 
@@ -34,7 +34,7 @@ class PersonaModel {
     } = data;
 
     const result = await pool.query(
-      `INSERT INTO personas (
+      `INSERT INTO persona (
         nacionalidad, cedula, nombres, apellidos, fecha_nacimiento,
         telefono, correo, estado_civil, direccion, estado, municipio,
         parroquia, tipo_persona, email
@@ -56,7 +56,7 @@ class PersonaModel {
     } = data;
 
     const result = await pool.query(
-      `UPDATE personas SET
+      `UPDATE persona SET
         nacionalidad = $1, nombres = $2, apellidos = $3, fecha_nacimiento = $4,
         telefono = $5, correo = $6, estado_civil = $7, direccion = $8,
         estado = $9, municipio = $10, parroquia = $11, tipo_persona = $12,
@@ -71,14 +71,14 @@ class PersonaModel {
 
   // Eliminar persona (borrado lógico o físico)
   static async delete(id) {
-    const result = await pool.query('DELETE FROM personas WHERE id = $1 RETURNING *', [id]);
+    const result = await pool.query('DELETE FROM persona WHERE id = $1 RETURNING *', [id]);
     return result.rows[0];
   }
 
-  // Obtener personas por tipo
+  // Obtener persona por tipo
   static async getByTipo(tipo_persona) {
     const result = await pool.query(
-      'SELECT * FROM personas WHERE tipo_persona = $1 ORDER BY id',
+      'SELECT * FROM persona WHERE tipo_persona = $1 ORDER BY id',
       [tipo_persona]
     );
     return result.rows;

@@ -1,12 +1,12 @@
-import api from './api_principal';
+import api from '../services/api_principal';
 
 const usuarioAPI = {
   // ========== AUTENTICACIÓN ==========
   
-  // Iniciar sesión
-  login: async (email, clave) => {
+  // Iniciar sesión (ahora usando cédula en lugar de email)
+  login: async (cedula_usuario, clave) => {
     try {
-      const response = await api.post('/login', { email, clave });
+      const response = await api.post('/login', { cedula_usuario, clave });
       if (response.data.success) {
         // Guardar token y datos del usuario
         if (response.data.token) {
@@ -67,21 +67,23 @@ const usuarioAPI = {
     }
   },
 
-  // Obtener usuario por email
-  getUsuarioByEmail: async (email) => {
+  // Obtener usuario por cédula (reemplaza a getUsuarioByEmail)
+  getUsuarioByCedula: async (cedula_usuario) => {
     try {
-      const response = await api.get(`/usuarios/email/${email}`);
+      const response = await api.get(`/usuarios/cedula/${cedula_usuario}`);
       return response.data;
     } catch (error) {
-      console.error('Error en getUsuarioByEmail:', error);
-      throw error.response?.data || { error: 'Error al obtener el usuario por email' };
+      console.error('Error en getUsuarioByCedula:', error);
+      throw error.response?.data || { error: 'Error al obtener el usuario por cédula' };
     }
   },
 
-  // Crear nuevo usuario
+  // Crear nuevo usuario (sin email)
   createUsuario: async (usuarioData) => {
     try {
-      const response = await api.post('/usuarios', usuarioData);
+      // Asegurarse de que no se envíe email
+      const { email, ...dataSinEmail } = usuarioData;
+      const response = await api.post('/usuarios', dataSinEmail);
       return response.data;
     } catch (error) {
       console.error('Error en createUsuario:', error);
@@ -89,10 +91,11 @@ const usuarioAPI = {
     }
   },
 
-  // Actualizar usuario
+  // Actualizar usuario (sin email)
   updateUsuario: async (id, usuarioData) => {
     try {
-      const response = await api.put(`/usuarios/${id}`, usuarioData);
+      const { email, ...dataSinEmail } = usuarioData;
+      const response = await api.put(`/usuarios/${id}`, dataSinEmail);
       return response.data;
     } catch (error) {
       console.error('Error en updateUsuario:', error);
