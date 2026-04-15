@@ -135,30 +135,87 @@ const usuarioController = {
   // Login (usando cédula en lugar de email)
   async login(req, res) {
     try {
+      console.log('🔐 [LOGIN] Petición recibida');
+      console.log('📦 Body:', req.body);
+      
       const { cedula_usuario, clave } = req.body;
       
-      // Buscar por cédula en lugar de email
+      // Validar que los campos no estén vacíos
+      if (!cedula_usuario || !clave) {
+        console.log('❌ [LOGIN] Campos vacíos');
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Cédula y contraseña son requeridos' 
+        });
+      }
+      
+      console.log('🔍 [LOGIN] Buscando usuario con cédula:', cedula_usuario);
+      
+      // Buscar por cédula
       const usuario = await UsuarioModel.getByCedula(cedula_usuario);
+      
       if (!usuario) {
-        return res.status(401).json({ success: false, error: 'Credenciales incorrectas' });
+        console.log('❌ [LOGIN] Usuario no encontrado');
+        return res.status(401).json({ 
+          success: false, 
+          error: 'Credenciales incorrectas' 
+        });
       }
+      
+      console.log('✅ [LOGIN] Usuario encontrado:', {
+        id: usuario.id,
+        cedula: usuario.cedula_usuario,
+        rol: usuario.rol,
+        estatus: usuario.estatus
+      });
 
+      // Verificar estatus
       if (usuario.estatus !== 'activo') {
-        return res.status(401).json({ success: false, error: 'Usuario inactivo' });
+        console.log('❌ [LOGIN] Usuario inactivo:', usuario.estatus);
+        return res.status(401).json({ 
+          success: false, 
+          error: 'Usuario inactivo' 
+        });
       }
 
+      // Verificar contraseña
+      console.log('🔑 [LOGIN] Verificando contraseña...');
+      console.log('  - Contraseña ingresada (longitud):', clave.length);
+      console.log('  - Hash almacenado:', usuario.clave ? usuario.clave.substring(0, 20) + '...' : 'NO EXISTE');
+      
       const claveValida = await bcrypt.compare(clave, usuario.clave);
+      
+      console.log('  - ¿Contraseña válida?:', claveValida);
+      
       if (!claveValida) {
-        return res.status(401).json({ success: false, error: 'Credenciales incorrectas' });
+        console.log('❌ [LOGIN] Contraseña incorrecta');
+        return res.status(401).json({ 
+          success: false, 
+          error: 'Credenciales incorrectas' 
+        });
       }
 
       // Actualizar último acceso
+      console.log('📝 [LOGIN] Actualizando último acceso');
       await UsuarioModel.updateUltimoAcceso(cedula_usuario);
 
       const { clave: _, ...usuarioSinClave } = usuario;
-      res.json({ success: true, data: usuarioSinClave });
+      
+      console.log('✅ [LOGIN] Login exitoso para:', usuarioSinClave.cedula_usuario);
+      
+      res.json({ 
+        success: true, 
+        data: usuarioSinClave 
+      });
+      
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      console.error('💥 [LOGIN] Error:', error);
+      console.error('  - Mensaje:', error.message);
+      console.error('  - Stack:', error.stack);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Error interno del servidor: ' + error.message 
+      });
     }
   }
 };

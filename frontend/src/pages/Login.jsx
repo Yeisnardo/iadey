@@ -1,12 +1,13 @@
 // pages/Login.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Mail, Lock, User, AlertCircle, Shield, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { IdCard, Lock, User, AlertCircle, Shield, Eye, EyeOff, ArrowRight } from "lucide-react";
+import usuarioAPI from '../services/api_usuario'; // Importar la API real
 
 const Login = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    email: "",
+    cedula_usuario: "", // Cambiado de email a cedula_usuario
     password: ""
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -16,21 +17,46 @@ const Login = () => {
   
   useEffect(() => {
     setIsVisible(true);
-  }, []);
+    
+    // Verificar si ya está autenticado
+    if (usuarioAPI.isAuthenticated()) {
+      const user = usuarioAPI.getCurrentUser();
+      if (user) {
+        navigate("/dashboard", { replace: true });
+      }
+    }
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    // Para cédula, solo permitir números y letras (según formato venezolano)
+    if (name === "cedula_usuario") {
+      const filteredValue = value.replace(/[^\dVEve-]/g, '');
+      setFormData(prev => ({
+        ...prev,
+        [name]: filteredValue
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.email || !formData.password) {
+    // Validaciones
+    if (!formData.cedula_usuario || !formData.password) {
       setLoginError("Por favor completa todos los campos");
+      return;
+    }
+    
+    // Validar formato básico de cédula
+    const cedulaRegex = /^[\dVEve-]+$/;
+    if (!cedulaRegex.test(formData.cedula_usuario)) {
+      setLoginError("Formato de cédula inválido");
       return;
     }
     
@@ -38,24 +64,26 @@ const Login = () => {
     setLoginError("");
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Usar la API real de usuarioAPI
+      const response = await usuarioAPI.login(formData.cedula_usuario, formData.password);
       
-      if (formData.email === "demo@iadey.gob.ve" && formData.password === "Password123") {
-        const userData = {
-          id: "usr_" + Date.now(),
-          email: formData.email,
-          name: "Usuario Demo",
-          role: "emprendedor",
-          lastLogin: new Date().toISOString()
-        };
-        
-        localStorage.setItem('usuario', JSON.stringify(userData));
+      if (response.success) {
+        // Navegar al dashboard después del login exitoso
         navigate("/dashboard", { replace: true });
       } else {
-        setLoginError("Credenciales incorrectas");
+        setLoginError(response.error || "Credenciales incorrectas");
       }
     } catch (error) {
-      setLoginError("Error al conectar con el servidor");
+      console.error("Error de login:", error);
+      if (error.response?.status === 401) {
+        setLoginError("Cédula o contraseña incorrecta");
+      } else if (error.response?.status === 403) {
+        setLoginError("Usuario inactivo o bloqueado");
+      } else if (error.response?.status === 500) {
+        setLoginError("Error del servidor. Intente más tarde");
+      } else {
+        setLoginError(error.error || "Error al conectar con el servidor");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +109,7 @@ const Login = () => {
                 IADEY
               </h2>
               <p className="text-white/80 text-sm">
-                Instituto Autónomo del Desarrollo Economico del Estado Yaracuy
+                Instituto Autónomo del Desarrollo Económico del Estado Yaracuy
               </p>
             </div>
           </div>
@@ -94,41 +122,45 @@ const Login = () => {
               ¡Bienvenido de vuelta!
             </h3>
             <p className="text-gray-500 text-sm">
-              Inicia sesión para acceder a tu cuenta
+              Inicia sesión con tu cédula de identidad
             </p>
           </div>
 
           {/* Mensaje de error */}
           {loginError && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 animate-shake">
               <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-red-600">{loginError}</p>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Campo de email */}
+            {/* Campo de cédula */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Correo Electrónico
+                Cédula de Identidad
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail size={18} className="text-gray-400" />
+                  <IdCard size={18} className="text-gray-400" />
                 </div>
                 <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
+                  type="text"
+                  name="cedula_usuario"
+                  value={formData.cedula_usuario}
                   onChange={handleChange}
                   className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg
                     focus:outline-none focus:border-[#264653] focus:ring-2 focus:ring-[#264653]/20
                     transition-all duration-200 bg-white
                     disabled:opacity-50 disabled:cursor-not-allowed"
-                  placeholder="ejemplo@correo.com"
+                  placeholder="Ej: 12345678 o V-12345678"
                   disabled={isLoading}
+                  autoComplete="username"
                 />
               </div>
+              <p className="text-xs text-gray-500 mt-1 ml-1">
+                Ingresa tu número de cédula (V-12345678 o 12345678)
+              </p>
             </div>
 
             {/* Campo de contraseña */}
@@ -151,11 +183,13 @@ const Login = () => {
                     disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="••••••••"
                   disabled={isLoading}
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-[#264653] transition-colors"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>

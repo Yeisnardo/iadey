@@ -6,7 +6,7 @@ const usuarioAPI = {
   // Iniciar sesión (ahora usando cédula en lugar de email)
   login: async (cedula_usuario, clave) => {
     try {
-      const response = await api.post('/login', { cedula_usuario, clave });
+      const response = await api.post('/usuarios/login', { cedula_usuario, clave });
       if (response.data.success) {
         // Guardar token y datos del usuario
         if (response.data.token) {
