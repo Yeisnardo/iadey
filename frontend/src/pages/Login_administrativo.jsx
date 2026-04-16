@@ -2,12 +2,13 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { IdCard, Lock, User, AlertCircle, Shield, Eye, EyeOff, ArrowRight } from "lucide-react";
-import usuarioAPI from '../services/api_usuario'; // Importar la API real
+import Swal from 'sweetalert2';
+import usuarioAPI from '../services/api_usuario';
 
 const Login_administrativo = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    cedula_usuario: "", // Cambiado de email a cedula_usuario
+    cedula_usuario: "",
     password: ""
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -28,15 +29,109 @@ const Login_administrativo = () => {
         } else {
           // Si no es admin, cerrar sesión y mostrar mensaje
           usuarioAPI.logout();
-          setLoginError("Acceso restringido. Solo administradores.");
+          showAccessDeniedAlert();
         }
       }
     }
   }, [navigate]);
 
+  // Función para mostrar alerta de error
+  const showErrorAlert = (message) => {
+    Swal.fire({
+      icon: 'error',
+      title: 'Error de autenticación',
+      text: message,
+      confirmButtonColor: '#1a3542',
+      confirmButtonText: 'Entendido',
+      timer: 5000,
+      timerProgressBar: true,
+      showClass: {
+        popup: 'animate__animated animate__fadeInDown'
+      },
+      hideClass: {
+        popup: 'animate__animated animate__fadeOutUp'
+      },
+      background: '#fff',
+      backdrop: `rgba(26,53,66,0.4)`
+    });
+  };
+
+  // Función para mostrar alerta de validación
+  const showValidationAlert = () => {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Campos incompletos',
+      text: 'Por favor completa todos los campos para continuar',
+      confirmButtonColor: '#1a3542',
+      confirmButtonText: 'Ok',
+      timer: 3000,
+      showConfirmButton: true,
+      background: '#fff'
+    });
+  };
+
+  // Función para mostrar alerta de acceso denegado
+  const showAccessDeniedAlert = () => {
+    Swal.fire({
+      icon: 'error',
+      title: 'Acceso Denegado',
+      text: 'No tienes permisos de administrador para acceder a este panel',
+      confirmButtonColor: '#1a3542',
+      confirmButtonText: 'Entendido',
+      timer: 4000,
+      timerProgressBar: true,
+      background: '#fff'
+    });
+    setLoginError("Acceso restringido. Solo administradores.");
+  };
+
+  // Función para mostrar alerta de éxito
+  const showSuccessAlert = () => {
+    Swal.fire({
+      icon: 'success',
+      title: '¡Bienvenido Administrador!',
+      text: 'Acceso concedido al panel administrativo',
+      confirmButtonColor: '#1a3542',
+      confirmButtonText: 'Continuar',
+      timer: 2000,
+      showConfirmButton: false,
+      toast: true,
+      position: 'top-end',
+      showClass: {
+        popup: 'animate__animated animate__fadeInRight'
+      },
+      background: '#fff'
+    });
+  };
+
+  // Función para mostrar alerta de formato inválido
+  const showInvalidFormatAlert = () => {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Formato inválido',
+      text: 'El formato de cédula no es válido. Use solo números y la letra V/E',
+      confirmButtonColor: '#1a3542',
+      confirmButtonText: 'Corregir',
+      timer: 4000,
+      timerProgressBar: true,
+      background: '#fff'
+    });
+  };
+
+  // Función para mostrar alerta de error del servidor
+  const showServerErrorAlert = () => {
+    Swal.fire({
+      icon: 'error',
+      title: 'Error del servidor',
+      text: 'No se pudo conectar con el servidor. Intente más tarde',
+      confirmButtonColor: '#1a3542',
+      confirmButtonText: 'Intentar de nuevo',
+      background: '#fff'
+    });
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    // Para cédula, solo permitir números y letras (según formato venezolano)
     if (name === "cedula_usuario") {
       const filteredValue = value.replace(/[^\dVEve-]/g, '');
       setFormData(prev => ({
@@ -54,8 +149,9 @@ const Login_administrativo = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validaciones
+    // Validaciones con SweetAlert
     if (!formData.cedula_usuario || !formData.password) {
+      showValidationAlert();
       setLoginError("Por favor completa todos los campos");
       return;
     }
@@ -63,6 +159,7 @@ const Login_administrativo = () => {
     // Validar formato básico de cédula
     const cedulaRegex = /^[\dVEve-]+$/;
     if (!cedulaRegex.test(formData.cedula_usuario)) {
+      showInvalidFormatAlert();
       setLoginError("Formato de cédula inválido");
       return;
     }
@@ -80,26 +177,43 @@ const Login_administrativo = () => {
         // Verificar si el usuario es administrador
         if (user.rol === 'administrador' || user.rol === 'admin') {
           // Login exitoso para administrador
-          navigate("/admin/dashboard", { replace: true });
+          showSuccessAlert();
+          // Pequeña pausa para mostrar la alerta antes de navegar
+          setTimeout(() => {
+            navigate("/admin/dashboard", { replace: true });
+          }, 1500);
         } else {
           // Usuario válido pero no es administrador
           usuarioAPI.logout(); // Cerrar sesión
+          showAccessDeniedAlert();
           setLoginError("Acceso restringido. Solo personal administrativo autorizado.");
         }
       } else {
+        showErrorAlert(response.error || "Credenciales incorrectas");
         setLoginError(response.error || "Credenciales incorrectas");
       }
     } catch (error) {
       console.error("Error de login administrativo:", error);
+      
+      let errorMessage = "Error al conectar con el servidor";
+      
       if (error.response?.status === 401) {
-        setLoginError("Cédula o contraseña incorrecta");
+        errorMessage = "Cédula o contraseña incorrecta";
+        showErrorAlert(errorMessage);
       } else if (error.response?.status === 403) {
-        setLoginError("Usuario inactivo o bloqueado");
+        errorMessage = "Usuario inactivo o bloqueado";
+        showErrorAlert(errorMessage);
       } else if (error.response?.status === 500) {
-        setLoginError("Error del servidor. Intente más tarde");
+        errorMessage = "Error del servidor. Intente más tarde";
+        showServerErrorAlert();
+      } else if (error.error) {
+        errorMessage = error.error;
+        showErrorAlert(errorMessage);
       } else {
-        setLoginError(error.error || "Error al conectar con el servidor");
+        showErrorAlert(errorMessage);
       }
+      
+      setLoginError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -142,7 +256,7 @@ const Login_administrativo = () => {
             </p>
           </div>
 
-          {/* Mensaje de error */}
+          {/* Mensaje de error tradicional (opcional, se puede mantener para feedback visual adicional) */}
           {loginError && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 animate-shake">
               <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />

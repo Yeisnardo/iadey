@@ -2,12 +2,13 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { IdCard, Lock, User, AlertCircle, Shield, Eye, EyeOff, ArrowRight } from "lucide-react";
-import usuarioAPI from '../services/api_usuario'; // Importar la API real
+import Swal from 'sweetalert2';
+import usuarioAPI from '../services/api_usuario';
 
 const Login = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    cedula_usuario: "", // Cambiado de email a cedula_usuario
+    cedula_usuario: "",
     password: ""
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -29,7 +30,6 @@ const Login = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    // Para cédula, solo permitir números y letras (según formato venezolano)
     if (name === "cedula_usuario") {
       const filteredValue = value.replace(/[^\dVEve-]/g, '');
       setFormData(prev => ({
@@ -44,11 +44,62 @@ const Login = () => {
     }
   };
 
+  // Función para mostrar alertas de error
+  const showErrorAlert = (message) => {
+    Swal.fire({
+      icon: 'error',
+      title: 'Error de autenticación',
+      text: message,
+      confirmButtonColor: '#264653',
+      confirmButtonText: 'Entendido',
+      timer: 5000,
+      timerProgressBar: true,
+      showClass: {
+        popup: 'animate__animated animate__fadeInDown'
+      },
+      hideClass: {
+        popup: 'animate__animated animate__fadeOutUp'
+      }
+    });
+  };
+
+  // Función para mostrar alerta de validación de campos
+  const showValidationAlert = () => {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Campos incompletos',
+      text: 'Por favor completa todos los campos para continuar',
+      confirmButtonColor: '#264653',
+      confirmButtonText: 'Ok',
+      timer: 3000,
+      showConfirmButton: true
+    });
+  };
+
+  // Función para mostrar alerta de éxito en el login
+  const showSuccessAlert = () => {
+    Swal.fire({
+      icon: 'success',
+      title: '¡Bienvenido!',
+      text: 'Inicio de sesión exitoso',
+      confirmButtonColor: '#264653',
+      confirmButtonText: 'Continuar',
+      timer: 2000,
+      showConfirmButton: false,
+      toast: true,
+      position: 'top-end',
+      showClass: {
+        popup: 'animate__animated animate__fadeInRight'
+      }
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validaciones
+    // Validaciones con SweetAlert
     if (!formData.cedula_usuario || !formData.password) {
+      showValidationAlert();
       setLoginError("Por favor completa todos los campos");
       return;
     }
@@ -56,6 +107,7 @@ const Login = () => {
     // Validar formato básico de cédula
     const cedulaRegex = /^[\dVEve-]+$/;
     if (!cedulaRegex.test(formData.cedula_usuario)) {
+      showErrorAlert("Formato de cédula inválido");
       setLoginError("Formato de cédula inválido");
       return;
     }
@@ -64,26 +116,35 @@ const Login = () => {
     setLoginError("");
     
     try {
-      // Usar la API real de usuarioAPI
       const response = await usuarioAPI.login(formData.cedula_usuario, formData.password);
       
       if (response.success) {
-        // Navegar al dashboard después del login exitoso
-        navigate("/dashboard", { replace: true });
+        showSuccessAlert();
+        // Pequeña pausa para mostrar la alerta antes de navegar
+        setTimeout(() => {
+          navigate("/dashboard", { replace: true });
+        }, 1500);
       } else {
+        showErrorAlert(response.error || "Credenciales incorrectas");
         setLoginError(response.error || "Credenciales incorrectas");
       }
     } catch (error) {
       console.error("Error de login:", error);
+      
+      let errorMessage = "Error al conectar con el servidor";
+      
       if (error.response?.status === 401) {
-        setLoginError("Cédula o contraseña incorrecta");
+        errorMessage = "Cédula o contraseña incorrecta";
       } else if (error.response?.status === 403) {
-        setLoginError("Usuario inactivo o bloqueado");
+        errorMessage = "Usuario inactivo o bloqueado";
       } else if (error.response?.status === 500) {
-        setLoginError("Error del servidor. Intente más tarde");
-      } else {
-        setLoginError(error.error || "Error al conectar con el servidor");
+        errorMessage = "Error del servidor. Intente más tarde";
+      } else if (error.error) {
+        errorMessage = error.error;
       }
+      
+      showErrorAlert(errorMessage);
+      setLoginError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -126,7 +187,7 @@ const Login = () => {
             </p>
           </div>
 
-          {/* Mensaje de error */}
+          {/* Mensaje de error tradicional (opcional, puedes mantenerlo o eliminarlo) */}
           {loginError && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 animate-shake">
               <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />

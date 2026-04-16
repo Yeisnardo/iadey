@@ -6,6 +6,7 @@ const dotenv = require('dotenv');
 // Importaciones de las rutas
 const personaRoutes = require('../backend/routes/personaRoutes');
 const usuarioRoutes = require('../backend/routes/usuarioRoutes');
+const clasifEmprendimientoRoutes = require('../backend/routes/clasifEmprenRoutes');
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.use(express.json());
 // Rutas
 app.use('/api', personaRoutes);
 app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/clasificacion_emprendimiento', clasifEmprendimientoRoutes);
 
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Servidor funcionando' });

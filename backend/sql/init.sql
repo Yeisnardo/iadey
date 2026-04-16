@@ -20,7 +20,6 @@ CREATE TABLE persona (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-
 -- =============================================
 -- TABLA: usuarios
 -- =============================================
@@ -35,3 +34,60 @@ CREATE TABLE usuario (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cedula_usuario) REFERENCES persona(cedula) ON DELETE CASCADE ON UPDATE CASCADE
 );
+
+-- =============================================
+-- TABLA: clasificacion_emprendimiento
+-- =============================================
+CREATE TABLE clasificacion_emprendimiento ( 
+    id_clasificacion SERIAL PRIMARY KEY,
+    sector TEXT NOT NULL,
+    actividad TEXT NOT NULL,
+    n_ins_asig INT NOT NULL, -- Opciones (1 o 2)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =============================================
+-- TABLA: solicitud
+-- =============================================
+CREATE TABLE solicitud (
+    id_solicitud SERIAL PRIMARY KEY,
+    cedula_persona VARCHAR(20) NOT NULL,
+    solicitud TEXT NOT NULL,
+    fecha_solicitud VARCHAR(20),
+    monto_solicitado VARCHAR(100),
+    estatus VARCHAR(20),
+    motivo_rechazo TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cedula_persona) REFERENCES persona(cedula) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- =============================================
+-- TABLA: emprendimiento (CORREGIDA)
+-- =============================================
+CREATE TABLE emprendimiento (
+    id_emprendimiento SERIAL PRIMARY KEY,
+    id_solicitud INT NOT NULL,
+    id_clasificacion INT NOT NULL,
+    cedula_emprendimiento VARCHAR(20) NOT NULL,
+    anos_experiencia VARCHAR (100) NOT null,
+    nombre_emprendimiento TEXT NOT NULL,
+    direccion_empredimiento TEXT NOT NULL,
+    FOREIGN KEY (id_solicitud) REFERENCES solicitud(id_solicitud),
+    FOREIGN KEY (id_clasificacion) REFERENCES clasificacion_emprendimiento(id_clasificacion),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+            INSERT INTO clasificacion_emprendimiento (sector, Actividad) VALUES
+            (1, 'Tecnología - Desarrollo de software'),
+            (1, 'Tecnología - Consultoría IT'),
+            (2, 'Comercio - Venta de productos electrónicos'),
+            (2, 'Comercio - Ropa y accesorios'),
+            (3, 'Servicios - Marketing digital'),
+            (3, 'Servicios - Diseño gráfico'),
+            (4, 'Industria - Fabricación de muebles'),
+            (4, 'Industria - Producción textil'),
+            (5, 'Agroindustria - Cultivos orgánicos'),
+            (5, 'Agroindustria - Ganadería sostenible');
