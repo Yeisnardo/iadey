@@ -1,5 +1,5 @@
 // components/Header.jsx
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Menu, 
   X, 
@@ -13,6 +13,7 @@ import {
   HelpCircle,
   LogOut
 } from "lucide-react";
+import usuarioAPI from '../services/api_usuario';
 
 const Header = ({ 
   darkMode, 
@@ -24,11 +25,122 @@ const Header = ({
   setShowNotifications,
   showUserMenu,
   setShowUserMenu,
-  user,
   handleLogout,
   unreadCount,
   markAsRead
 }) => {
+  // Estado para almacenar información completa del usuario
+  const [userInfo, setUserInfo] = useState({
+    name: '',
+    cedula: '',
+    role: '',
+    estatus: ''
+  });
+
+  // Cargar información del usuario al montar el componente
+  useEffect(() => {
+    loadUserInfo();
+  }, []);
+
+  // Función para cargar información del usuario desde localStorage y API
+  const loadUserInfo = async () => {
+    try {
+      // Obtener usuario del localStorage (datos básicos del login)
+      const storedUser = usuarioAPI.getCurrentUser();
+      
+      if (storedUser) {
+        // Si solo tenemos la cédula, obtener datos completos
+        if (storedUser.cedula_usuario && !storedUser.nombre) {
+          const response = await usuarioAPI.getUsuarioByCedula(storedUser.cedula_usuario);
+          if (response.success && response.data) {
+            // Combinar datos de persona y usuario
+            setUserInfo({
+              name: response.data.persona?.nombre_completo || response.data.cedula_usuario,
+              cedula: response.data.cedula_usuario,
+              role: response.data.rol,
+              estatus: response.data.estatus
+            });
+          } else {
+            // Fallback con datos básicos
+            setUserInfo({
+              name: storedUser.cedula_usuario || 'Usuario',
+              cedula: storedUser.cedula_usuario,
+              role: storedUser.rol || 'usuario',
+              estatus: storedUser.estatus
+            });
+          }
+        } else {
+          // Ya tenemos los datos completos
+          setUserInfo({
+            name: storedUser.nombre_completo || storedUser.nombre || storedUser.cedula_usuario,
+            cedula: storedUser.cedula_usuario,
+            role: storedUser.rol,
+            estatus: storedUser.estatus
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando información del usuario:', error);
+      // Fallback: usar datos del localStorage si la API falla
+      const storedUser = usuarioAPI.getCurrentUser();
+      if (storedUser) {
+        setUserInfo({
+          name: storedUser.nombre_completo || storedUser.cedula_usuario || 'Usuario',
+          cedula: storedUser.cedula_usuario,
+          role: storedUser.rol || 'usuario',
+          estatus: storedUser.estatus
+        });
+      }
+    }
+  };
+
+  // Función para obtener el nombre para mostrar
+  const getDisplayName = () => {
+    if (userInfo.name && userInfo.name !== userInfo.cedula) {
+      return userInfo.name;
+    }
+    return userInfo.cedula || 'Usuario';
+  };
+
+  // Función para obtener el rol formateado (solo emprendedor y administrador)
+  const getFormattedRole = () => {
+    const roles = {
+      'admin': 'Administrador',
+      'ADMIN': 'Administrador',
+      'administrador': 'Administrador',
+      'emprendedor': 'Emprendedor',
+      'EMPRENDEDOR': 'Emprendedor'
+    };
+    return roles[userInfo.role?.toLowerCase()] || userInfo.role || 'Usuario';
+  };
+
+  // Función para obtener el color del rol (para badges o estilos)
+  const getRoleColor = () => {
+    const role = userInfo.role?.toLowerCase();
+    if (role === 'admin' || role === 'administrador') {
+      return 'from-purple-500 to-pink-500';
+    }
+    if (role === 'emprendedor') {
+      return 'from-blue-500 to-teal-500';
+    }
+    return 'from-gray-500 to-gray-600';
+  };
+
+  // Función para obtener las iniciales del avatar
+  const getInitials = () => {
+    const name = getDisplayName();
+    if (name && name !== userInfo.cedula) {
+      // Si tenemos nombre completo, tomar primeras letras
+      const parts = name.split(' ');
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+      }
+      return name[0].toUpperCase();
+    }
+    // Si solo tenemos cédula, tomar primeros 2 caracteres
+    return userInfo.cedula ? userInfo.cedula.substring(0, 2).toUpperCase() : 'U';
+  };
+
   return (
     <header className={`fixed top-0 w-full z-50 ${
       darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
@@ -45,7 +157,6 @@ const Header = ({
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-
         </div>
 
         {/* Right section */}
@@ -149,16 +260,28 @@ const Header = ({
               className="flex items-center gap-2 md:gap-3 p-1 md:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               aria-label="User menu"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#264653] to-[#2A9D8F] flex items-center justify-center text-white font-semibold">
-                {user?.name?.charAt(0) || 'U'}
+              <div className={`w-8 h-8 rounded-full bg-gradient-to-r ${getRoleColor()} flex items-center justify-center text-white font-semibold text-sm`}>
+                {getInitials()}
               </div>
               <div className="hidden md:block text-left">
                 <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  {user?.name || 'Usuario'}
+                  {getDisplayName()}
                 </p>
-                <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  {user?.role || 'Usuario'}
-                </p>
+                <div className="flex items-center gap-1">
+                  <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {getFormattedRole()}
+                  </p>
+                  {userInfo.role?.toLowerCase() === 'admin' && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                      Admin
+                    </span>
+                  )}
+                  {userInfo.role?.toLowerCase() === 'emprendedor' && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                      Emprende
+                    </span>
+                  )}
+                </div>
               </div>
               <ChevronDown size={16} className={`hidden md:block ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
             </button>
@@ -171,10 +294,13 @@ const Header = ({
                 <div className="p-2">
                   <div className={`md:hidden p-3 mb-2 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
                     <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {user?.name || 'Usuario'}
+                      {getDisplayName()}
                     </p>
                     <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {user?.email || 'usuario@email.com'}
+                      {getFormattedRole()}
+                    </p>
+                    <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                      Cédula: {userInfo.cedula}
                     </p>
                   </div>
                   

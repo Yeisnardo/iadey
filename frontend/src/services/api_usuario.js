@@ -8,11 +8,21 @@ const usuarioAPI = {
     try {
       const response = await api.post('/usuarios/login', { cedula_usuario, clave });
       if (response.data.success) {
-        // Guardar token y datos del usuario
+        // Guardar token
         if (response.data.token) {
           localStorage.setItem('token', response.data.token);
         }
-        localStorage.setItem('user', JSON.stringify(response.data.data));
+        
+        // Guardar información del usuario (con rol específico)
+        const userData = {
+          cedula_usuario: response.data.data.cedula_usuario,
+          rol: response.data.data.rol, // 'administrador' o 'emprendedor'
+          estatus: response.data.data.estatus,
+          nombre_completo: response.data.data.persona?.nombre_completo || null,
+          ultimo_acceso: response.data.data.ultimo_acceso
+        };
+        
+        localStorage.setItem('user', JSON.stringify(userData));
       }
       return response.data;
     } catch (error) {
