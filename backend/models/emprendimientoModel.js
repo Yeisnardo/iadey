@@ -7,11 +7,9 @@ class EmprendimientoModel {
       SELECT e.*, 
              s.solicitud, 
              s.cedula_persona,
-             s.estatus as estatus_solicitud,
-             c.nombre_clasificacion
+             s.estatus as estatus_solicitud
       FROM emprendimiento e
       LEFT JOIN solicitud s ON e.id_solicitud = s.id_solicitud
-      LEFT JOIN clasificacion_emprendimiento c ON e.id_clasificacion = c.id_clasificacion
       ORDER BY e.id_emprendimiento DESC
     `);
     return result.rows;
@@ -22,11 +20,9 @@ class EmprendimientoModel {
     const result = await pool.query(`
       SELECT e.*, 
              s.solicitud, 
-             s.cedula_persona,
-             c.nombre_clasificacion
+             s.cedula_persona
       FROM emprendimiento e
       LEFT JOIN solicitud s ON e.id_solicitud = s.id_solicitud
-      LEFT JOIN clasificacion_emprendimiento c ON e.id_clasificacion = c.id_clasificacion
       WHERE e.id_emprendimiento = $1
     `, [id_emprendimiento]);
     return result.rows[0];
@@ -35,10 +31,9 @@ class EmprendimientoModel {
   // Obtener emprendimiento por ID de solicitud
   static async getByIdSolicitud(id_solicitud) {
     const result = await pool.query(`
-      SELECT e.*, c.nombre_clasificacion
-      FROM emprendimiento e
-      LEFT JOIN clasificacion_emprendimiento c ON e.id_clasificacion = c.id_clasificacion
-      WHERE e.id_solicitud = $1
+      SELECT *
+      FROM emprendimiento
+      WHERE id_solicitud = $1
     `, [id_solicitud]);
     return result.rows[0];
   }

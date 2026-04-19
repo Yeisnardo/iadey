@@ -228,37 +228,65 @@ const SolicitudesPersona = () => {
   };
 
   const cargarSolicitudes = async () => {
-    setLoadingSolicitudes(true);
-    try {
-      const usuarioLogueado = usuarioAPI.getCurrentUser();
-      if (usuarioLogueado && usuarioLogueado.cedula_usuario) {
-        const response = await SolicitudAPI.getByCedula(usuarioLogueado.cedula_usuario);
+  setLoadingSolicitudes(true);
+  try {
+    const usuarioLogueado = usuarioAPI.getCurrentUser();
+    if (usuarioLogueado && usuarioLogueado.cedula_usuario) {
+      const response = await SolicitudAPI.getByCedula(usuarioLogueado.cedula_usuario);
+      
+      console.log("📊 Respuesta de la API:", response); // Para debugging
+      
+      // Verificar si la respuesta es exitosa y tiene datos
+      if (response && response.success && response.data) {
+        const solicitudesFormateadas = response.data.map(sol => ({
+          id: sol.id_solicitud,
+          fechaSolicitud: sol.fecha_solicitud,
+          emprendimiento: sol.nombre_emprendimiento || 'Sin especificar',
+          rifEmprendimiento: sol.cedula_emprendimiento || sol.cedula_persona,
+          montoSolicitado: parseFloat(sol.monto_solicitado) || 0,
+          estatus: sol.estatus || 'Pendiente',
+          motivo_rechazo: sol.motivo_rechazo,
+          destino: sol.solicitud,
+          analista: 'Por asignar',
+          clasificacion: sol.sector && sol.actividad ? `${sol.sector} - ${sol.actividad}` : 'No especificada',
+          anos_experiencia: sol.anos_experiencia || 'No especificado',
+          direccion_emprendimiento: sol.direccion_empredimiento || 'No especificada',
+        }));
         
-        if (response.success && response.data) {
-          const solicitudesFormateadas = response.data.map(sol => ({
-            id: sol.id_solicitud,
-            fechaSolicitud: sol.fecha_solicitud,
-            emprendimiento: sol.nombre_emprendimiento || 'Sin especificar',
-            rifEmprendimiento: sol.cedula_emprendimiento || sol.cedula_persona,
-            montoSolicitado: parseFloat(sol.monto_solicitado) || 0,
-            estatus: sol.estatus,
-            motivo_rechazo: sol.motivo_rechazo,
-            destino: sol.solicitud,
-            analista: sol.analista || 'Por asignar',
-            clasificacion: sol.clasificacion || 'No especificada',
-            anos_experiencia: sol.anos_experiencia || 'No especificado',
-            direccion_emprendimiento: sol.direccion_empredimiento || 'No especificada',
-          }));
-          setSolicitudes(solicitudesFormateadas);
-        }
+        console.log("📋 Solicitudes formateadas:", solicitudesFormateadas);
+        setSolicitudes(solicitudesFormateadas);
+      } else if (response && response.data && !response.success) {
+        // Si la respuesta no tiene el formato success
+        const solicitudesFormateadas = response.data.map(sol => ({
+          id: sol.id_solicitud,
+          fechaSolicitud: sol.fecha_solicitud,
+          emprendimiento: sol.nombre_emprendimiento || 'Sin especificar',
+          rifEmprendimiento: sol.cedula_emprendimiento || sol.cedula_persona,
+          montoSolicitado: parseFloat(sol.monto_solicitado) || 0,
+          estatus: sol.estatus || 'Pendiente',
+          motivo_rechazo: sol.motivo_rechazo,
+          destino: sol.solicitud,
+          analista: 'Por asignar',
+          clasificacion: 'No especificada',
+          anos_experiencia: sol.anos_experiencia || 'No especificado',
+          direccion_emprendimiento: sol.direccion_empredimiento || 'No especificada',
+        }));
+        
+        setSolicitudes(solicitudesFormateadas);
+      } else {
+        setSolicitudes([]);
       }
-    } catch (error) {
-      console.error('Error cargando solicitudes:', error);
+    } else {
+      console.log("No hay usuario logueado");
       setSolicitudes([]);
-    } finally {
-      setLoadingSolicitudes(false);
     }
-  };
+  } catch (error) {
+    console.error('❌ Error cargando solicitudes:', error);
+    setSolicitudes([]);
+  } finally {
+    setLoadingSolicitudes(false);
+  }
+};
 
   const obtenerIdClasificacion = (sector, actividad) => {
     const clasificacion = clasificaciones.find(

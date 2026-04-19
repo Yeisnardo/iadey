@@ -5,10 +5,17 @@ class SolicitudModel {
   static async getAll() {
     const result = await pool.query(`
       SELECT s.*, 
-             p.nombre as nombre_persona,
-             p.apellido as apellido_persona
+             p.nombre_completo as nombre_persona,
+             e.nombre_emprendimiento,
+             e.direccion_empredimiento,
+             e.anos_experiencia,
+             e.id_clasificacion,
+             c.sector,
+             c.actividad
       FROM solicitud s
       LEFT JOIN persona p ON s.cedula_persona = p.cedula
+      LEFT JOIN emprendimiento e ON s.id_solicitud = e.id_solicitud
+      LEFT JOIN clasificacion_emprendimiento c ON e.id_clasificacion = c.id_clasificacion
       ORDER BY s.id_solicitud DESC
     `);
     return result.rows;
@@ -18,13 +25,21 @@ class SolicitudModel {
   static async getById(id_solicitud) {
     const result = await pool.query(`
       SELECT s.*, 
-             p.nombre as nombre_persona,
-             p.apellido as apellido_persona,
+             p.nombre_completo as nombre_persona,
+             p.cedula,
+             p.telefono,
+             p.email,
              e.id_emprendimiento,
-             e.nombre_emprendimiento
+             e.nombre_emprendimiento,
+             e.direccion_empredimiento,
+             e.anos_experiencia,
+             e.id_clasificacion,
+             c.sector,
+             c.actividad
       FROM solicitud s
       LEFT JOIN persona p ON s.cedula_persona = p.cedula
       LEFT JOIN emprendimiento e ON s.id_solicitud = e.id_solicitud
+      LEFT JOIN clasificacion_emprendimiento c ON e.id_clasificacion = c.id_clasificacion
       WHERE s.id_solicitud = $1
     `, [id_solicitud]);
     return result.rows[0];
@@ -33,11 +48,26 @@ class SolicitudModel {
   // Obtener solicitudes por cédula de persona
   static async getByCedulaPersona(cedula_persona) {
     const result = await pool.query(`
-      SELECT s.*, 
-             p.nombre as nombre_persona,
-             p.apellido as apellido_persona
+      SELECT 
+        s.id_solicitud,
+        s.cedula_persona,
+        s.solicitud,
+        s.fecha_solicitud,
+        s.monto_solicitado,
+        s.estatus,
+        s.motivo_rechazo,
+        s.created_at,
+        s.updated_at,
+        e.nombre_emprendimiento,
+        e.direccion_empredimiento,
+        e.anos_experiencia,
+        e.cedula_emprendimiento,
+        c.sector,
+        c.actividad,
+        c.id_clasificacion
       FROM solicitud s
-      LEFT JOIN persona p ON s.cedula_persona = p.cedula
+      LEFT JOIN emprendimiento e ON s.id_solicitud = e.id_solicitud
+      LEFT JOIN clasificacion_emprendimiento c ON e.id_clasificacion = c.id_clasificacion
       WHERE s.cedula_persona = $1
       ORDER BY s.id_solicitud DESC
     `, [cedula_persona]);
@@ -52,7 +82,7 @@ class SolicitudModel {
       `INSERT INTO solicitud (cedula_persona, solicitud, fecha_solicitud, monto_solicitado, estatus)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [cedula_persona, solicitud, fecha_solicitud, monto_solicitado, estatus || 'pendiente']
+      [cedula_persona, solicitud, fecha_solicitud, monto_solicitado, estatus || 'Pendiente']
     );
     return result.rows[0];
   }
@@ -100,9 +130,12 @@ class SolicitudModel {
   // Obtener solicitudes por estatus
   static async getByEstatus(estatus) {
     const result = await pool.query(
-      `SELECT s.*, p.nombre, p.apellido 
+      `SELECT s.*, 
+              p.nombre_completo as nombre_persona,
+              e.nombre_emprendimiento
        FROM solicitud s
        LEFT JOIN persona p ON s.cedula_persona = p.cedula
+       LEFT JOIN emprendimiento e ON s.id_solicitud = e.id_solicitud
        WHERE s.estatus = $1
        ORDER BY s.id_solicitud DESC`,
       [estatus]
