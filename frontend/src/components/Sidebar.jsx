@@ -60,7 +60,8 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
   const settingsSubItems = [
     { id: "users", icon: UserPlus, text: "Registrar usuario", path: "/Usuario" },
     { id: "entrepreneurships", icon: Building, text: "Emprendimientos", path: "/Clasificacion_emprendimiento" },
-    { id: "contract-params", icon: FileText, text: "Parametrización de contrato", path: "/Configuracion_contrato" }
+    { id: "contract-params", icon: FileText, text: "Parametrización de contrato", path: "/Configuracion_contrato" },
+    { id: "contract-params", icon: FileText, text: "Configuracion de Requisitos", path: "/Configuracion_requisitos" }
   ];
 
   // Manejadores de eventos

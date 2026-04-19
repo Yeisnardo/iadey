@@ -9,6 +9,7 @@ const usuarioRoutes = require('../backend/routes/usuarioRoutes');
 const clasifEmprendimientoRoutes = require('../backend/routes/clasifEmprenRoutes');
 const solicitudRoutes = require('../backend/routes/solicitudRoutes');
 const emprendimientoRoutes = require('../backend/routes/emprendimientoRoutes');
+const requisitosRoutes = require('../backend/routes/requisitosRoutes');
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/clasificacion_emprendimiento', clasifEmprendimientoRoutes);
 app.use('/api/solicitud', solicitudRoutes);
 app.use('/api/emprendimiento', emprendimientoRoutes);
+app.use('/api/requisitos', requisitosRoutes)
 
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Servidor funcionando' });

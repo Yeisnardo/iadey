@@ -91,3 +91,30 @@ CREATE TABLE emprendimiento (
             (4, 'Industria - Producción textil'),
             (5, 'Agroindustria - Cultivos orgánicos'),
             (5, 'Agroindustria - Ganadería sostenible');
+
+
+-- =============================================
+-- TABLA: requisitos
+-- =============================================
+CREATE TABLE requisitos ( 
+    id_requisitos SERIAL PRIMARY KEY,
+    nombre_requisito TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =============================================
+-- TABLA: expediente
+-- =============================================
+CREATE TABLE expediente ( 
+    id_expediente SERIAL PRIMARY KEY,
+    id_solicitud int NOT NULL,
+    id_usuario int NOT NULL,
+    id_requisitos TEXT NOT NULL,
+    verificacion_requisitos TEXT,
+    estatus VARCHAR NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_solicitud) REFERENCES solicitud(id_solicitud),
+    FOREIGN KEY (id_usuario) REFERENCES usuario(id),
+    FOREIGN KEY (id_expediente) REFERENCES requisitos(id_requisitos)
+);
