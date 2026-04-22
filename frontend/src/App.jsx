@@ -15,6 +15,7 @@ import Contrato from "./pages/Contrato.jsx";
 import RegistroEmprendedor from "./pages/Registro-emprendedor.jsx";
 import Cartera from "./pages/Cartera.jsx";
 import Configuracion_requisitos from "./pages/Configuracion_requisitos.jsx";
+import Configuracion_contrato from "./pages/Configuracion_contrato.jsx";
 
 //Configuaciones de sistema
 import Usuario from "./pages/Usuario.jsx";
@@ -59,11 +60,13 @@ function App() {
         <Route path="/Contrato" element={<Contrato />} />
         <Route path="/Registro-emprendedor" element={<RegistroEmprendedor />} />
         <Route path="/Cartera" element={<Cartera />} />
-        <Route path="/Configuracion_requisitos" element={<Configuracion_requisitos />} />
 
         {/*Configuarion del sistema */}
         <Route path="/Usuario" element={<Usuario />} />
         <Route path="/Clasificacion_emprendimiento" element={<Clasificacion_emprendimiento />} />
+        <Route path="/Configuracion_requisitos" element={<Configuracion_requisitos />} />
+        <Route path="/Configuracion_contrato" element={<Configuracion_contrato />} />
+
       </Routes>
     </Router>
   );

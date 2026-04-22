@@ -1,65 +1,24 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
-  Search, 
-  Plus, 
-  Grid, 
-  List,
-  Briefcase,
-  DollarSign,
-  ShoppingCart,
-  Star,
-  Edit,
-  MessageCircle,
-  Upload,
-  CheckCircle,
-  ClipboardCheck,
-  Handshake,
-  CreditCard,
-  FileSignature,
-  Users,
-  FileText,
-  Building,
-  Clock,
-  AlertCircle,
-  TrendingUp,
-  Calendar,
-  UserCheck,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Eye,
-  Download,
-  Printer,
-  Filter,
-  ArrowUpDown,
-  MoreVertical,
-  X,
-  Save,
-  FolderPlus,
-  User,
-  Tag,
-  Calendar as CalendarIcon,
-  AlertTriangle,
-  FileCheck,
-  UserCheck as UserCheckIcon,
-  ListChecks,
-  Camera,
-  Image,
-  Trash2,
-  Check,
-  UserPlus,
-  Phone,
-  Mail,
-  MapPin,
-  IdCard
+  Search, Plus, Grid, List, Briefcase, DollarSign, ShoppingCart,
+  Star, Edit, MessageCircle, Upload, CheckCircle, ClipboardCheck,
+  Handshake, CreditCard, FileSignature, Users, FileText, Building,
+  Clock, AlertCircle, TrendingUp, Calendar, UserCheck, ChevronLeft,
+  ChevronRight, ChevronsLeft, ChevronsRight, Eye, Download, Printer,
+  Filter, ArrowUpDown, MoreVertical, X, Save, FolderPlus, User,
+  Tag, Calendar as CalendarIcon, AlertTriangle, FileCheck,
+  UserCheck as UserCheckIcon, ListChecks, Camera, Image, Trash2,
+  Check, UserPlus, Phone, Mail, MapPin, IdCard, Loader
 } from "lucide-react";
 
-// Importamos nuestros componentes personalizados
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
+import usuarioAPI from '../services/api_usuario';
+import requisitosAPI from '../services/api_requisitos';
+import expedienteAPI from '../services/api_expediente';
+import solicitudAPI from '../services/api_solicitud';
 
 const Expediente = () => {
   const navigate = useNavigate();
@@ -78,13 +37,27 @@ const Expediente = () => {
   const [viewMode, setViewMode] = useState("grid");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
+  const [loading, setLoading] = useState(false);
+
+  // Estado para los inspectores desde API
+  const [inspectores, setInspectores] = useState([]);
+  const [loadingInspectors, setLoadingInspectors] = useState(false);
+
+  // Estado para los requisitos desde API
+  const [requisitosLista, setRequisitosLista] = useState([]);
+  const [loadingRequisitos, setLoadingRequisitos] = useState(false);
+
+  // Estado para expedientes desde API
+  const [expedientes, setExpedientes] = useState([]);
+  const [loadingExpedientes, setLoadingExpedientes] = useState(false);
 
   // Estado para el nuevo expediente
   const [newExpediente, setNewExpediente] = useState({
     codigo: "",
     fecha: new Date().toISOString().split('T')[0],
-    estado: "Revisión",
+    estado: "Activo",
     inspector: "",
+    inspectorId: null,
     emprendedor: null,
     documentosCapturados: []
   });
@@ -93,6 +66,7 @@ const Expediente = () => {
   const [searchEmprendedorTerm, setSearchEmprendedorTerm] = useState("");
   const [showEmprendedorResults, setShowEmprendedorResults] = useState(false);
   const [selectedEmprendedor, setSelectedEmprendedor] = useState(null);
+  const [loadingEmprendedores, setLoadingEmprendedores] = useState(false);
   
   // Estado para captura de documentos
   const [showCameraModal, setShowCameraModal] = useState(false);
@@ -117,113 +91,228 @@ const Expediente = () => {
     fechaHasta: ''
   });
 
-  // Datos de ejemplo para los expedientes
-  const [expedientes, setExpedientes] = useState([
-    {
-      id: 1,
-      codigo: "EXP-2024-001",
-      nombre: "María González",
-      tipo: "Nuevo Emprendimiento",
-      fecha: "2024-03-12",
-      estado: "Pendiente",
-      prioridad: "Alta",
-      monto: "$25,000",
-      inspector: "Ing. Martínez",
-      documentos: 8,
-      ultimaActualizacion: "2024-03-12"
-    },
-    // ... más datos
-  ]);
+  // Datos de emprendedores desde API de solicitudes
+  const [emprendedoresRegistrados, setEmprendedoresRegistrados] = useState([]);
 
-  // Datos de emprendedores registrados
-  const [emprendedoresRegistrados, setEmprendedoresRegistrados] = useState([
-    {
-      id: 1,
-      nombre: "María González Pérez",
-      cedula: "V-12345678",
-      telefono: "0412-1234567",
-      email: "maria.gonzalez@email.com",
-      direccion: "Av. Principal, Edif. Central, Caracas",
-      emprendimiento: "Restaurante El Sazón",
-      rif: "J-123456789",
-      status: "Activo"
-    },
-    {
-      id: 2,
-      nombre: "Juan Pérez Rodríguez",
-      cedula: "V-87654321",
-      telefono: "0416-7654321",
-      email: "juan.perez@email.com",
-      direccion: "Calle 5, Qta. Rosa, Maracaibo",
-      emprendimiento: "Taller Mecánico Rápido",
-      rif: "J-987654321",
-      status: "Activo"
-    },
-    {
-      id: 3,
-      nombre: "Carlos Rodríguez Silva",
-      cedula: "V-11223344",
-      telefono: "0424-1122334",
-      email: "carlos.rodriguez@email.com",
-      direccion: "Av. Libertador, Centro Comercial, Valencia",
-      emprendimiento: "Tienda de Ropa Moda",
-      rif: "J-456789123",
-      status: "Activo"
-    },
-    {
-      id: 4,
-      nombre: "Ana Martínez López",
-      cedula: "V-55667788",
-      telefono: "0412-5566778",
-      email: "ana.martinez@email.com",
-      direccion: "Calle Real, Casa 23, Barquisimeto",
-      emprendimiento: "Distribuidora de Alimentos",
-      rif: "J-789123456",
-      status: "Activo"
-    },
-    {
-      id: 5,
-      nombre: "Luis Torres Méndez",
-      cedula: "V-99887766",
-      telefono: "0416-9988776",
-      email: "luis.torres@email.com",
-      direccion: "Av. Universidad, Edif. Central, Maracay",
-      emprendimiento: "Servicios de Tecnología",
-      rif: "J-321654987",
-      status: "Activo"
+  // Datos del usuario
+  const user = {
+    name: "Administrador IADEY",
+    email: "admin@iadey.gob.ve",
+    role: "Administrador",
+    avatar: null,
+    department: "Gestión de Créditos",
+    joinDate: "Enero 2024",
+    pendingTasks: 8,
+    completedTasks: 45,
+    performance: "98%"
+  };
+
+  // Datos específicos por sección
+  const sectionData = {
+    overview: {
+      title: "Gestión de Expedientes",
+      description: "Resumen general de los expedientes archivados en el IADEY",
+      stats: [
+        { id: 1, title: "Expedientes Activos", value: "0", change: "+0", icon: Briefcase, color: "blue", bgColor: "bg-blue-50", textColor: "text-blue-600" },
+        { id: 2, title: "Inspecciones Pendientes", value: "0", change: "+0", icon: ClipboardCheck, color: "orange", bgColor: "bg-orange-50", textColor: "text-orange-600" },
+        { id: 3, title: "Solicitudes Crédito", value: "0", change: "+0", icon: Handshake, color: "green", bgColor: "bg-green-50", textColor: "text-green-600" },
+        { id: 4, title: "Contratos Activos", value: "0", change: "+0", icon: FileSignature, color: "purple", bgColor: "bg-purple-50", textColor: "text-purple-600" },
+      ],
+      pendingItems: [],
+      actionButton: "Nuevo Registro",
+      pendingTitle: "Actividad Reciente"
     }
-  ]);
+  };
 
-  // Lista de inspectores disponibles
-  const inspectores = [
-    "Ing. Martínez",
-    "Ing. López",
-    "Ing. García",
-    "Ing. Pérez",
-    "Ing. Sánchez",
-    "Ing. Ramírez",
-    "Ing. Díaz",
-    "Ing. Torres"
-  ];
+  // Función para cargar expedientes desde la API
+  const cargarExpedientes = async () => {
+    setLoadingExpedientes(true);
+    try {
+      const response = await expedienteAPI.getAllExpedientes();
+      console.log('Respuesta de expedientes:', response);
+      
+      if (response.success && response.data) {
+        const expedientesFormateados = response.data.map(exp => ({
+          id: exp.id_expediente,
+          codigo: exp.codigo_expediente,
+          nombre: `${exp.nombres || ''} ${exp.apellidos || ''}`.trim() || exp.cedula || 'Sin nombre',
+          tipo: exp.solicitud || "Nuevo Expediente",
+          fecha: exp.created_at ? exp.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+          estado: exp.estatus || "Activo",
+          prioridad: "Media",
+          monto: exp.monto_solicitado ? `$${exp.monto_solicitado}` : "$0",
+          inspector: exp.usuario_nombre || "No asignado",
+          inspectorId: exp.id_usuario,
+          documentos: exp.id_requisitos ? JSON.parse(exp.id_requisitos || '[]').length : 0,
+          ultimaActualizacion: exp.updated_at ? exp.updated_at.split('T')[0] : exp.created_at?.split('T')[0]
+        }));
+        
+        setExpedientes(expedientesFormateados);
+        
+        const stats = {
+          activos: expedientesFormateados.filter(e => e.estado === 'Activo').length,
+          enProceso: expedientesFormateados.filter(e => e.estado === 'En Proceso').length,
+          completados: expedientesFormateados.filter(e => e.estado === 'Completado').length
+        };
+        
+        if (sectionData.overview.stats[0]) {
+          sectionData.overview.stats[0].value = stats.activos.toString();
+          sectionData.overview.stats[1].value = stats.enProceso.toString();
+          sectionData.overview.stats[2].value = stats.completados.toString();
+        }
+      }
+    } catch (error) {
+      console.error('Error al cargar expedientes:', error);
+    } finally {
+      setLoadingExpedientes(false);
+    }
+  };
 
-  // Requisitos según tipo de trámite
-  const requisitosLista = [
-    { id: 1, nombre: "Cédula de identidad (frente)", tipo: "documento", requerido: true },
-    { id: 2, nombre: "Cédula de identidad (respaldo)", tipo: "documento", requerido: true },
-    { id: 3, nombre: "Registro Único de Información Fiscal (RIF)", tipo: "documento", requerido: true },
-    { id: 4, nombre: "Plan de negocio", tipo: "documento", requerido: true },
-    { id: 5, nombre: "Estado de cuenta bancario", tipo: "documento", requerido: false },
-    { id: 6, nombre: "Fotos del local comercial", tipo: "foto", requerido: true },
-    { id: 7, nombre: "Fotos de equipos/maquinaria", tipo: "foto", requerido: false },
-    { id: 8, nombre: "Permiso de uso de suelo", tipo: "documento", requerido: false },
-    { id: 9, nombre: "Licencia de actividades económicas", tipo: "documento", requerido: true },
-    { id: 10, nombre: "Fachada del negocio", tipo: "foto", requerido: true }
-  ];
+  // Función para cargar emprendedores desde la API de solicitudes (SIN datos falsos)
+  const cargarEmprendedores = async () => {
+    setLoadingEmprendedores(true);
+    try {
+      const response = await solicitudAPI.getAll();
+      console.log('Respuesta de solicitudes (emprendedores):', response);
+      
+      let solicitudesList = [];
+      
+      // Extraer el array de solicitudes según la estructura de respuesta
+      if (response.success && response.data) {
+        solicitudesList = response.data;
+      } else if (Array.isArray(response)) {
+        solicitudesList = response;
+      } else if (response.data && Array.isArray(response.data)) {
+        solicitudesList = response.data;
+      } else if (response.solicitudes && Array.isArray(response.solicitudes)) {
+        solicitudesList = response.solicitudes;
+      }
+      
+      // Extraer información única de emprendedores de las solicitudes
+      const emprendedoresMap = new Map();
+      
+      solicitudesList.forEach(solicitud => {
+        // Obtener datos de la persona desde la solicitud
+        const persona = solicitud.persona || solicitud;
+        
+        // Usar la cédula como identificador único
+        const cedula = persona.cedula || solicitud.cedula_persona;
+        
+        if (cedula && !emprendedoresMap.has(cedula)) {
+          const emprendedor = {
+            id: persona.id_persona || solicitud.id_solicitud || cedula,
+            nombre: persona.nombre_completo || 
+                    `${persona.nombres || ''} ${persona.apellidos || ''}`.trim() || 
+                    persona.nombre || 
+                    solicitud.nombre_solicitante ||
+                    'Sin nombre',
+            cedula: cedula,
+            telefono: persona.telefono || solicitud.telefono || '',
+            email: persona.correo || persona.email || solicitud.email || '',
+            direccion: persona.direccion || solicitud.direccion || '',
+            emprendimiento: solicitud.nombre_emprendimiento || 
+                           persona.emprendimiento || 
+                           solicitud.descripcion || 
+                           'No especificado',
+            rif: persona.rif || solicitud.rif || '',
+            status: persona.estatus || solicitud.estatus || 'Activo',
+            solicitud_id: solicitud.id_solicitud,
+            tipo_solicitud: solicitud.tipo_solicitud,
+            monto_solicitado: solicitud.monto_solicitado
+          };
+          
+          emprendedoresMap.set(cedula, emprendedor);
+        }
+      });
+      
+      const emprendedoresFormateados = Array.from(emprendedoresMap.values());
+      setEmprendedoresRegistrados(emprendedoresFormateados);
+      
+    } catch (error) {
+      console.error('Error al cargar emprendedores desde solicitudes:', error);
+      setEmprendedoresRegistrados([]);
+    } finally {
+      setLoadingEmprendedores(false);
+    }
+  };
 
-  // Función para generar código de expediente auto-incrementable
+  // Función para cargar inspectores desde la API
+  const cargarInspectores = async () => {
+    setLoadingInspectors(true);
+    try {
+      const response = await usuarioAPI.getAllUsuarios();
+      console.log('Respuesta de inspectores:', response);
+      
+      let usuariosList = [];
+      
+      if (response.success && response.data) {
+        usuariosList = response.data;
+      } else if (Array.isArray(response)) {
+        usuariosList = response;
+      } else if (response.data && Array.isArray(response.data)) {
+        usuariosList = response.data;
+      } else if (response.usuarios && Array.isArray(response.usuarios)) {
+        usuariosList = response.usuarios;
+      }
+      
+      const usuariosFiltrados = usuariosList.filter(usuario => {
+        const rolUsuario = usuario.rol?.toLowerCase() || '';
+        const estatusActivo = usuario.estatus === 'activo' || usuario.estatus === 'Activo';
+        return (rolUsuario === 'inspector' || rolUsuario === 'administrador' || rolUsuario === 'admin') && estatusActivo;
+      });
+      
+      const inspectoresFormateados = usuariosFiltrados.map(usuario => ({
+        id: usuario.id || usuario.cedula_usuario,
+        nombre: usuario.persona?.nombre_completo || usuario.nombre_completo || `${usuario.nombre || ''} ${usuario.apellido || ''}`.trim() || usuario.cedula_usuario,
+        cedula: usuario.cedula_usuario,
+        email: usuario.email || usuario.persona?.email,
+        rol: usuario.rol,
+        estatus: usuario.estatus
+      }));
+      
+      setInspectores(inspectoresFormateados);
+    } catch (error) {
+      console.error('Error al cargar inspectores:', error);
+      setInspectores([]);
+    } finally {
+      setLoadingInspectors(false);
+    }
+  };
+
+  // Función para cargar requisitos desde la API
+  const cargarRequisitos = async () => {
+    setLoadingRequisitos(true);
+    try {
+      const response = await requisitosAPI.getAll();
+      console.log('Respuesta de requisitos:', response);
+      
+      if (response.success && response.data) {
+        const requisitosFormateados = response.data.map(req => ({
+          id: req.id_requisito || req.id,
+          nombre: req.nombre_requisito || req.nombre,
+          tipo: req.tipo_requisito || req.tipo || "documento",
+          requerido: req.requerido === 1 || req.requerido === true || req.requerido === "1",
+          descripcion: req.descripcion || "",
+          orden: req.orden || 0
+        }));
+        
+        requisitosFormateados.sort((a, b) => (a.orden || 0) - (b.orden || 0));
+        setRequisitosLista(requisitosFormateados);
+      } else {
+        setRequisitosLista([]);
+      }
+    } catch (error) {
+      console.error('Error al cargar requisitos:', error);
+      setRequisitosLista([]);
+    } finally {
+      setLoadingRequisitos(false);
+    }
+  };
+
+  // Función para generar código de expediente
   const generarCodigoExpediente = () => {
     const año = new Date().getFullYear();
-    const expedientesAño = expedientes.filter(e => e.codigo.includes(año.toString()));
+    const expedientesAño = expedientes.filter(e => e.codigo && e.codigo.includes(año.toString()));
     const nuevoNumero = expedientesAño.length + 1;
     return `EXP-${año}-${String(nuevoNumero).padStart(4, '0')}`;
   };
@@ -279,11 +368,7 @@ const Expediente = () => {
       canvas.height = video.videoHeight;
       const context = canvas.getContext('2d');
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      // Convertir a base64
       const imageData = canvas.toDataURL('image/jpeg', 0.8);
-      
-      // Guardar imagen
       handleSaveImage(imageData);
     }
   };
@@ -348,8 +433,9 @@ const Expediente = () => {
     setNewExpediente({
       codigo: generarCodigoExpediente(),
       fecha: new Date().toISOString().split('T')[0],
-      estado: "Revisión",
+      estado: "Activo",
       inspector: "",
+      inspectorId: null,
       emprendedor: null,
       documentosCapturados: []
     });
@@ -360,18 +446,16 @@ const Expediente = () => {
   };
 
   // Guardar nuevo expediente
-  const handleSaveNewExpediente = () => {
-    // Validaciones
+  const handleSaveNewExpediente = async () => {
     if (!selectedEmprendedor) {
       alert("Por favor, seleccione un emprendedor registrado");
       return;
     }
-    if (!newExpediente.inspector) {
+    if (!newExpediente.inspectorId) {
       alert("Por favor, seleccione un inspector");
       return;
     }
     
-    // Verificar requisitos requeridos
     const requisitosRequeridos = requisitosLista.filter(r => r.requerido);
     const requisitosFaltantes = requisitosRequeridos.filter(r => 
       !capturedImages[r.id] || capturedImages[r.id].length === 0
@@ -382,39 +466,77 @@ const Expediente = () => {
       return;
     }
     
-    // Contar total de documentos capturados
-    const totalDocumentos = Object.values(capturedImages).reduce((total, arr) => total + arr.length, 0);
+    setLoading(true);
     
-    // Crear nuevo expediente
-    const nuevoExpediente = {
-      id: expedientes.length + 1,
-      codigo: newExpediente.codigo,
-      nombre: selectedEmprendedor.nombre,
-      tipo: "Nuevo Expediente",
-      fecha: newExpediente.fecha,
-      estado: newExpediente.estado,
-      prioridad: "Media",
-      monto: "$0",
-      inspector: newExpediente.inspector,
-      documentos: totalDocumentos,
-      ultimaActualizacion: new Date().toISOString().split('T')[0],
-      emprendedorId: selectedEmprendedor.id,
-      documentosCapturados: capturedImages
-    };
-
-    setExpedientes([nuevoExpediente, ...expedientes]);
-    setShowNewExpedienteModal(false);
-    
-    // Mostrar notificación de éxito
-    const nuevaNotificacion = {
-      id: notifications.length + 1,
-      text: `Nuevo expediente creado: ${newExpediente.codigo} - ${selectedEmprendedor.nombre}`,
-      time: "Ahora",
-      read: false
-    };
-    setNotifications([nuevaNotificacion, ...notifications]);
-    
-    alert(`Expediente ${newExpediente.codigo} creado exitosamente con ${totalDocumentos} documentos adjuntos`);
+    try {
+      const requisitosCapturados = {};
+      Object.keys(capturedImages).forEach(requisitoId => {
+        requisitosCapturados[requisitoId] = capturedImages[requisitoId].map(img => ({
+          id: img.id,
+          timestamp: img.timestamp,
+          imageData: img.imageData
+        }));
+      });
+      
+      const expedienteData = {
+        cedula_persona: selectedEmprendedor.cedula,
+        solicitud: `Expediente de ${selectedEmprendedor.nombre} - ${newExpediente.codigo}`,
+        monto_solicitado: 0,
+        id_usuario: parseInt(newExpediente.inspectorId),
+        requisitos_capturados: requisitosCapturados,
+        verificacion_requisitos: {
+          fecha_verificacion: new Date().toISOString(),
+          verificador: user.name,
+          estatus: "Pendiente"
+        },
+        imagenes_capturadas: requisitosCapturados
+      };
+      
+      const response = await expedienteAPI.createExpediente(expedienteData);
+      
+      if (response.success) {
+        const totalDocumentos = Object.values(capturedImages).reduce((total, arr) => total + arr.length, 0);
+        
+        const nuevoExpedienteFormateado = {
+          id: response.data?.expediente?.id_expediente || expedientes.length + 1,
+          codigo: response.data?.codigo_expediente || newExpediente.codigo,
+          nombre: selectedEmprendedor.nombre,
+          tipo: "Nuevo Expediente",
+          fecha: newExpediente.fecha,
+          estado: "Activo",
+          prioridad: "Media",
+          monto: "$0",
+          inspector: newExpediente.inspector,
+          inspectorId: newExpediente.inspectorId,
+          documentos: totalDocumentos,
+          ultimaActualizacion: new Date().toISOString().split('T')[0],
+          emprendedorId: selectedEmprendedor.id,
+          documentosCapturados: capturedImages
+        };
+        
+        setExpedientes([nuevoExpedienteFormateado, ...expedientes]);
+        setShowNewExpedienteModal(false);
+        
+        const nuevaNotificacion = {
+          id: notifications.length + 1,
+          text: `Expediente creado: ${response.data?.codigo_expediente || newExpediente.codigo} - ${selectedEmprendedor.nombre}`,
+          time: "Ahora",
+          read: false
+        };
+        setNotifications([nuevaNotificacion, ...notifications]);
+        
+        alert(`Expediente ${response.data?.codigo_expediente || newExpediente.codigo} creado exitosamente con ${totalDocumentos} documentos adjuntos`);
+        
+        await cargarExpedientes();
+      } else {
+        throw new Error(response.error || 'Error al crear el expediente');
+      }
+    } catch (error) {
+      console.error('Error al guardar expediente:', error);
+      alert(`Error al crear el expediente: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Cerrar modal
@@ -423,58 +545,17 @@ const Expediente = () => {
     stopCamera();
   };
 
-  // ... (resto del código existente para la DataTable, filtros, etc.)
+  // Cargar datos al montar el componente
+  useEffect(() => {
+    cargarExpedientes();
+    cargarInspectores();
+    cargarRequisitos();
+    cargarEmprendedores();
+  }, []);
 
-  // Datos del usuario
-  const user = {
-    name: "Administrador IADEY",
-    email: "admin@iadey.gob.ve",
-    role: "Administrador",
-    avatar: null,
-    department: "Gestión de Créditos",
-    joinDate: "Enero 2024",
-    pendingTasks: 8,
-    completedTasks: 45,
-    performance: "98%"
-  };
-
-  // Datos específicos por sección (mantener igual)
-  const sectionData = {
-    overview: {
-      title: "Gestión de Expedientes",
-      description: "Resumen general de los expedientes archivados en el IADEY",
-      stats: [
-        { id: 1, title: "Expedientes Activos", value: "156", change: "+12", icon: Briefcase, color: "blue", bgColor: "bg-blue-50", textColor: "text-blue-600" },
-        { id: 2, title: "Inspecciones Pendientes", value: "23", change: "+5", icon: ClipboardCheck, color: "orange", bgColor: "bg-orange-50", textColor: "text-orange-600" },
-        { id: 3, title: "Solicitudes Crédito", value: "45", change: "+8", icon: Handshake, color: "green", bgColor: "bg-green-50", textColor: "text-green-600" },
-        { id: 4, title: "Contratos Activos", value: "89", change: "+15", icon: FileSignature, color: "purple", bgColor: "bg-purple-50", textColor: "text-purple-600" },
-      ],
-      pendingItems: [
-        { id: 1, name: "María González", type: "Nuevo expediente", date: "2024-03-12", status: "Pendiente", priority: "Alta" },
-        { id: 2, name: "Juan Pérez", type: "Actualización documentos", date: "2024-03-11", status: "En proceso", priority: "Media" },
-        { id: 3, name: "Carlos Rodríguez", type: "Revisión inicial", date: "2024-03-10", status: "Pendiente", priority: "Alta" },
-      ],
-      actionButton: "Nuevo Registro",
-      pendingTitle: "Actividad Reciente"
-    },
-    // ... resto de sectionData
-  };
-
-  // Obtener datos según la pestaña activa
-  const getCurrentSectionData = () => {
-    if (activeTab.startsWith("settings-")) {
-      return settingsData;
-    }
-    if (sectionData[activeTab]) {
-      return sectionData[activeTab];
-    }
-    return sectionData.overview;
-  };
-
-  const currentData = getCurrentSectionData();
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Funciones de filtrado y ordenamiento (mantener igual)
+  // Funciones de filtrado y ordenamiento
   const filteredExpedientes = expedientes.filter(exp => {
     const matchesSearch = searchTerm === '' || 
       Object.values(exp).some(val => 
@@ -525,7 +606,7 @@ const Expediente = () => {
   };
 
   const handleViewExpediente = (id) => {
-    console.log('Ver expediente:', id);
+    navigate(`/expediente/${id}`);
   };
 
   const handleEditExpediente = (id) => {
@@ -534,10 +615,6 @@ const Expediente = () => {
 
   const handleDownloadExpediente = (id) => {
     console.log('Descargar expediente:', id);
-  };
-
-  const handleOpenInspectionForm = () => {
-    navigate('/inspecciones-realizadas');
   };
 
   const resetFilters = () => {
@@ -563,6 +640,7 @@ const Expediente = () => {
 
   const getStatusBadge = (status) => {
     const styles = {
+      'Activo': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
       'Pendiente': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
       'En Proceso': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
       'Completado': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
@@ -599,19 +677,7 @@ const Expediente = () => {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  // Configuración para submenús
-  const settingsData = {
-    title: "Configuración del Sistema",
-    description: "Administración de usuarios, emprendimientos y parámetros",
-    stats: [
-      { id: 1, title: "Usuarios Activos", value: "24", icon: Users, color: "blue" },
-      { id: 2, title: "Emprendimientos Registrados", value: "156", icon: Building, color: "green" },
-      { id: 3, title: "Parámetros Configurados", value: "89", icon: FileText, color: "purple" },
-    ],
-    pendingItems: [],
-    actionButton: "Nueva Configuración",
-    pendingTitle: "Configuraciones Recientes"
-  };
+  const currentData = sectionData.overview;
 
   return (
     <div className={`min-h-screen flex flex-col ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
@@ -642,7 +708,6 @@ const Expediente = () => {
 
         <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'}`}>
           <div className="p-4 md:p-6 mt-16">
-            {/* Título de la sección */}
             <div className="mb-6">
               <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                 {currentData?.title || "Panel de Control"}
@@ -650,6 +715,28 @@ const Expediente = () => {
               <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 {currentData?.description || "Bienvenido al sistema IADEY"}
               </p>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {currentData.stats.map((stat) => {
+                const Icon = stat.icon;
+                return (
+                  <div key={stat.id} className={`p-6 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg hover:shadow-xl transition-all`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className={`p-3 rounded-lg ${stat.bgColor || 'bg-blue-50'}`}>
+                        <Icon className={stat.textColor || 'text-blue-600'} size={24} />
+                      </div>
+                    </div>
+                    <h3 className={`text-2xl font-bold mb-1 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      {loadingExpedientes ? <Loader size={20} className="animate-spin" /> : stat.value}
+                    </h3>
+                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {stat.title}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Barra de búsqueda y acciones */}
@@ -698,23 +785,6 @@ const Expediente = () => {
               }`}>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   <select
-                    value={filters.tipo}
-                    onChange={(e) => setFilters({...filters, tipo: e.target.value})}
-                    className={`px-3 py-2 rounded-lg border ${
-                      darkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white' 
-                        : 'bg-white border-gray-200'
-                    }`}
-                  >
-                    <option value="">Todos los tipos</option>
-                    <option value="Nuevo Emprendimiento">Nuevo Emprendimiento</option>
-                    <option value="Ampliación">Ampliación</option>
-                    <option value="Renovación">Renovación</option>
-                    <option value="Crédito">Crédito</option>
-                    <option value="Inspección">Inspección</option>
-                  </select>
-
-                  <select
                     value={filters.estado}
                     onChange={(e) => setFilters({...filters, estado: e.target.value})}
                     className={`px-3 py-2 rounded-lg border ${
@@ -724,12 +794,11 @@ const Expediente = () => {
                     }`}
                   >
                     <option value="">Todos los estados</option>
+                    <option value="Activo">Activo</option>
                     <option value="Pendiente">Pendiente</option>
                     <option value="En Proceso">En Proceso</option>
                     <option value="Completado">Completado</option>
                     <option value="Revisión">Revisión</option>
-                    <option value="Aprobado">Aprobado</option>
-                    <option value="Rechazado">Rechazado</option>
                   </select>
 
                   <select
@@ -786,258 +855,284 @@ const Expediente = () => {
             <div className={`rounded-xl border ${
               darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
             } overflow-hidden`}>
-              {/* Tabla */}
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    <tr>
-                      <th className="px-4 py-3 w-12">
-                        <input
-                          type="checkbox"
-                          checked={selectedRows.length === paginatedExpedientes.length && paginatedExpedientes.length > 0}
-                          onChange={handleSelectAll}
-                          className="rounded border-gray-300 text-[#2A9D8F] focus:ring-[#2A9D8F]"
-                        />
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                          onClick={() => handleSort('codigo')}>
-                        <div className="flex items-center gap-2">
-                          Código
-                          <ArrowUpDown size={14} />
-                        </div>
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                          onClick={() => handleSort('nombre')}>
-                        <div className="flex items-center gap-2">
-                          Emprendedor
-                          <ArrowUpDown size={14} />
-                        </div>
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                          onClick={() => handleSort('tipo')}>
-                        <div className="flex items-center gap-2">
-                          Tipo
-                          <ArrowUpDown size={14} />
-                        </div>
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                          onClick={() => handleSort('fecha')}>
-                        <div className="flex items-center gap-2">
-                          Fecha
-                          <ArrowUpDown size={14} />
-                        </div>
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Estado
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Prioridad
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                          onClick={() => handleSort('monto')}>
-                        <div className="flex items-center gap-2">
-                          Monto
-                          <ArrowUpDown size={14} />
-                        </div>
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Inspector
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Documentos
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
-                    {paginatedExpedientes.map((expediente) => (
-                      <tr key={expediente.id} className={`${
-                        darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-                      } transition-colors`}>
-                        <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedRows.includes(expediente.id)}
-                            onChange={() => handleSelectRow(expediente.id)}
-                            className="rounded border-gray-300 text-[#2A9D8F] focus:ring-[#2A9D8F]"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {expediente.codigo}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                            {expediente.nombre}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                            {expediente.tipo}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                            {new Date(expediente.fecha).toLocaleDateString('es-ES', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: 'numeric'
-                            })}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(expediente.estado)}`}>
-                            {expediente.estado}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 text-xs rounded-full ${getPriorityBadge(expediente.prioridad)}`}>
-                            {expediente.prioridad}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {expediente.monto}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                            {expediente.inspector}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                            {expediente.documentos}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => handleViewExpediente(expediente.id)}
-                              className={`p-1 rounded-lg ${
-                                darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
-                              } transition-colors`}
-                              title="Ver detalles"
-                            >
-                              <Eye size={18} className="text-[#2A9D8F]" />
-                            </button>
-                            <button
-                              onClick={() => handleEditExpediente(expediente.id)}
-                              className={`p-1 rounded-lg ${
-                                darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
-                              } transition-colors`}
-                              title="Editar"
-                            >
-                              <Edit size={18} className="text-blue-500" />
-                            </button>
-                            <button
-                              onClick={() => handleDownloadExpediente(expediente.id)}
-                              className={`p-1 rounded-lg ${
-                                darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
-                              } transition-colors`}
-                              title="Descargar"
-                            >
-                              <Download size={18} className="text-purple-500" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Paginación */}
-              <div className={`px-4 py-3 flex items-center justify-between border-t ${
-                darkMode ? 'border-gray-700' : 'border-gray-200'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>
-                    Mostrar
-                  </span>
-                  <select
-                    value={rowsPerPage}
-                    onChange={(e) => {
-                      setRowsPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className={`px-2 py-1 rounded border ${
-                      darkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white' 
-                        : 'bg-white border-gray-200'
-                    }`}
-                  >
-                    <option value={5}>5</option>
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                  </select>
-                  <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>
-                    registros
+              {loadingExpedientes ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader size={40} className="animate-spin text-[#2A9D8F]" />
+                  <span className={`ml-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Cargando expedientes...
                   </span>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>
-                    {startIndex + 1}-{Math.min(startIndex + rowsPerPage, sortedExpedientes.length)} de {sortedExpedientes.length}
-                  </span>
-                  
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                      className={`p-1 rounded ${
-                        currentPage === 1
-                          ? 'text-gray-400 cursor-not-allowed'
-                          : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      <ChevronsLeft size={18} />
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                      className={`p-1 rounded ${
-                        currentPage === 1
-                          ? 'text-gray-400 cursor-not-allowed'
-                          : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      <ChevronLeft size={18} />
-                    </button>
-                    
-                    <span className={`px-3 py-1 text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      Página {currentPage} de {totalPages}
-                    </span>
-                    
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                      className={`p-1 rounded ${
-                        currentPage === totalPages
-                          ? 'text-gray-400 cursor-not-allowed'
-                          : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      <ChevronRight size={18} />
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
-                      className={`p-1 rounded ${
-                        currentPage === totalPages
-                          ? 'text-gray-400 cursor-not-allowed'
-                          : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      <ChevronsRight size={18} />
-                    </button>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                        <tr>
+                          <th className="px-4 py-3 w-12">
+                            <input
+                              type="checkbox"
+                              checked={selectedRows.length === paginatedExpedientes.length && paginatedExpedientes.length > 0}
+                              onChange={handleSelectAll}
+                              className="rounded border-gray-300 text-[#2A9D8F] focus:ring-[#2A9D8F]"
+                            />
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                              onClick={() => handleSort('codigo')}>
+                            <div className="flex items-center gap-2">
+                              Código
+                              <ArrowUpDown size={14} />
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                              onClick={() => handleSort('nombre')}>
+                            <div className="flex items-center gap-2">
+                              Emprendedor
+                              <ArrowUpDown size={14} />
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                              onClick={() => handleSort('tipo')}>
+                            <div className="flex items-center gap-2">
+                              Tipo
+                              <ArrowUpDown size={14} />
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                              onClick={() => handleSort('fecha')}>
+                            <div className="flex items-center gap-2">
+                              Fecha
+                              <ArrowUpDown size={14} />
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Estado
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Prioridad
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                              onClick={() => handleSort('monto')}>
+                            <div className="flex items-center gap-2">
+                              Monto
+                              <ArrowUpDown size={14} />
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Inspector
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Documentos
+                          </th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Acciones
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                        {paginatedExpedientes.length === 0 ? (
+                          <tr>
+                            <td colSpan="11" className="px-4 py-12 text-center">
+                              <div className="flex flex-col items-center justify-center">
+                                <FolderPlus size={48} className="text-gray-400 mb-3" />
+                                <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                  No hay expedientes registrados
+                                </p>
+                                <button
+                                  onClick={handleOpenNewExpedienteModal}
+                                  className="mt-3 px-4 py-2 bg-[#2A9D8F] text-white rounded-lg hover:bg-[#264653] transition-colors"
+                                >
+                                  Crear primer expediente
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          paginatedExpedientes.map((expediente) => (
+                            <tr key={expediente.id} className={`${
+                              darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
+                            } transition-colors`}>
+                              <td className="px-4 py-3">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRows.includes(expediente.id)}
+                                  onChange={() => handleSelectRow(expediente.id)}
+                                  className="rounded border-gray-300 text-[#2A9D8F] focus:ring-[#2A9D8F]"
+                                />
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                  {expediente.codigo}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  {expediente.nombre}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  {expediente.tipo}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  {new Date(expediente.fecha).toLocaleDateString('es-ES')}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(expediente.estado)}`}>
+                                  {expediente.estado}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-1 text-xs rounded-full ${getPriorityBadge(expediente.prioridad)}`}>
+                                  {expediente.prioridad}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                  {expediente.monto}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  {expediente.inspector}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  {expediente.documentos}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => handleViewExpediente(expediente.id)}
+                                    className={`p-1 rounded-lg ${
+                                      darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
+                                    } transition-colors`}
+                                    title="Ver detalles"
+                                  >
+                                    <Eye size={18} className="text-[#2A9D8F]" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleEditExpediente(expediente.id)}
+                                    className={`p-1 rounded-lg ${
+                                      darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
+                                    } transition-colors`}
+                                    title="Editar"
+                                  >
+                                    <Edit size={18} className="text-blue-500" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDownloadExpediente(expediente.id)}
+                                    className={`p-1 rounded-lg ${
+                                      darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
+                                    } transition-colors`}
+                                    title="Descargar"
+                                  >
+                                    <Download size={18} className="text-purple-500" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                </div>
-              </div>
+
+                  {paginatedExpedientes.length > 0 && (
+                    <div className={`px-4 py-3 flex items-center justify-between border-t ${
+                      darkMode ? 'border-gray-700' : 'border-gray-200'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>
+                          Mostrar
+                        </span>
+                        <select
+                          value={rowsPerPage}
+                          onChange={(e) => {
+                            setRowsPerPage(Number(e.target.value));
+                            setCurrentPage(1);
+                          }}
+                          className={`px-2 py-1 rounded border ${
+                            darkMode 
+                              ? 'bg-gray-700 border-gray-600 text-white' 
+                              : 'bg-white border-gray-200'
+                          }`}
+                        >
+                          <option value={5}>5</option>
+                          <option value={10}>10</option>
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                        </select>
+                        <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>
+                          registros
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>
+                          {startIndex + 1}-{Math.min(startIndex + rowsPerPage, sortedExpedientes.length)} de {sortedExpedientes.length}
+                        </span>
+                        
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setCurrentPage(1)}
+                            disabled={currentPage === 1}
+                            className={`p-1 rounded ${
+                              currentPage === 1
+                                ? 'text-gray-400 cursor-not-allowed'
+                                : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
+                            }`}
+                          >
+                            <ChevronsLeft size={18} />
+                          </button>
+                          <button
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentPage === 1}
+                            className={`p-1 rounded ${
+                              currentPage === 1
+                                ? 'text-gray-400 cursor-not-allowed'
+                                : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
+                            }`}
+                          >
+                            <ChevronLeft size={18} />
+                          </button>
+                          
+                          <span className={`px-3 py-1 text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                            Página {currentPage} de {totalPages}
+                          </span>
+                          
+                          <button
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            disabled={currentPage === totalPages}
+                            className={`p-1 rounded ${
+                              currentPage === totalPages
+                                ? 'text-gray-400 cursor-not-allowed'
+                                : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
+                            }`}
+                          >
+                            <ChevronRight size={18} />
+                          </button>
+                          <button
+                            onClick={() => setCurrentPage(totalPages)}
+                            disabled={currentPage === totalPages}
+                            className={`p-1 rounded ${
+                              currentPage === totalPages
+                                ? 'text-gray-400 cursor-not-allowed'
+                                : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
+                            }`}
+                          >
+                            <ChevronsRight size={18} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
@@ -1051,7 +1146,6 @@ const Expediente = () => {
           <div className={`rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto ${
             darkMode ? 'bg-gray-800' : 'bg-white'
           }`}>
-            {/* Header del modal */}
             <div className={`sticky top-0 flex justify-between items-center p-6 border-b ${
               darkMode ? 'border-gray-700' : 'border-gray-200'
             }`}>
@@ -1076,7 +1170,6 @@ const Expediente = () => {
               </button>
             </div>
 
-            {/* Body del modal - Formulario */}
             <div className="p-6">
               <form onSubmit={(e) => e.preventDefault()}>
                 {/* Información del Expediente */}
@@ -1127,7 +1220,7 @@ const Expediente = () => {
                         <AlertCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                         <input
                           type="text"
-                          value="Revisión"
+                          value="Activo"
                           className={`w-full pl-10 pr-3 py-2 rounded-lg border bg-gray-100 ${
                             darkMode 
                               ? 'bg-gray-700 border-gray-600 text-white' 
@@ -1142,17 +1235,30 @@ const Expediente = () => {
                         Inspector Asignado *
                       </label>
                       <select
-                        value={newExpediente.inspector}
-                        onChange={(e) => setNewExpediente({...newExpediente, inspector: e.target.value})}
+                        value={newExpediente.inspectorId || ""}
+                        onChange={(e) => {
+                          const inspectorId = e.target.value;
+                          const inspectorSeleccionado = inspectores.find(i => i.id == inspectorId);
+                          setNewExpediente({
+                            ...newExpediente, 
+                            inspectorId: inspectorId,
+                            inspector: inspectorSeleccionado?.nombre || ""
+                          });
+                        }}
                         className={`w-full px-3 py-2 rounded-lg border ${
                           darkMode 
                             ? 'bg-gray-700 border-gray-600 text-white' 
                             : 'bg-white border-gray-200'
                         } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
+                        disabled={loadingInspectors}
                       >
-                        <option value="">Seleccione un inspector</option>
+                        <option value="">
+                          {loadingInspectors ? 'Cargando inspectores...' : 'Seleccione un inspector'}
+                        </option>
                         {inspectores.map(inspector => (
-                          <option key={inspector} value={inspector}>{inspector}</option>
+                          <option key={inspector.id} value={inspector.id}>
+                            {inspector.nombre} {inspector.cedula && `(${inspector.cedula})`}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -1223,6 +1329,22 @@ const Expediente = () => {
                           ))}
                         </div>
                       )}
+                      
+                      {loadingEmprendedores && (
+                        <div className="flex justify-center py-4">
+                          <Loader size={24} className="animate-spin text-[#2A9D8F]" />
+                        </div>
+                      )}
+                      
+                      {showEmprendedorResults && searchEmprendedorTerm && !loadingEmprendedores && filteredEmprendedores.length === 0 && (
+                        <div className={`absolute z-10 w-full mt-1 rounded-lg border shadow-lg p-4 text-center ${
+                          darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
+                        }`}>
+                          <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>
+                            No se encontraron emprendedores
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className={`p-4 rounded-lg border ${
@@ -1267,12 +1389,6 @@ const Expediente = () => {
                                 {selectedEmprendedor.emprendimiento}
                               </span>
                             </div>
-                            <div className="md:col-span-2">
-                              <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Dirección:</span>
-                              <span className={`ml-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                                {selectedEmprendedor.direccion}
-                              </span>
-                            </div>
                           </div>
                         </div>
                         <button
@@ -1293,95 +1409,111 @@ const Expediente = () => {
                     Documentos Requeridos
                   </h3>
                   <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    * Documentos marcados como requeridos son obligatorios. Puede tomar foto desde la cámara o subir desde su computadora.
+                    * Documentos marcados como requeridos son obligatorios.
                   </p>
                   
-                  <div className="space-y-4">
-                    {requisitosLista.map((requisito) => {
-                      const imagenes = capturedImages[requisito.id] || [];
-                      const tieneImagenes = imagenes.length > 0;
-                      
-                      return (
-                        <div key={requisito.id} className={`p-4 rounded-lg border ${
-                          darkMode ? 'border-gray-700' : 'border-gray-200'
-                        } ${requisito.requerido && !tieneImagenes ? 'border-yellow-500' : ''}`}>
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                {requisito.requerido && (
-                                  <span className="text-red-500 text-sm font-bold">*</span>
-                                )}
-                                <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                                  {requisito.nombre}
-                                </span>
+                  {loadingRequisitos ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader size={40} className="animate-spin text-[#2A9D8F]" />
+                      <span className={`ml-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                        Cargando requisitos...
+                      </span>
+                    </div>
+                  ) : requisitosLista.length === 0 ? (
+                    <div className={`p-8 text-center rounded-lg border ${
+                      darkMode ? 'border-gray-700' : 'border-gray-200'
+                    }`}>
+                      <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>
+                        No hay requisitos configurados
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {requisitosLista.map((requisito) => {
+                        const imagenes = capturedImages[requisito.id] || [];
+                        const tieneImagenes = imagenes.length > 0;
+                        
+                        return (
+                          <div key={requisito.id} className={`p-4 rounded-lg border ${
+                            darkMode ? 'border-gray-700' : 'border-gray-200'
+                          } ${requisito.requerido && !tieneImagenes ? 'border-yellow-500' : ''}`}>
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  {requisito.requerido && (
+                                    <span className="text-red-500 text-sm font-bold">*</span>
+                                  )}
+                                  <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                                    {requisito.nombre}
+                                  </span>
+                                  {tieneImagenes && (
+                                    <span className="text-xs text-green-500 bg-green-100 px-2 py-1 rounded-full">
+                                      {imagenes.length} documento(s)
+                                    </span>
+                                  )}
+                                  {requisito.requerido && !tieneImagenes && (
+                                    <span className="text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded-full">
+                                      Pendiente
+                                    </span>
+                                  )}
+                                </div>
+                                
                                 {tieneImagenes && (
-                                  <span className="text-xs text-green-500 bg-green-100 px-2 py-1 rounded-full">
-                                    {imagenes.length} documento(s) adjunto(s)
-                                  </span>
-                                )}
-                                {requisito.requerido && !tieneImagenes && (
-                                  <span className="text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded-full">
-                                    Pendiente
-                                  </span>
+                                  <div className="flex flex-wrap gap-2 mt-2 mb-3">
+                                    {imagenes.map((img) => (
+                                      <div key={img.id} className="relative group">
+                                        <img
+                                          src={img.imageData}
+                                          alt={requisito.nombre}
+                                          className="w-20 h-20 object-cover rounded-lg border"
+                                        />
+                                        <button
+                                          onClick={() => handleDeleteImage(requisito.id, img.id)}
+                                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                          <Trash2 size={12} />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
                                 )}
                               </div>
                               
-                              {/* Mostrar imágenes capturadas */}
-                              {tieneImagenes && (
-                                <div className="flex flex-wrap gap-2 mt-2 mb-3">
-                                  {imagenes.map((img) => (
-                                    <div key={img.id} className="relative group">
-                                      <img
-                                        src={img.imageData}
-                                        alt={requisito.nombre}
-                                        className="w-20 h-20 object-cover rounded-lg border"
-                                      />
-                                      <button
-                                        onClick={() => handleDeleteImage(requisito.id, img.id)}
-                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      >
-                                        <Trash2 size={12} />
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className="flex gap-2 ml-4">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenCamera(requisito)}
-                                className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                                  darkMode 
-                                    ? 'bg-gray-700 text-white hover:bg-gray-600' 
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
-                              >
-                                <Camera size={18} />
-                                <span className="hidden sm:inline">Tomar Foto</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setCurrentRequisito(requisito);
-                                  fileInputRef.current?.click();
-                                }}
-                                className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                                  darkMode 
-                                    ? 'bg-gray-700 text-white hover:bg-gray-600' 
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
-                              >
-                                <Upload size={18} />
-                                <span className="hidden sm:inline">Subir Archivo</span>
-                              </button>
+                              <div className="flex gap-2 ml-4">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenCamera(requisito)}
+                                  className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${
+                                    darkMode 
+                                      ? 'bg-gray-700 text-white hover:bg-gray-600' 
+                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  }`}
+                                >
+                                  <Camera size={18} />
+                                  <span className="hidden sm:inline">Tomar Foto</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCurrentRequisito(requisito);
+                                    fileInputRef.current?.click();
+                                  }}
+                                  className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${
+                                    darkMode 
+                                      ? 'bg-gray-700 text-white hover:bg-gray-600' 
+                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  }`}
+                                >
+                                  <Upload size={18} />
+                                  <span className="hidden sm:inline">Subir</span>
+                                </button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                   
                   <input
                     ref={fileInputRef}
@@ -1394,7 +1526,6 @@ const Expediente = () => {
               </form>
             </div>
 
-            {/* Footer del modal */}
             <div className={`sticky bottom-0 flex justify-end gap-3 p-6 border-t ${
               darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
             }`}>
@@ -1410,9 +1541,10 @@ const Expediente = () => {
               </button>
               <button
                 onClick={handleSaveNewExpediente}
-                className="px-6 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
+                disabled={loading}
+                className="px-6 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
               >
-                <Save size={18} />
+                {loading ? <Loader size={18} className="animate-spin" /> : <Save size={18} />}
                 Guardar Expediente
               </button>
             </div>
@@ -1473,95 +1605,6 @@ const Expediente = () => {
           </div>
         </div>
       )}
-    </div>
-  );
-};
-
-// Componentes auxiliares
-const SectionStatCard = ({ stat, darkMode }) => {
-  const getColorClasses = (color) => {
-    const colors = {
-      blue: "bg-blue-50 text-blue-600",
-      green: "bg-green-50 text-green-600",
-      yellow: "bg-yellow-50 text-yellow-600",
-      red: "bg-red-50 text-red-600",
-      purple: "bg-purple-50 text-purple-600",
-      orange: "bg-orange-50 text-orange-600",
-      cyan: "bg-cyan-50 text-cyan-600"
-    };
-    return colors[color] || colors.blue;
-  };
-
-  const Icon = stat.icon;
-  
-  return (
-    <div className={`p-6 rounded-xl ${
-      darkMode ? 'bg-gray-800' : 'bg-white'
-    } shadow-lg hover:shadow-xl transition-all`}>
-      <div className="flex items-center justify-between mb-4">
-        <div className={`p-3 rounded-lg ${getColorClasses(stat.color).split(' ')[0]}`}>
-          <Icon className={getColorClasses(stat.color).split(' ')[1]} size={24} />
-        </div>
-      </div>
-      <h3 className={`text-2xl font-bold mb-1 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-        {stat.value}
-      </h3>
-      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-        {stat.title}
-      </p>
-    </div>
-  );
-};
-
-const PendingItem = ({ item, darkMode }) => {
-  const getStatusColor = (status) => {
-    const colors = {
-      'Pendiente': 'bg-yellow-500',
-      'En proceso': 'bg-blue-500',
-      'Completado': 'bg-green-500',
-      'Urgente': 'bg-red-500',
-      'Programada': 'bg-purple-500',
-      'Vencido': 'bg-red-500',
-      'Activo': 'bg-green-500',
-      'Por renovar': 'bg-orange-500'
-    };
-    return colors[status] || 'bg-gray-500';
-  };
-
-  return (
-    <div className={`p-4 rounded-lg border ${
-      darkMode ? 'border-gray-700 hover:bg-gray-700/50' : 'border-gray-200 hover:bg-gray-50'
-    } transition-all`}>
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <div className={`w-2 h-2 rounded-full ${getStatusColor(item.status)}`} />
-            <h4 className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-              {item.name}
-            </h4>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            {Object.entries(item).map(([key, value]) => {
-              if (key !== 'id' && key !== 'name' && key !== 'status') {
-                return (
-                  <div key={key}>
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {key}: 
-                    </span>
-                    <span className={`ml-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      {value}
-                    </span>
-                  </div>
-                );
-              }
-              return null;
-            })}
-          </div>
-        </div>
-        <button className="text-[#2A9D8F] hover:text-[#264653] text-sm">
-          Ver detalles
-        </button>
-      </div>
     </div>
   );
 };

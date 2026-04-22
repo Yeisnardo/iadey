@@ -112,9 +112,30 @@ CREATE TABLE expediente (
     id_usuario int NOT NULL,
     id_requisitos TEXT NOT NULL,
     verificacion_requisitos TEXT,
+    codigo_exoediente VARCHAR NOT NULL,
     estatus VARCHAR NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_solicitud) REFERENCES solicitud(id_solicitud),
     FOREIGN KEY (id_usuario) REFERENCES usuario(id),
     FOREIGN KEY (id_expediente) REFERENCES requisitos(id_requisitos)
+);
+
+-- =============================================
+-- TABLA: configuracion_contrato
+-- =============================================
+CREATE TABLE configuracion_contrato (
+    id_configuracion SERIAL PRIMARY KEY,
+    interes_porcentaje DECIMAL(5,2) NOT NULL DEFAULT 12.50,
+    morosidad_porcentaje DECIMAL(5,2) NOT NULL DEFAULT 3.00,
+    flat_porcentaje DECIMAL(5,2) NOT NULL DEFAULT 2.50,
+    cuotas_obligatorias INTEGER NOT NULL DEFAULT 12,
+    cuotas_gracia INTEGER NOT NULL DEFAULT 2,
+    frecuencia_pago VARCHAR(20) NOT NULL DEFAULT 'mensual',
+    cedula_pago VARCHAR(20),
+    banco_pago VARCHAR(100),
+    cuenta_pago VARCHAR(30),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100)
 );
