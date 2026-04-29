@@ -1,242 +1,199 @@
 const ExpedienteModel = require('../models/expedienteModel');
 const SolicitudModel = require('../models/solicitudModel');
-const PersonaModel = require('../models/personaModel');
 const UsuarioModel = require('../models/usuarioModel');
 
 const expedienteController = {
-  // Obtener todos los expedientes
-  async getAll(req, res) {
-    try {
-      const expedientes = await ExpedienteModel.getAll();
-      res.json({ success: true, data: expedientes });
-    } catch (error) {
-      console.error('Error en getAll:', error);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  },
 
-  // Obtener expediente por ID
-  async getById(req, res) {
+  // GET /api/expediente/aprobadas
+  getSolAprobadasExp: async (req, res) => {
     try {
-      const expediente = await ExpedienteModel.getById(req.params.id);
-      if (!expediente) {
-        return res.status(404).json({ success: false, error: 'Expediente no encontrado' });
+      console.log("📊 Obteniendo solicitudes aprobadas...");
+      
+      const solicitudes = await ExpedienteModel.getSolAprobadasExp();
+      
+      console.log(`✅ Encontradas ${solicitudes.length} solicitudes aprobadas`);
+      
+      if (!solicitudes || solicitudes.length === 0) {
+        return res.status(200).json({
+          success: true,
+          data: [],
+          count: 0,
+          message: 'No hay solicitudes aprobadas para mostrar'
+        });
       }
-      res.json({ success: true, data: expediente });
+      
+      // Formatear con información del expediente
+      const solicitudesFormateadas = solicitudes.map(sol => ({
+        id_solicitud: sol.id_solicitud,
+        motivo_solicitud: sol.motivo_solicitud,
+        monto_solicitado: parseFloat(sol.monto_solicitado),
+        fecha_solicitud: sol.fecha_solicitud,
+        estatus: sol.estatus,
+        
+        // Datos del solicitante
+        nombres: sol.nombres,
+        apellidos: sol.apellidos,
+        nombre_completo: `${sol.nombres || ''} ${sol.apellidos || ''}`.trim(),
+        cedula: sol.cedula_persona_numero,
+        telefono: sol.telefono,
+        email: sol.email,
+        direccion: sol.direccion,
+        
+        // Datos del emprendimiento
+        id_emprendimiento: sol.id_emprendimiento,
+        nombre_emprendimiento: sol.nombre_emprendimiento,
+        anos_experiencia: sol.anos_experiencia,
+        direccion_emprendimiento: sol.direccion_empredimiento,
+        sector: sol.sector,
+        actividad: sol.actividad,
+        
+        // ✅ Información del expediente
+        tiene_expediente: sol.id_expediente ? true : false,
+        expediente: sol.id_expediente ? {
+          id_expediente: sol.id_expediente,
+          codigo_expediente: sol.codigo_expediente,
+          estatus_expediente: sol.estatus_expediente,
+          fecha_creacion: sol.expediente_creado,
+          id_usuario: sol.id_usuario,
+          inspector_nombre: sol.inspector_nombre,
+          inspector_cedula: sol.inspector_cedula,
+          observaciones: sol.observaciones,
+          id_requisitos: sol.id_requisitos
+        } : null
+      }));
+      
+      res.status(200).json({
+        success: true,
+        data: solicitudesFormateadas,
+        count: solicitudesFormateadas.length,
+        message: 'Solicitudes aprobadas obtenidas exitosamente'
+      });
+      
     } catch (error) {
-      console.error('Error en getById:', error);
-      res.status(500).json({ success: false, error: error.message });
+      console.error('❌ Error en getSolAprobadasExp:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error interno del servidor al obtener solicitudes aprobadas',
+        details: error.message
+      });
     }
   },
 
-  // Obtener expediente por código
-  async getByCodigo(req, res) {
-    try {
-      const expediente = await ExpedienteModel.getByCodigo(req.params.codigo);
-      if (!expediente) {
-        return res.status(404).json({ success: false, error: 'Expediente no encontrado' });
-      }
-      res.json({ success: true, data: expediente });
-    } catch (error) {
-      console.error('Error en getByCodigo:', error);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  },
-
-  // Crear expediente
-  async create(req, res) {
+  // POST /api/expediente
+  create: async (req, res) => {
     try {
       const {
-        cedula_persona,
-        solicitud,
-        monto_solicitado,
+        id_solicitud,
         id_usuario,
-        requisitos_capturados,
-        verificacion_requisitos,
-        imagenes_capturadas
+        id_requisitos,
+        codigo_expediente,
+        estatus,
+        observaciones
       } = req.body;
 
-      // Validar datos requeridos
-      if (!cedula_persona) {
+      console.log("📋 Datos recibidos:", {
+        id_solicitud,
+        id_usuario,
+        id_requisitos,
+        codigo_expediente,
+        estatus,
+        observaciones
+      });
+
+      // Validaciones
+      if (!id_solicitud) {
         return res.status(400).json({ 
           success: false, 
-          error: 'La cédula de la persona es requerida' 
+          error: 'El ID de la solicitud es requerido' 
+        });
+      }
+      
+      if (!id_usuario) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'El inspector asignado (id_usuario) es requerido' 
+        });
+      }
+      
+      if (!codigo_expediente) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'El código de expediente es requerido' 
+        });
+      }
+      
+      if (!estatus) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'El estatus es requerido' 
         });
       }
 
+      // Verificar que la solicitud existe y está aprobada
+      const solicitud = await SolicitudModel.getById(id_solicitud);
+      
       if (!solicitud) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'La descripción de la solicitud es requerida' 
-        });
-      }
-
-      // 1. Verificar si existe la persona
-      let persona = await PersonaModel.getByCedula(cedula_persona);
-      if (!persona) {
         return res.status(404).json({ 
           success: false, 
-          error: 'Persona no encontrada. Debe registrar primero al emprendedor.' 
+          error: `No existe la solicitud con ID: ${id_solicitud}` 
         });
       }
 
-      // 2. Verificar si existe el usuario (inspector)
-      if (id_usuario) {
-        const usuario = await UsuarioModel.getById(id_usuario);
-        if (!usuario) {
-          return res.status(404).json({ 
-            success: false, 
-            error: 'Inspector no encontrado' 
-          });
-        }
+      if (solicitud.estatus !== 'Aprobado') {
+        return res.status(400).json({ 
+          success: false, 
+          error: `La solicitud debe estar APROBADA. Estado actual: ${solicitud.estatus}` 
+        });
       }
 
-      // 3. Crear la solicitud
-      const nuevaSolicitud = await SolicitudModel.create({
-        cedula_persona,
-        solicitud,
-        monto_solicitado: monto_solicitado || 0,
-        estatus: 'En revisión'
-      });
-
-      // 4. Generar código de expediente
-      const año = new Date().getFullYear();
-      const ultimoNumero = await ExpedienteModel.getLastExpedienteNumber(año);
-      const nuevoNumero = ultimoNumero + 1;
-      const codigo_expediente = `EXP-${año}-${String(nuevoNumero).padStart(4, '0')}`;
-
-      // 5. Preparar datos de requisitos
-      const requisitosIds = requisitos_capturados ? Object.keys(requisitos_capturados) : [];
+      // Verificar que el usuario (inspector) existe
+      const usuario = await UsuarioModel.getById(id_usuario);
       
-      // 6. Crear el expediente
-      const nuevoExpediente = await ExpedienteModel.create({
-        id_solicitud: nuevaSolicitud.id_solicitud,
-        id_usuario: id_usuario || null,
-        id_requisitos: JSON.stringify(requisitosIds),
-        verificacion_requisitos: JSON.stringify({
-          documentos_capturados: requisitos_capturados || {},
-          imagenes: imagenes_capturadas || {},
-          verificacion: verificacion_requisitos || {},
-          fecha_verificacion: new Date().toISOString()
-        }),
+      if (!usuario) {
+        return res.status(404).json({ 
+          success: false, 
+          error: `No existe el usuario/inspector con ID: ${id_usuario}` 
+        });
+      }
+
+      // Verificar que no exista expediente previo
+      const existeExpediente = await ExpedienteModel.existsBySolicitud(id_solicitud);
+      if (existeExpediente) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Ya existe un expediente para esta solicitud' 
+        });
+      }
+
+      // Construir el objeto de datos para crear el expediente
+      const expedienteData = {
+        id_solicitud: parseInt(id_solicitud),
+        id_usuario: parseInt(id_usuario),
+        ids_requisitos: Array.isArray(id_requisitos) ? id_requisitos : [],
+        observaciones: observaciones || 'Sin observaciones iniciales',
         codigo_expediente,
-        estatus: 'Activo'
-      });
+        estatus: estatus || 'En revisión'
+      };
+
+      console.log("📤 Creando expediente con datos:", expedienteData);
+
+      // Crear el expediente
+      const nuevoExpediente = await ExpedienteModel.create(expedienteData);
+
+      console.log("✅ Expediente creado exitosamente:", nuevoExpediente);
 
       res.status(201).json({
         success: true,
         message: 'Expediente creado exitosamente',
-        data: {
-          expediente: nuevoExpediente,
-          solicitud: nuevaSolicitud,
-          persona,
-          codigo_expediente
-        }
+        data: nuevoExpediente
       });
+      
     } catch (error) {
-      console.error('Error en create:', error);
+      console.error('❌ Error en create:', error);
       res.status(500).json({ 
         success: false, 
-        error: error.message,
-        details: error.detail || 'Error al crear el expediente'
+        error: error.message || 'Error interno del servidor al crear expediente'
       });
-    }
-  },
-
-  // Actualizar expediente
-  async update(req, res) {
-    try {
-      const expedienteExistente = await ExpedienteModel.getById(req.params.id);
-      if (!expedienteExistente) {
-        return res.status(404).json({ success: false, error: 'Expediente no encontrado' });
-      }
-
-      const expediente = await ExpedienteModel.update(req.params.id, req.body);
-      res.json({ success: true, data: expediente });
-    } catch (error) {
-      console.error('Error en update:', error);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  },
-
-  // Actualizar estatus
-  async updateStatus(req, res) {
-    try {
-      const { estatus } = req.body;
-      const estatusValidos = ['Activo', 'En Proceso', 'Completado', 'Revisión', 'Documentación Pendiente', 'Programado', 'Aprobado', 'Rechazado'];
-      
-      if (!estatusValidos.includes(estatus)) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Estatus no válido' 
-        });
-      }
-
-      const expediente = await ExpedienteModel.updateStatus(req.params.id, estatus);
-      if (!expediente) {
-        return res.status(404).json({ success: false, error: 'Expediente no encontrado' });
-      }
-      
-      res.json({ success: true, data: expediente });
-    } catch (error) {
-      console.error('Error en updateStatus:', error);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  },
-
-  // Obtener expedientes por usuario
-  async getByUsuario(req, res) {
-    try {
-      const expedientes = await ExpedienteModel.getByUsuario(req.params.id_usuario);
-      res.json({ success: true, data: expedientes });
-    } catch (error) {
-      console.error('Error en getByUsuario:', error);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  },
-
-  // Obtener expedientes por estatus
-  async getByEstatus(req, res) {
-    try {
-      const expedientes = await ExpedienteModel.getByEstatus(req.params.estatus);
-      res.json({ success: true, data: expedientes });
-    } catch (error) {
-      console.error('Error en getByEstatus:', error);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  },
-
-  // Eliminar expediente
-  async delete(req, res) {
-    try {
-      const expediente = await ExpedienteModel.delete(req.params.id);
-      if (!expediente) {
-        return res.status(404).json({ success: false, error: 'Expediente no encontrado' });
-      }
-      res.json({ success: true, message: 'Expediente eliminado correctamente' });
-    } catch (error) {
-      console.error('Error en delete:', error);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  },
-
-  // Obtener estadísticas de expedientes
-  async getStats(req, res) {
-    try {
-      const expedientes = await ExpedienteModel.getAll();
-      
-      const stats = {
-        total: expedientes.length,
-        activos: expedientes.filter(e => e.estatus === 'Activo').length,
-        enProceso: expedientes.filter(e => e.estatus === 'En Proceso').length,
-        completados: expedientes.filter(e => e.estatus === 'Completado').length,
-        revision: expedientes.filter(e => e.estatus === 'Revisión').length
-      };
-      
-      res.json({ success: true, data: stats });
-    } catch (error) {
-      console.error('Error en getStats:', error);
-      res.status(500).json({ success: false, error: error.message });
     }
   }
 };

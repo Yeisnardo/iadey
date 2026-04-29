@@ -1,14 +1,41 @@
+// services/api_solicitud.js
 import api from './api_principal';
 
 const SolicitudAPI = {
+
+
+
+
   // Obtener todas las solicitudes
   getAll: async () => {
     try {
       const response = await api.get('/solicitud');
+      console.log('Respuesta solicitudes:', response.data);
+      
+      // Normalizar la respuesta
+      if (response.data.success) {
+        return response.data; // { success: true, data: [...] }
+      }
       return response.data;
     } catch (error) {
       console.error('Error en getAll:', error);
       throw error.response?.data || { error: 'Error al obtener las solicitudes' };
+    }
+  },
+
+  // Obtener emprendedores
+  getEmprendedores: async () => {
+    try {
+      const response = await api.get('/solicitud/emprendedores');
+      console.log('Respuesta emprendedores:', response.data);
+      
+      if (response.data.success) {
+        return response.data;
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error en getEmprendedores:', error);
+      throw error.response?.data || { error: 'Error al obtener emprendedores' };
     }
   },
 

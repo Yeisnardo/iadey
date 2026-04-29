@@ -1,113 +1,117 @@
+// frontend/src/services/api_expediente.js
 import api from './api_principal';
 
 const expedienteAPI = {
-  // Obtener todos los expedientes
-  getAllExpedientes: async () => {
+  // Obtener todas las solicitudes aprobadas
+  getSolAprobadasExp: async () => {
     try {
-      const response = await api.get('/expediente');
-      return response.data;
+      const response = await api.get('/expediente/aprobadas');
+      console.log('📊 Solicitudes aprobadas recibidas:', response.data);
+      
+      if (response.data.success) {
+        return {
+          success: true,
+          data: response.data.data || [],
+          count: response.data.count || 0,
+          message: response.data.message
+        };
+      }
+      
+      return {
+        success: false,
+        data: [],
+        error: response.data.error || 'Error al obtener solicitudes'
+      };
     } catch (error) {
-      console.error('Error en getAllExpedientes:', error);
-      throw error.response?.data || { error: 'Error al obtener los expedientes' };
+      console.error('❌ Error en getSolAprobadasExp:', error);
+      console.error('Detalles del error:', error.response?.data);
+      return { 
+        success: false, 
+        data: [],
+        error: error.response?.data?.error || error.response?.data?.details || 'Error al obtener las solicitudes aprobadas'
+      };
     }
   },
 
-  // Obtener expediente por ID
-  getExpedienteById: async (id) => {
+  // Obtener requisitos disponibles
+  getRequisitos: async () => {
     try {
-      const response = await api.get(`/expediente/${id}`);
-      return response.data;
+      const response = await api.get('/requisitos');
+      console.log('📋 Requisitos recibidos:', response.data);
+      return {
+        success: true,
+        data: response.data.data || response.data || [],
+        message: response.data.message
+      };
     } catch (error) {
-      console.error('Error en getExpedienteById:', error);
-      throw error.response?.data || { error: 'Error al obtener el expediente' };
+      console.error('❌ Error en getRequisitos:', error);
+      return { 
+        success: false, 
+        data: [],
+        error: error.response?.data?.error || 'Error al obtener requisitos'
+      };
     }
   },
 
-  // Obtener expediente por código
-  getExpedienteByCodigo: async (codigo) => {
+  // Obtener usuarios (inspectores)
+  getInspectores: async () => {
     try {
-      const response = await api.get(`/expediente/codigo/${codigo}`);
-      return response.data;
+      const response = await api.get('/usuarios/inspectores');
+      console.log('👥 Inspectores recibidos:', response.data);
+      return {
+        success: true,
+        data: response.data.data || response.data || [],
+        message: response.data.message
+      };
     } catch (error) {
-      console.error('Error en getExpedienteByCodigo:', error);
-      throw error.response?.data || { error: 'Error al obtener el expediente' };
+      console.error('❌ Error en getInspectores:', error);
+      return { 
+        success: false, 
+        data: [],
+        error: error.response?.data?.error || 'Error al obtener inspectores'
+      };
     }
   },
 
-  // Obtener expedientes por usuario (inspector)
-  getExpedientesByUsuario: async (id_usuario) => {
-    try {
-      const response = await api.get(`/expediente/usuario/${id_usuario}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error en getExpedientesByUsuario:', error);
-      throw error.response?.data || { error: 'Error al obtener expedientes del usuario' };
-    }
-  },
-
-  // Obtener expedientes por estatus
-  getExpedientesByEstatus: async (estatus) => {
-    try {
-      const response = await api.get(`/expediente/estatus/${estatus}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error en getExpedientesByEstatus:', error);
-      throw error.response?.data || { error: 'Error al obtener expedientes por estatus' };
-    }
-  },
-
-  // Crear nuevo expediente
+  // Crear expediente
   createExpediente: async (expedienteData) => {
     try {
+      console.log("📝 Enviando datos al backend:", expedienteData);
       const response = await api.post('/expediente', expedienteData);
-      return response.data;
+      console.log("✅ Respuesta del servidor:", response.data);
+      
+      return {
+        success: true,
+        data: response.data.data,
+        message: response.data.message
+      };
     } catch (error) {
-      console.error('Error en createExpediente:', error);
-      throw error.response?.data || { error: 'Error al crear el expediente' };
+      console.error("❌ Error en createExpediente:", error);
+      console.error("Detalles:", error.response?.data);
+      
+      return { 
+        success: false, 
+        error: error.response?.data?.error || error.response?.data?.message || error.message 
+      };
     }
   },
 
-  // Actualizar expediente
-  updateExpediente: async (id, expedienteData) => {
+  // Verificar si ya existe expediente para una solicitud
+  verificarExpediente: async (id_solicitud) => {
     try {
-      const response = await api.put(`/expediente/${id}`, expedienteData);
-      return response.data;
+      const response = await api.get(`/expediente/verificar/${id_solicitud}`);
+      return {
+        success: true,
+        existe: response.data.existe || false,
+        data: response.data.data
+      };
     } catch (error) {
-      console.error('Error en updateExpediente:', error);
-      throw error.response?.data || { error: 'Error al actualizar el expediente' };
-    }
-  },
-
-  // Actualizar estatus
-  updateExpedienteStatus: async (id, estatus) => {
-    try {
-      const response = await api.patch(`/expediente/${id}/estatus`, { estatus });
-      return response.data;
-    } catch (error) {
-      console.error('Error en updateExpedienteStatus:', error);
-      throw error.response?.data || { error: 'Error al actualizar el estatus' };
-    }
-  },
-
-  // Eliminar expediente
-  deleteExpediente: async (id) => {
-    try {
-      const response = await api.delete(`/expediente/${id}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error en deleteExpediente:', error);
-      throw error.response?.data || { error: 'Error al eliminar el expediente' };
-    }
-  },
-
-  // Obtener estadísticas
-  getExpedienteStats: async () => {
-    try {
-      const response = await api.get('/expediente/stats');
-      return response.data;
-    } catch (error) {
-      console.error('Error en getExpedienteStats:', error);
-      throw error.response?.data || { error: 'Error al obtener estadísticas' };
+      console.error('❌ Error en verificarExpediente:', error);
+      return { 
+        success: false, 
+        existe: false,
+        error: error.response?.data?.error || 'Error al verificar expediente'
+      };
     }
   }
 };

@@ -53,6 +53,12 @@ const SolicitudesPersona = () => {
   const [solicitudes, setSolicitudes] = useState([]);
   const [loadingSolicitudes, setLoadingSolicitudes] = useState(false);
   const [saving, setSaving] = useState(false);
+  
+  // Estados para actualizar estatus
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedSolicitudId, setSelectedSolicitudId] = useState(null);
+  const [motivoRechazo, setMotivoRechazo] = useState("");
 
   // Estado para el usuario logueado
   const [currentUser, setCurrentUser] = useState(null);
@@ -228,65 +234,63 @@ const SolicitudesPersona = () => {
   };
 
   const cargarSolicitudes = async () => {
-  setLoadingSolicitudes(true);
-  try {
-    const usuarioLogueado = usuarioAPI.getCurrentUser();
-    if (usuarioLogueado && usuarioLogueado.cedula_usuario) {
-      const response = await SolicitudAPI.getByCedula(usuarioLogueado.cedula_usuario);
-      
-      console.log("📊 Respuesta de la API:", response); // Para debugging
-      
-      // Verificar si la respuesta es exitosa y tiene datos
-      if (response && response.success && response.data) {
-        const solicitudesFormateadas = response.data.map(sol => ({
-          id: sol.id_solicitud,
-          fechaSolicitud: sol.fecha_solicitud,
-          emprendimiento: sol.nombre_emprendimiento || 'Sin especificar',
-          rifEmprendimiento: sol.cedula_emprendimiento || sol.cedula_persona,
-          montoSolicitado: parseFloat(sol.monto_solicitado) || 0,
-          estatus: sol.estatus || 'Pendiente',
-          motivo_rechazo: sol.motivo_rechazo,
-          destino: sol.solicitud,
-          analista: 'Por asignar',
-          clasificacion: sol.sector && sol.actividad ? `${sol.sector} - ${sol.actividad}` : 'No especificada',
-          anos_experiencia: sol.anos_experiencia || 'No especificado',
-          direccion_emprendimiento: sol.direccion_empredimiento || 'No especificada',
-        }));
+    setLoadingSolicitudes(true);
+    try {
+      const usuarioLogueado = usuarioAPI.getCurrentUser();
+      if (usuarioLogueado && usuarioLogueado.cedula_usuario) {
+        const response = await SolicitudAPI.getByCedula(usuarioLogueado.cedula_usuario);
         
-        console.log("📋 Solicitudes formateadas:", solicitudesFormateadas);
-        setSolicitudes(solicitudesFormateadas);
-      } else if (response && response.data && !response.success) {
-        // Si la respuesta no tiene el formato success
-        const solicitudesFormateadas = response.data.map(sol => ({
-          id: sol.id_solicitud,
-          fechaSolicitud: sol.fecha_solicitud,
-          emprendimiento: sol.nombre_emprendimiento || 'Sin especificar',
-          rifEmprendimiento: sol.cedula_emprendimiento || sol.cedula_persona,
-          montoSolicitado: parseFloat(sol.monto_solicitado) || 0,
-          estatus: sol.estatus || 'Pendiente',
-          motivo_rechazo: sol.motivo_rechazo,
-          destino: sol.solicitud,
-          analista: 'Por asignar',
-          clasificacion: 'No especificada',
-          anos_experiencia: sol.anos_experiencia || 'No especificado',
-          direccion_emprendimiento: sol.direccion_empredimiento || 'No especificada',
-        }));
+        console.log("📊 Respuesta de la API:", response);
         
-        setSolicitudes(solicitudesFormateadas);
+        if (response && response.success && response.data) {
+          const solicitudesFormateadas = response.data.map(sol => ({
+            id: sol.id_solicitud,
+            fechaSolicitud: sol.fecha_solicitud,
+            emprendimiento: sol.nombre_emprendimiento || 'Sin especificar',
+            rifEmprendimiento: sol.cedula_emprendimiento || sol.cedula_persona,
+            montoSolicitado: parseFloat(sol.monto_solicitado) || 0,
+            estatus: sol.estatus || 'Pendiente',
+            motivo_rechazo: sol.motivo_rechazo,
+            destino: sol.solicitud,
+            analista: 'Por asignar',
+            clasificacion: sol.sector && sol.actividad ? `${sol.sector} - ${sol.actividad}` : 'No especificada',
+            anos_experiencia: sol.anos_experiencia || 'No especificado',
+            direccion_emprendimiento: sol.direccion_empredimiento || 'No especificada',
+          }));
+          
+          console.log("📋 Solicitudes formateadas:", solicitudesFormateadas);
+          setSolicitudes(solicitudesFormateadas);
+        } else if (response && response.data && !response.success) {
+          const solicitudesFormateadas = response.data.map(sol => ({
+            id: sol.id_solicitud,
+            fechaSolicitud: sol.fecha_solicitud,
+            emprendimiento: sol.nombre_emprendimiento || 'Sin especificar',
+            rifEmprendimiento: sol.cedula_emprendimiento || sol.cedula_persona,
+            montoSolicitado: parseFloat(sol.monto_solicitado) || 0,
+            estatus: sol.estatus || 'Pendiente',
+            motivo_rechazo: sol.motivo_rechazo,
+            destino: sol.solicitud,
+            analista: 'Por asignar',
+            clasificacion: 'No especificada',
+            anos_experiencia: sol.anos_experiencia || 'No especificado',
+            direccion_emprendimiento: sol.direccion_empredimiento || 'No especificada',
+          }));
+          
+          setSolicitudes(solicitudesFormateadas);
+        } else {
+          setSolicitudes([]);
+        }
       } else {
+        console.log("No hay usuario logueado");
         setSolicitudes([]);
       }
-    } else {
-      console.log("No hay usuario logueado");
+    } catch (error) {
+      console.error('❌ Error cargando solicitudes:', error);
       setSolicitudes([]);
+    } finally {
+      setLoadingSolicitudes(false);
     }
-  } catch (error) {
-    console.error('❌ Error cargando solicitudes:', error);
-    setSolicitudes([]);
-  } finally {
-    setLoadingSolicitudes(false);
-  }
-};
+  };
 
   const obtenerIdClasificacion = (sector, actividad) => {
     const clasificacion = clasificaciones.find(
@@ -459,6 +463,81 @@ const SolicitudesPersona = () => {
 
   const handleVerDetalle = (solicitudId) => {
     navigate(`/solicitud/${solicitudId}`);
+  };
+
+  // Función para aprobar solicitud
+  const handleAprobarSolicitud = async (solicitudId) => {
+    if (!confirm("¿Estás seguro de aprobar esta solicitud?")) return;
+    
+    setUpdatingStatus(true);
+    try {
+      const response = await SolicitudAPI.updateEstatus(solicitudId, "Aprobado", null);
+      
+      if (response.success) {
+        // Actualizar la lista de solicitudes
+        setSolicitudes(prevSolicitudes => 
+          prevSolicitudes.map(sol => 
+            sol.id === solicitudId 
+              ? { ...sol, estatus: "Aprobado", motivo_rechazo: null }
+              : sol
+          )
+        );
+        alert("✅ Solicitud aprobada exitosamente");
+      } else {
+        throw new Error(response.error || "Error al aprobar la solicitud");
+      }
+    } catch (error) {
+      console.error("Error al aprobar:", error);
+      alert(`Error al aprobar: ${error.message}`);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  // Función para abrir modal de rechazo
+  const handleRechazarSolicitud = (solicitudId) => {
+    setSelectedSolicitudId(solicitudId);
+    setMotivoRechazo("");
+    setShowRejectModal(true);
+  };
+
+  // Función para confirmar rechazo
+  const handleConfirmarRechazo = async () => {
+    if (!motivoRechazo.trim()) {
+      alert("Por favor, ingrese el motivo del rechazo");
+      return;
+    }
+    
+    setUpdatingStatus(true);
+    try {
+      const response = await SolicitudAPI.updateEstatus(
+        selectedSolicitudId, 
+        "Rechazado", 
+        motivoRechazo
+      );
+      
+      if (response.success) {
+        // Actualizar la lista de solicitudes
+        setSolicitudes(prevSolicitudes => 
+          prevSolicitudes.map(sol => 
+            sol.id === selectedSolicitudId 
+              ? { ...sol, estatus: "Rechazado", motivo_rechazo: motivoRechazo }
+              : sol
+          )
+        );
+        setShowRejectModal(false);
+        setMotivoRechazo("");
+        setSelectedSolicitudId(null);
+        alert("❌ Solicitud rechazada");
+      } else {
+        throw new Error(response.error || "Error al rechazar la solicitud");
+      }
+    } catch (error) {
+      console.error("Error al rechazar:", error);
+      alert(`Error al rechazar: ${error.message}`);
+    } finally {
+      setUpdatingStatus(false);
+    }
   };
 
   const handleVolver = () => {
@@ -670,6 +749,7 @@ const SolicitudesPersona = () => {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Monto</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Clasificación</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estatus</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Motivo Rechazo</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
                       </tr>
                     </thead>
@@ -699,15 +779,51 @@ const SolicitudesPersona = () => {
                               {getStatusIcon(solicitud.estatus)}{solicitud.estatus}
                             </span>
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <button 
-                              onClick={() => handleVerDetalle(solicitud.id)} 
-                              className="p-1 text-blue-600 hover:bg-blue-50 rounded-lg dark:hover:bg-blue-900/20 transition-colors"
-                            >
-                              <Eye size={16} />
-                            </button>
+                          <td className="px-4 py-3">
+                            {solicitud.estatus === "Rechazado" && solicitud.motivo_rechazo ? (
+                              <span className={`text-xs ${darkMode ? "text-red-300" : "text-red-600"} cursor-help`} 
+                                    title={solicitud.motivo_rechazo}>
+                                Ver motivo
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
                           </td>
-                        </tr>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => handleVerDetalle(solicitud.id)} 
+                                className="p-1 text-blue-600 hover:bg-blue-50 rounded-lg dark:hover:bg-blue-900/20 transition-colors"
+                                title="Ver detalles"
+                                disabled={updatingStatus}
+                              >
+                                <Eye size={16} />
+                              </button>
+                              
+                              {/* Botones de Aceptar/Rechazar - solo para solicitudes pendientes */}
+                              {solicitud.estatus === "Pendiente" && (
+                                <>
+                                  <button 
+                                    onClick={() => handleAprobarSolicitud(solicitud.id)} 
+                                    className="p-1 text-green-600 hover:bg-green-50 rounded-lg dark:hover:bg-green-900/20 transition-colors"
+                                    title="Aprobar solicitud"
+                                    disabled={updatingStatus}
+                                  >
+                                    <CheckCircle size={16} />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleRechazarSolicitud(solicitud.id)} 
+                                    className="p-1 text-red-600 hover:bg-red-50 rounded-lg dark:hover:bg-red-900/20 transition-colors"
+                                    title="Rechazar solicitud"
+                                    disabled={updatingStatus}
+                                  >
+                                    <XCircle size={16} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                           </td>
+                         </tr>
                       ))}
                     </tbody>
                   </table>
@@ -960,6 +1076,69 @@ const SolicitudesPersona = () => {
                           )}
                         </button>
                       )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL DE RECHAZO */}
+          {showRejectModal && (
+            <div className="fixed inset-0 z-50 overflow-y-auto">
+              <div className="fixed inset-0 bg-black bg-opacity-70" onClick={() => setShowRejectModal(false)}></div>
+              <div className="flex min-h-full items-center justify-center p-4">
+                <div className={`relative w-full max-w-md rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-2xl`}>
+                  <div className={`px-6 py-4 border-b ${darkMode ? "border-gray-700" : "border-gray-200"} flex justify-between items-center`}>
+                    <h2 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                      Rechazar Solicitud
+                    </h2>
+                    <button 
+                      onClick={() => setShowRejectModal(false)} 
+                      className={`p-2 rounded-lg ${darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"}`}
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                  
+                  <div className="px-6 py-4">
+                    <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                      Motivo del Rechazo <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={motivoRechazo}
+                      onChange={(e) => setMotivoRechazo(e.target.value)}
+                      rows="4"
+                      className={`w-full px-4 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"} focus:outline-none focus:ring-2 focus:ring-red-500`}
+                      placeholder="Explique detalladamente por qué se rechaza esta solicitud..."
+                      autoFocus
+                    />
+                    
+                    <div className="flex justify-end gap-3 mt-6">
+                      <button
+                        onClick={() => setShowRejectModal(false)}
+                        className={`px-4 py-2 rounded-lg ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-200 hover:bg-gray-300"} transition-colors`}
+                        disabled={updatingStatus}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleConfirmarRechazo}
+                        disabled={updatingStatus}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                      >
+                        {updatingStatus ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            Procesando...
+                          </>
+                        ) : (
+                          <>
+                            <XCircle size={18} />
+                            Rechazar Solicitud
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>

@@ -18,6 +18,11 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ✅ AUMENTAR LÍMITE DE TAMAÑO PARA JSON Y URLENCODED
+app.use(cors());
+app.use(express.json({ limit: '50mb' }));  // Aumentado a 50MB
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));  // Aumentado a 50MB
+
 app.use(cors());
 app.use(express.json());
 

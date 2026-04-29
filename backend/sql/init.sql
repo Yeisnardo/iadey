@@ -64,7 +64,7 @@ CREATE TABLE solicitud (
 );
 
 -- =============================================
--- TABLA: emprendimiento (CORREGIDA)
+-- TABLA: emprendimiento
 -- =============================================
 CREATE TABLE emprendimiento (
     id_emprendimiento SERIAL PRIMARY KEY,
@@ -79,18 +79,6 @@ CREATE TABLE emprendimiento (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
-            INSERT INTO clasificacion_emprendimiento (sector, Actividad) VALUES
-            (1, 'Tecnología - Desarrollo de software'),
-            (1, 'Tecnología - Consultoría IT'),
-            (2, 'Comercio - Venta de productos electrónicos'),
-            (2, 'Comercio - Ropa y accesorios'),
-            (3, 'Servicios - Marketing digital'),
-            (3, 'Servicios - Diseño gráfico'),
-            (4, 'Industria - Fabricación de muebles'),
-            (4, 'Industria - Producción textil'),
-            (5, 'Agroindustria - Cultivos orgánicos'),
-            (5, 'Agroindustria - Ganadería sostenible');
 
 
 -- =============================================
@@ -110,11 +98,12 @@ CREATE TABLE expediente (
     id_expediente SERIAL PRIMARY KEY,
     id_solicitud int NOT NULL,
     id_usuario int NOT NULL,
-    id_requisitos TEXT NOT NULL,
-    verificacion_requisitos TEXT,
-    codigo_exoediente VARCHAR NOT NULL,
+    id_requisitos TEXT NOT NULL DEFAULT '',
+    codigo_expediente VARCHAR NOT NULL,
+    observaciones TEXT,
     estatus VARCHAR NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_solicitud) REFERENCES solicitud(id_solicitud),
     FOREIGN KEY (id_usuario) REFERENCES usuario(id),
     FOREIGN KEY (id_expediente) REFERENCES requisitos(id_requisitos)
