@@ -105,37 +105,105 @@ class ExpedienteModel {
 
     console.log("📝 Guardando requisitos como string:", requisitosString);
 
-    const query = `
-      INSERT INTO expediente (
+    // Usar una transacción para asegurar integridad
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+
+      // 1. Insertar el expediente
+      const queryExpediente = `
+        INSERT INTO expediente (
+          id_solicitud,
+          id_usuario,
+          id_requisitos,
+          observaciones,
+          codigo_expediente,
+          estatus,
+          created_at,
+          updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING *
+      `;
+
+      const valuesExpediente = [
         id_solicitud,
         id_usuario,
-        id_requisitos,
-        observaciones,
+        requisitosString,
+        observaciones || 'Pendiente de verificación',
         codigo_expediente,
-        estatus,
-        created_at,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      RETURNING *
-    `;
+        estatus
+      ];
 
-    const values = [
-      id_solicitud,
-      id_usuario,
-      requisitosString,
-      observaciones || 'Pendiente de verificación',
-      codigo_expediente,
-      estatus
-    ];
+      console.log("📤 Ejecutando INSERT expediente con valores:", valuesExpediente);
+      const resultExpediente = await client.query(queryExpediente, valuesExpediente);
+      const expedienteCreado = resultExpediente.rows[0];
+      console.log("✅ Expediente creado con ID:", expedienteCreado.id_expediente);
 
-    try {
-      console.log("📤 Ejecutando INSERT con valores:", values);
-      const result = await pool.query(query, values);
-      console.log("✅ Expediente creado con ID:", result.rows[0].id_expediente);
-      return result.rows[0];
+      // 2. Obtener el n_ins_asig de la clasificación del emprendimiento
+      const queryClasificacion = `
+        SELECT c.n_ins_asig, c.id_clasificacion, c.sector, c.actividad
+        FROM solicitud s
+        INNER JOIN emprendimiento e ON s.id_solicitud = e.id_solicitud
+        INNER JOIN clasificacion_emprendimiento c ON e.id_clasificacion = c.id_clasificacion
+        WHERE s.id_solicitud = $1
+        LIMIT 1
+      `;
+
+      const resultClasificacion = await client.query(queryClasificacion, [id_solicitud]);
+      
+      if (resultClasificacion.rows.length === 0) {
+        throw new Error('No se encontró la clasificación del emprendimiento para esta solicitud');
+      }
+
+      const { n_ins_asig, id_clasificacion, sector, actividad } = resultClasificacion.rows[0];
+      console.log(`📊 Clasificación: ${sector} - ${actividad}`);
+      console.log(`📊 n_ins_asig: ${n_ins_asig} (Se crearán ${n_ins_asig} inspecciones)`);
+      console.log(`📊 id_clasificacion: ${id_clasificacion} (usado como id_tipo_insp_clas)`);
+
+      // 3. Crear los registros en la tabla inspección según n_ins_asig
+      const inspeccionesCreadas = [];
+      
+      for (let i = 1; i <= n_ins_asig; i++) {
+        const queryInspeccion = `
+          INSERT INTO inspeccion (
+            id_codigo_exp,
+            id_tipo_insp_clas,
+            estatus_inspeccion,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          RETURNING *
+        `;
+
+        const valuesInspeccion = [
+          expedienteCreado.id_expediente,
+          id_clasificacion,  // Usamos id_clasificacion como id_tipo_insp_clas
+          'Pendiente'        // Valor por defecto
+        ];
+
+        console.log(`📤 Creando inspección ${i} de ${n_ins_asig}`);
+        const resultInspeccion = await client.query(queryInspeccion, valuesInspeccion);
+        inspeccionesCreadas.push(resultInspeccion.rows[0]);
+        console.log(`✅ Inspección ${i} creada con ID: ${resultInspeccion.rows[0].id_inspeccion}`);
+      }
+
+      await client.query('COMMIT');
+      
+      console.log(`✅ Proceso completado: 1 expediente y ${inspeccionesCreadas.length} inspecciones creadas`);
+      
+      return {
+        expediente: expedienteCreado,
+        inspecciones: inspeccionesCreadas,
+        total_inspecciones: inspeccionesCreadas.length
+      };
+
     } catch (error) {
+      await client.query('ROLLBACK');
       console.error('❌ Error en create expediente:', error);
       throw new Error(`Error al crear expediente: ${error.message}`);
+    } finally {
+      client.release();
     }
   }
 

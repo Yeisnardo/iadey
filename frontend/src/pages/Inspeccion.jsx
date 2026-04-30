@@ -32,1170 +32,19 @@ import {
   FileSignature,
   X,
   Save,
-  ClipboardList
+  ClipboardList,
+  RefreshCw,
+  Database
 } from "lucide-react";
 
 // Importamos nuestros componentes personalizados
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
+import InspectionFormCompleto from "../components/InspectionFormCompleto";
 
-// ============================================
-// COMPONENTE MODAL DEL FORMULARIO DE INSPECCIÓN
-// ============================================
-const InspectionFormModal = ({ isOpen, onClose, darkMode, onSubmit, emprendimientoData = null }) => {
-  const [formData, setFormData] = useState({
-    // 1. IDENTIFICACION DEL EMPRENDIMIENTO
-    nombresApellidos: "",
-    ci: "",
-    nacionalidad: "",
-    edad: "",
-    actividad: "",
-    añosExperiencia: "",
-    direccionHabitacion: "",
-    direccionUnidadProduccion: "",
-    municipio: "",
-    localidad: "",
-    telefono: "",
-    
-    // 2. ESTUDIO DEL MERCADO
-    descripcionProducto: "",
-    descripcionProcesoProductivo: "",
-    usuariosProduccion: "",
-    volumenProduccion: [],
-    ventasEstimadas: [],
-    materiaPrima: [],
-    
-    // 3. ASPECTOS TECNICOS
-    localDescripcion: "",
-    tenenciaLocal: "propio",
-    alquilerBs: "",
-    maquinariaPosee: [],
-    maquinariaSolicita: [],
-    recursoHumano: { empleados: 0, obreros: 0, salarioEmpleados: 0, salarioObreros: 0 },
-    serviciosBasicos: {
-      electricidad: false,
-      agua: false,
-      telefono: false,
-      aseoUrbano: false,
-      cloacas: false,
-      gas: false
-    },
-    
-    // 4. GASTOS MENSUALES
-    gastosMensuales: {
-      manoObra: { actual: 0, futuro: 0 },
-      materiaPrima: { actual: 0, futuro: 0 },
-      serviciosBasicos: { actual: 0, futuro: 0 },
-      alquiler: { actual: 0, futuro: 0 },
-      otros: { actual: 0, futuro: 0 }
-    },
-    
-    // 5. PLAN DE INVERSION
-    planInversion: {
-      construccion: { aportesPropios: 0, montoSolicitado: 0 },
-      maquinariaEquipo: { aportesPropios: 0, montoSolicitado: 0 },
-      materiaPrima: { aportesPropios: 0, montoSolicitado: 0 },
-      manoObra: { aportesPropios: 0, montoSolicitado: 0 },
-      otrosGastos: { aportesPropios: 0, montoSolicitado: 0 }
-    },
-    
-    // 6-8. COMUNIDAD Y GARANTIA
-    organizacionComunidad: "",
-    necesidadesComunidad: "",
-    realizaAporte: false,
-    descripcionAporte: "",
-    garantiaOfrecida: "fianza"
-  });
-
-  const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 5;
-
-  // Cargar datos del emprendimiento si se proporciona
-  useEffect(() => {
-    if (emprendimientoData) {
-      setFormData(prev => ({
-        ...prev,
-        nombresApellidos: emprendimientoData.emprendedor || "",
-        actividad: emprendimientoData.actividad || "",
-        direccionUnidadProduccion: emprendimientoData.direccion || "",
-        telefono: emprendimientoData.telefono || "",
-      }));
-    }
-  }, [emprendimientoData]);
-
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
-
-  const handleNestedChange = (section, field, subField, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: {
-          ...prev[section][field],
-          [subField]: value
-        }
-      }
-    }));
-  };
-
-  const handleArrayChange = (arrayName, index, field, value) => {
-    setFormData(prev => {
-      const newArray = [...prev[arrayName]];
-      newArray[index] = { ...newArray[index], [field]: value };
-      return { ...prev, [arrayName]: newArray };
-    });
-  };
-
-  const addArrayItem = (arrayName, defaultItem) => {
-    setFormData(prev => ({
-      ...prev,
-      [arrayName]: [...prev[arrayName], defaultItem]
-    }));
-  };
-
-  const removeArrayItem = (arrayName, index) => {
-    setFormData(prev => ({
-      ...prev,
-      [arrayName]: prev[arrayName].filter((_, i) => i !== index)
-    }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(formData);
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose} />
-      
-      <div className="relative min-h-screen flex items-center justify-center p-4">
-        <div className={`relative w-full max-w-6xl rounded-xl shadow-xl ${
-          darkMode ? 'bg-gray-800' : 'bg-white'
-        } max-h-[90vh] overflow-y-auto`}>
-          
-          {/* Header del Modal */}
-          <div className={`sticky top-0 z-10 px-6 py-4 border-b ${
-            darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
-          }`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  Planilla de Inspección - IADEY
-                </h2>
-                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Formulario de inspección de emprendimiento
-                  {emprendimientoData && ` - ${emprendimientoData.emprendimiento}`}
-                </p>
-              </div>
-              <button
-                onClick={onClose}
-                className={`p-2 rounded-lg ${
-                  darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                } transition-colors`}
-              >
-                <X size={20} className={darkMode ? 'text-gray-400' : 'text-gray-500'} />
-              </button>
-            </div>
-            
-            {/* Stepper */}
-            <div className="flex items-center gap-2 mt-4">
-              {[1, 2, 3, 4, 5].map((step) => (
-                <React.Fragment key={step}>
-                  <button
-                    onClick={() => setCurrentStep(step)}
-                    className={`flex items-center justify-center w-10 h-10 rounded-full transition-all ${
-                      currentStep >= step
-                        ? 'bg-[#2A9D8F] text-white'
-                        : darkMode
-                        ? 'bg-gray-700 text-gray-400'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}
-                  >
-                    {step}
-                  </button>
-                  {step < totalSteps && (
-                    <div className={`flex-1 h-0.5 ${
-                      currentStep > step
-                        ? 'bg-[#2A9D8F]'
-                        : darkMode
-                        ? 'bg-gray-700'
-                        : 'bg-gray-200'
-                    }`} />
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="p-6">
-            {/* Step 1: Identificación y Estudio de Mercado */}
-            {currentStep === 1 && (
-              <div className="space-y-6">
-                <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  1. IDENTIFICACION DEL EMPRENDIMIENTO
-                </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Nombres y Apellidos *
-                    </label>
-                    <input
-                      type="text"
-                      name="nombresApellidos"
-                      value={formData.nombresApellidos}
-                      onChange={handleChange}
-                      className={`w-full px-3 py-2 rounded-lg border ${
-                        darkMode 
-                          ? 'bg-gray-700 border-gray-600 text-white' 
-                          : 'bg-white border-gray-200'
-                      } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      C.I. *
-                    </label>
-                    <input
-                      type="text"
-                      name="ci"
-                      value={formData.ci}
-                      onChange={handleChange}
-                      className={`w-full px-3 py-2 rounded-lg border ${
-                        darkMode 
-                          ? 'bg-gray-700 border-gray-600 text-white' 
-                          : 'bg-white border-gray-200'
-                      } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Nacionalidad
-                    </label>
-                    <select
-                      name="nacionalidad"
-                      value={formData.nacionalidad}
-                      onChange={handleChange}
-                      className={`w-full px-3 py-2 rounded-lg border ${
-                        darkMode 
-                          ? 'bg-gray-700 border-gray-600 text-white' 
-                          : 'bg-white border-gray-200'
-                      } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                    >
-                      <option value="">Seleccionar</option>
-                      <option value="Venezolana">Venezolana</option>
-                      <option value="Extranjera">Extranjera</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Edad
-                    </label>
-                    <input
-                      type="number"
-                      name="edad"
-                      value={formData.edad}
-                      onChange={handleChange}
-                      className={`w-full px-3 py-2 rounded-lg border ${
-                        darkMode 
-                          ? 'bg-gray-700 border-gray-600 text-white' 
-                          : 'bg-white border-gray-200'
-                      } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Actividad
-                    </label>
-                    <input
-                      type="text"
-                      name="actividad"
-                      value={formData.actividad}
-                      onChange={handleChange}
-                      className={`w-full px-3 py-2 rounded-lg border ${
-                        darkMode 
-                          ? 'bg-gray-700 border-gray-600 text-white' 
-                          : 'bg-white border-gray-200'
-                      } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Años de Experiencia
-                    </label>
-                    <input
-                      type="number"
-                      name="añosExperiencia"
-                      value={formData.añosExperiencia}
-                      onChange={handleChange}
-                      className={`w-full px-3 py-2 rounded-lg border ${
-                        darkMode 
-                          ? 'bg-gray-700 border-gray-600 text-white' 
-                          : 'bg-white border-gray-200'
-                      } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                    />
-                  </div>
-                  
-                  <div className="md:col-span-2">
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Dirección de habitación
-                    </label>
-                    <textarea
-                      name="direccionHabitacion"
-                      value={formData.direccionHabitacion}
-                      onChange={handleChange}
-                      rows={2}
-                      className={`w-full px-3 py-2 rounded-lg border ${
-                        darkMode 
-                          ? 'bg-gray-700 border-gray-600 text-white' 
-                          : 'bg-white border-gray-200'
-                      } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                    />
-                  </div>
-                  
-                  <div className="md:col-span-2">
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Dirección de la Unidad de Producción
-                    </label>
-                    <textarea
-                      name="direccionUnidadProduccion"
-                      value={formData.direccionUnidadProduccion}
-                      onChange={handleChange}
-                      rows={2}
-                      className={`w-full px-3 py-2 rounded-lg border ${
-                        darkMode 
-                          ? 'bg-gray-700 border-gray-600 text-white' 
-                          : 'bg-white border-gray-200'
-                      } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Municipio
-                    </label>
-                    <input
-                      type="text"
-                      name="municipio"
-                      value={formData.municipio}
-                      onChange={handleChange}
-                      className={`w-full px-3 py-2 rounded-lg border ${
-                        darkMode 
-                          ? 'bg-gray-700 border-gray-600 text-white' 
-                          : 'bg-white border-gray-200'
-                      } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Localidad
-                    </label>
-                    <input
-                      type="text"
-                      name="localidad"
-                      value={formData.localidad}
-                      onChange={handleChange}
-                      className={`w-full px-3 py-2 rounded-lg border ${
-                        darkMode 
-                          ? 'bg-gray-700 border-gray-600 text-white' 
-                          : 'bg-white border-gray-200'
-                      } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Teléfono
-                    </label>
-                    <input
-                      type="tel"
-                      name="telefono"
-                      value={formData.telefono}
-                      onChange={handleChange}
-                      className={`w-full px-3 py-2 rounded-lg border ${
-                        darkMode 
-                          ? 'bg-gray-700 border-gray-600 text-white' 
-                          : 'bg-white border-gray-200'
-                      } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    2. ESTUDIO DEL MERCADO
-                  </h3>
-                  
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Descripción del Producto o Servicio
-                      </label>
-                      <textarea
-                        name="descripcionProducto"
-                        value={formData.descripcionProducto}
-                        onChange={handleChange}
-                        rows={3}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-200'
-                        } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Descripción del Proceso Productivo (Tecnología)
-                      </label>
-                      <textarea
-                        name="descripcionProcesoProductivo"
-                        value={formData.descripcionProcesoProductivo}
-                        onChange={handleChange}
-                        rows={3}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-200'
-                        } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Usuarios de Producción o Servicios (Clientes actuales y/o potenciales)
-                      </label>
-                      <textarea
-                        name="usuariosProduccion"
-                        value={formData.usuariosProduccion}
-                        onChange={handleChange}
-                        rows={2}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-200'
-                        } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Volumen Producción, Ventas y Materia Prima */}
-            {currentStep === 2 && (
-              <div className="space-y-6">
-                <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  4. VOLUMEN DE PRODUCCION MENSUAL
-                </h3>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className={darkMode ? 'bg-gray-700' : 'bg-gray-50'}>
-                      <tr>
-                        <th className="px-3 py-2 text-left text-sm">Descripción del Producto</th>
-                        <th className="px-3 py-2 text-left text-sm">Unidad de Medida</th>
-                        <th className="px-3 py-2 text-left text-sm">Costo Producción USD</th>
-                        <th className="px-3 py-2 text-left text-sm">Cantidad</th>
-                        <th className="px-3 py-2 text-center text-sm w-10"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {formData.volumenProduccion.map((item, index) => (
-                        <tr key={index}>
-                          <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              value={item.descripcion || ''}
-                              onChange={(e) => handleArrayChange('volumenProduccion', index, 'descripcion', e.target.value)}
-                              className={`w-full px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              value={item.unidad || ''}
-                              onChange={(e) => handleArrayChange('volumenProduccion', index, 'unidad', e.target.value)}
-                              className={`w-full px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={item.costo || ''}
-                              onChange={(e) => handleArrayChange('volumenProduccion', index, 'costo', parseFloat(e.target.value))}
-                              className={`w-full px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={item.cantidad || ''}
-                              onChange={(e) => handleArrayChange('volumenProduccion', index, 'cantidad', parseFloat(e.target.value))}
-                              className={`w-full px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => removeArrayItem('volumenProduccion', index)}
-                              className="text-red-500 hover:text-red-700"
-                            >
-                              <X size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <button
-                    type="button"
-                    onClick={() => addArrayItem('volumenProduccion', { descripcion: '', unidad: '', costo: 0, cantidad: 0 })}
-                    className="mt-2 text-sm text-[#2A9D8F] hover:text-[#264653]"
-                  >
-                    + Agregar producto
-                  </button>
-                </div>
-
-                <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mt-6`}>
-                  5. VENTAS ESTIMADAS (MENSUAL)
-                </h3>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className={darkMode ? 'bg-gray-700' : 'bg-gray-50'}>
-                      <tr>
-                        <th className="px-3 py-2 text-left text-sm">Descripción del Producto</th>
-                        <th className="px-3 py-2 text-left text-sm">Unidad de Medida</th>
-                        <th className="px-3 py-2 text-left text-sm">Cantidad</th>
-                        <th className="px-3 py-2 text-left text-sm">Precio Venta USD</th>
-                        <th className="px-3 py-2 text-center w-10"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {formData.ventasEstimadas.map((item, index) => (
-                        <tr key={index}>
-                          <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              value={item.descripcion || ''}
-                              onChange={(e) => handleArrayChange('ventasEstimadas', index, 'descripcion', e.target.value)}
-                              className={`w-full px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              value={item.unidad || ''}
-                              onChange={(e) => handleArrayChange('ventasEstimadas', index, 'unidad', e.target.value)}
-                              className={`w-full px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={item.cantidad || ''}
-                              onChange={(e) => handleArrayChange('ventasEstimadas', index, 'cantidad', parseFloat(e.target.value))}
-                              className={`w-full px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={item.precio || ''}
-                              onChange={(e) => handleArrayChange('ventasEstimadas', index, 'precio', parseFloat(e.target.value))}
-                              className={`w-full px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => removeArrayItem('ventasEstimadas', index)}
-                              className="text-red-500 hover:text-red-700"
-                            >
-                              <X size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <button
-                    type="button"
-                    onClick={() => addArrayItem('ventasEstimadas', { descripcion: '', unidad: '', cantidad: 0, precio: 0 })}
-                    className="mt-2 text-sm text-[#2A9D8F] hover:text-[#264653]"
-                  >
-                    + Agregar venta
-                  </button>
-                </div>
-
-                <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mt-6`}>
-                  2.6 MATERIA PRIMA A UTILIZAR MENSUAL
-                </h3>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className={darkMode ? 'bg-gray-700' : 'bg-gray-50'}>
-                      <tr>
-                        <th className="px-3 py-2 text-left text-sm">Descripción</th>
-                        <th className="px-3 py-2 text-left text-sm">Unidad</th>
-                        <th className="px-3 py-2 text-left text-sm">Cantidad</th>
-                        <th className="px-3 py-2 text-left text-sm">Precio Compra USD</th>
-                        <th className="px-3 py-2 text-center w-10"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {formData.materiaPrima.map((item, index) => (
-                        <tr key={index}>
-                          <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              value={item.descripcion || ''}
-                              onChange={(e) => handleArrayChange('materiaPrima', index, 'descripcion', e.target.value)}
-                              className={`w-full px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              value={item.unidad || ''}
-                              onChange={(e) => handleArrayChange('materiaPrima', index, 'unidad', e.target.value)}
-                              className={`w-full px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={item.cantidad || ''}
-                              onChange={(e) => handleArrayChange('materiaPrima', index, 'cantidad', parseFloat(e.target.value))}
-                              className={`w-full px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={item.precio || ''}
-                              onChange={(e) => handleArrayChange('materiaPrima', index, 'precio', parseFloat(e.target.value))}
-                              className={`w-full px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => removeArrayItem('materiaPrima', index)}
-                              className="text-red-500 hover:text-red-700"
-                            >
-                              <X size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <button
-                    type="button"
-                    onClick={() => addArrayItem('materiaPrima', { descripcion: '', unidad: '', cantidad: 0, precio: 0 })}
-                    className="mt-2 text-sm text-[#2A9D8F] hover:text-[#264653]"
-                  >
-                    + Agregar materia prima
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Aspectos Técnicos */}
-            {currentStep === 3 && (
-              <div className="space-y-6">
-                <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  3. ASPECTOS TECNICOS
-                </h3>
-                
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    3.1.1 LOCAL DONDE FUNCIONA LA EMPRESA (DESCRIPCION)
-                  </label>
-                  <textarea
-                    name="localDescripcion"
-                    value={formData.localDescripcion}
-                    onChange={handleChange}
-                    rows={2}
-                    className={`w-full px-3 py-2 rounded-lg border ${
-                      darkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white' 
-                        : 'bg-white border-gray-200'
-                    } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      3.1.2 TENENCIA DEL LOCAL
-                    </label>
-                    <select
-                      name="tenenciaLocal"
-                      value={formData.tenenciaLocal}
-                      onChange={handleChange}
-                      className={`w-full px-3 py-2 rounded-lg border ${
-                        darkMode 
-                          ? 'bg-gray-700 border-gray-600 text-white' 
-                          : 'bg-white border-gray-200'
-                      } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                    >
-                      <option value="propio">PROPIO</option>
-                      <option value="alquilado">ALQUILADO</option>
-                      <option value="otro">OTRO</option>
-                    </select>
-                  </div>
-                  
-                  {formData.tenenciaLocal === 'alquilado' && (
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Monto Alquiler (Bs)
-                      </label>
-                      <input
-                        type="number"
-                        name="alquilerBs"
-                        value={formData.alquilerBs}
-                        onChange={handleChange}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-200'
-                        } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <h4 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    3.1.5 RECURSO HUMANO (MANO DE OBRA)
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={`block text-sm mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        Empleados (Cantidad)
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.recursoHumano.empleados}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          recursoHumano: { ...prev.recursoHumano, empleados: parseInt(e.target.value) || 0 }
-                        }))}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-200'
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-sm mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        Obreros (Cantidad)
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.recursoHumano.obreros}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          recursoHumano: { ...prev.recursoHumano, obreros: parseInt(e.target.value) || 0 }
-                        }))}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-200'
-                        }`}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    3.1.6 SERVICIOS BASICOS
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {['electricidad', 'agua', 'telefono', 'aseoUrbano', 'cloacas', 'gas'].map(service => (
-                      <label key={service} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={formData.serviciosBasicos[service]}
-                          onChange={(e) => setFormData(prev => ({
-                            ...prev,
-                            serviciosBasicos: { ...prev.serviciosBasicos, [service]: e.target.checked }
-                          }))}
-                          className="rounded border-gray-300 text-[#2A9D8F]"
-                        />
-                        <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                          {service.toUpperCase()}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 4: Gastos Mensuales y Plan de Inversión */}
-            {currentStep === 4 && (
-              <div className="space-y-6">
-                <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  4. GASTOS MENSUALES (USD)
-                </h3>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className={darkMode ? 'bg-gray-700' : 'bg-gray-50'}>
-                      <tr>
-                        <th className="px-4 py-2 text-left">DESCRIPCION</th>
-                        <th className="px-4 py-2 text-center">ACTUAL</th>
-                        <th className="px-4 py-2 text-center">FUTURO</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {['manoObra', 'materiaPrima', 'serviciosBasicos', 'alquiler', 'otros'].map((gasto) => (
-                        <tr key={gasto}>
-                          <td className={`px-4 py-2 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                            {gasto === 'manoObra' ? 'MANO DE OBRA' :
-                             gasto === 'materiaPrima' ? 'MATERIA PRIMA' :
-                             gasto === 'serviciosBasicos' ? 'SERVICIOS BASICOS' :
-                             gasto === 'alquiler' ? 'ALQUILER' : 'OTROS'}
-                           </td>
-                          <td className={`px-4 py-2 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={formData.gastosMensuales[gasto].actual}
-                              onChange={(e) => handleNestedChange('gastosMensuales', gasto, 'actual', parseFloat(e.target.value) || 0)}
-                              className={`w-32 px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                           </td>
-                          <td className={`px-4 py-2 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={formData.gastosMensuales[gasto].futuro}
-                              onChange={(e) => handleNestedChange('gastosMensuales', gasto, 'futuro', parseFloat(e.target.value) || 0)}
-                              className={`w-32 px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                           </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mt-6`}>
-                  5. PLAN DE INVERSION (USD)
-                </h3>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className={darkMode ? 'bg-gray-700' : 'bg-gray-50'}>
-                      <tr>
-                        <th className="px-4 py-2 text-left">DESCRIPCION</th>
-                        <th className="px-4 py-2 text-center">APORTES PROPIOS</th>
-                        <th className="px-4 py-2 text-center">MONTO SOLICITADO</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {['construccion', 'maquinariaEquipo', 'materiaPrima', 'manoObra', 'otrosGastos'].map((item) => (
-                        <tr key={item}>
-                          <td className={`px-4 py-2 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                            {item === 'construccion' ? 'CONSTRUCCION' :
-                             item === 'maquinariaEquipo' ? 'MAQ. Y EQUIPO' :
-                             item === 'materiaPrima' ? 'MATERIA PRIMA' :
-                             item === 'manoObra' ? 'MANO DE OBRA' : 'OTROS GASTOS'}
-                           </td>
-                          <td className={`px-4 py-2 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={formData.planInversion[item].aportesPropios}
-                              onChange={(e) => handleNestedChange('planInversion', item, 'aportesPropios', parseFloat(e.target.value) || 0)}
-                              className={`w-32 px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                           </td>
-                          <td className={`px-4 py-2 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={formData.planInversion[item].montoSolicitado}
-                              onChange={(e) => handleNestedChange('planInversion', item, 'montoSolicitado', parseFloat(e.target.value) || 0)}
-                              className={`w-32 px-2 py-1 rounded border ${
-                                darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
-                              }`}
-                            />
-                           </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Step 5: Comunidad y Garantía */}
-            {currentStep === 5 && (
-              <div className="space-y-6">
-                <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  6. ORGANIZACIÓN COMUNITARIA
-                </h3>
-                
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    ¿Qué tipo de organización existe en la comunidad?
-                  </label>
-                  <textarea
-                    name="organizacionComunidad"
-                    value={formData.organizacionComunidad}
-                    onChange={handleChange}
-                    rows={3}
-                    className={`w-full px-3 py-2 rounded-lg border ${
-                      darkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white' 
-                        : 'bg-white border-gray-200'
-                    } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                  />
-                </div>
-
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    7. ¿Cuáles son las necesidades principales de la comunidad?
-                  </label>
-                  <textarea
-                    name="necesidadesComunidad"
-                    value={formData.necesidadesComunidad}
-                    onChange={handleChange}
-                    rows={3}
-                    className={`w-full px-3 py-2 rounded-lg border ${
-                      darkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white' 
-                        : 'bg-white border-gray-200'
-                    } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                  />
-                </div>
-
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    8. ¿Realiza algún aporte a su comunidad?
-                  </label>
-                  <div className="flex gap-4 mb-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="realizaAporte"
-                        value="true"
-                        checked={formData.realizaAporte === true}
-                        onChange={() => setFormData(prev => ({ ...prev, realizaAporte: true }))}
-                        className="text-[#2A9D8F]"
-                      />
-                      <span>SI</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="realizaAporte"
-                        value="false"
-                        checked={formData.realizaAporte === false}
-                        onChange={() => setFormData(prev => ({ ...prev, realizaAporte: false }))}
-                        className="text-[#2A9D8F]"
-                      />
-                      <span>NO</span>
-                    </label>
-                  </div>
-                  
-                  {formData.realizaAporte && (
-                    <textarea
-                      name="descripcionAporte"
-                      value={formData.descripcionAporte}
-                      onChange={handleChange}
-                      placeholder="Describa en qué consiste el aporte"
-                      rows={2}
-                      className={`w-full px-3 py-2 rounded-lg border ${
-                        darkMode 
-                          ? 'bg-gray-700 border-gray-600 text-white' 
-                          : 'bg-white border-gray-200'
-                      } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                    />
-                  )}
-                </div>
-
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    GARANTIA OFRECIDA
-                  </label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="garantiaOfrecida"
-                        value="hipoteca"
-                        checked={formData.garantiaOfrecida === 'hipoteca'}
-                        onChange={handleChange}
-                        className="text-[#2A9D8F]"
-                      />
-                      <span>HIPOTECA</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="garantiaOfrecida"
-                        value="fianza"
-                        checked={formData.garantiaOfrecida === 'fianza'}
-                        onChange={handleChange}
-                        className="text-[#2A9D8F]"
-                      />
-                      <span>FIANZA</span>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4 mt-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        FIRMA DEL SOLICITANTE
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Nombre completo"
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-200'
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        C.I.
-                      </label>
-                      <input
-                        type="text"
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-200'
-                        }`}
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      FECHA
-                    </label>
-                    <input
-                      type="date"
-                      className={`w-full md:w-64 px-3 py-2 rounded-lg border ${
-                        darkMode 
-                          ? 'bg-gray-700 border-gray-600 text-white' 
-                          : 'bg-white border-gray-200'
-                      }`}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Footer con botones de navegación */}
-            <div className="flex justify-between mt-8 pt-4 border-t">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(prev => Math.max(1, prev - 1))}
-                disabled={currentStep === 1}
-                className={`px-4 py-2 rounded-lg ${
-                  currentStep === 1
-                    ? 'bg-gray-300 cursor-not-allowed'
-                    : darkMode
-                    ? 'bg-gray-700 text-white hover:bg-gray-600'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                Anterior
-              </button>
-              
-              {currentStep < totalSteps ? (
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep(prev => Math.min(totalSteps, prev + 1))}
-                  className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg hover:bg-[#264653] transition-colors"
-                >
-                  Siguiente
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
-                >
-                  <Save size={18} />
-                  Guardar Inspección
-                </button>
-              )}
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-};
+// Importamos la API de inspección
+import inspeccionAPI from "../services/api_inspeccion";
 
 // ============================================
 // COMPONENTE PRINCIPAL
@@ -1204,6 +53,8 @@ const InspeccionRealizada = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [showInspectionModal, setShowInspectionModal] = useState(false);
   const [selectedEmprendimiento, setSelectedEmprendimiento] = useState(null);
   const [notifications, setNotifications] = useState([
@@ -1220,128 +71,178 @@ const InspeccionRealizada = () => {
   // Estados para la DataTable
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [sortConfig, setSortConfig] = useState({ key: 'fechaInspeccion', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
   const [selectedRows, setSelectedRows] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
-    tipoInspeccion: '',
-    resultado: '',
-    calificacion: '',
+    estatus_inspeccion: '',
+    id_tipo_insp_clas: '',
     fechaDesde: '',
-    fechaHasta: '',
-    inspector: ''
+    fechaHasta: ''
   });
 
-  // Datos de ejemplo para inspecciones realizadas - AGREGADO NUEVO REGISTRO PENDIENTE
-  const [inspecciones, setInspecciones] = useState([
-    {
-      id: 1,
-      codigo: "INSP-2024-001",
-      emprendimiento: "Restaurante El Sazón",
-      emprendedor: "María González",
-      tipoInspeccion: "Inicial",
-      fechaInspeccion: "2024-03-12",
-      inspector: "Ing. Martínez",
-      resultado: "Aprobado",
-      calificacion: 4.5,
-      observaciones: "Cumple con todos los requisitos sanitarios y de infraestructura",
-      documentos: [
-        { nombre: "Acta de Inspección", url: "#" },
-        { nombre: "Fotos de instalaciones", url: "#" },
-        { nombre: "Certificado de cumplimiento", url: "#" }
-      ],
-      recomendaciones: "Mejorar sistema de ventilación",
-      proximaInspeccion: "2024-09-12",
-      duracion: "2 horas 30 min",
-      actividad: "Gastronomía",
-      direccion: "Av. Principal, Local 5, Caracas",
-      telefono: "0412-1234567"
-    },
-    {
-      id: 2,
-      codigo: "INSP-2024-002",
-      emprendimiento: "Taller Mecánico Rápido",
-      emprendedor: "Juan Pérez",
-      tipoInspeccion: "Re-inspección",
-      fechaInspeccion: "2024-03-11",
-      inspector: "Ing. López",
-      resultado: "Aprobado con observaciones",
-      calificacion: 3.5,
-      observaciones: "Se requiere mejorar área de almacenamiento de residuos",
-      documentos: [
-        { nombre: "Acta de Inspección", url: "#" },
-        { nombre: "Lista de verificación", url: "#" }
-      ],
-      recomendaciones: "Implementar sistema de gestión de residuos",
-      proximaInspeccion: "2024-06-11",
-      duracion: "1 hora 45 min",
-      actividad: "Mecánica Automotriz",
-      direccion: "Calle Bolívar, Quinta 23, Maracaibo",
-      telefono: "0414-7654321"
-    },
-    {
-      id: 3,
-      codigo: "INSP-2024-003",
-      emprendimiento: "Tienda de Ropa Moda",
-      emprendedor: "Carlos Rodríguez",
-      tipoInspeccion: "Inicial",
-      fechaInspeccion: "2024-03-10",
-      inspector: "Ing. García",
-      resultado: "Rechazado",
-      calificacion: 2.0,
-      observaciones: "No cumple con normas de seguridad contra incendios",
-      documentos: [
-        { nombre: "Acta de Inspección", url: "#" },
-        { nombre: "Informe de no conformidades", url: "#" }
-      ],
-      recomendaciones: "Instalar sistema de extinción de incendios",
-      proximaInspeccion: "2024-04-10",
-      duracion: "3 horas",
-      actividad: "Comercio Textil",
-      direccion: "Centro Comercial Plaza, Nivel 2, Valencia",
-      telefono: "0426-9876543"
-    },
-    // NUEVO REGISTRO - Emprendimiento pendiente de inspección
-    {
-      id: 4,
-      codigo: "PEND-2024-001",
-      emprendimiento: "Panadería y Pastelería Dulce Sabor",
-      emprendedor: "Ana Martínez",
-      tipoInspeccion: "Pendiente",
-      fechaInspeccion: "-",
-      inspector: "Por asignar",
-      resultado: "Pendiente",
-      calificacion: 0,
-      observaciones: "Emprendimiento registrado, pendiente de primera inspección",
-      documentos: [],
-      recomendaciones: "Programar visita de inspección inicial",
-      proximaInspeccion: "Por definir",
-      duracion: "-",
-      actividad: "Panadería y Pastelería",
-      direccion: "Calle 5, Urb. Los Olivos, Barquisimeto",
-      telefono: "0251-1234567"
-    }
-  ]);
+  // Estado para almacenar las inspecciones de la API
+  const [inspecciones, setInspecciones] = useState([]);
 
-  // Estadísticas de inspecciones
-  const estadisticas = {
-    total: inspecciones.length,
-    aprobadas: inspecciones.filter(i => i.resultado === "Aprobado").length,
-    aprobadasObs: inspecciones.filter(i => i.resultado === "Aprobado con observaciones").length,
-    rechazadas: inspecciones.filter(i => i.resultado === "Rechazado").length,
-    pendientes: inspecciones.filter(i => i.resultado === "Pendiente").length,
-    promedioCalificacion: (() => {
-      const inspeccionesConCalificacion = inspecciones.filter(i => i.calificacion > 0);
-      if (inspeccionesConCalificacion.length === 0) return "0.0";
-      return (inspeccionesConCalificacion.reduce((sum, i) => sum + i.calificacion, 0) / inspeccionesConCalificacion.length).toFixed(1);
-    })(),
-    tiposInspeccion: {
-      inicial: inspecciones.filter(i => i.tipoInspeccion === "Inicial").length,
-      reinpeccion: inspecciones.filter(i => i.tipoInspeccion === "Re-inspección").length,
-      periodica: inspecciones.filter(i => i.tipoInspeccion === "Periódica").length,
-      pendiente: inspecciones.filter(i => i.tipoInspeccion === "Pendiente").length
+  // Estados para el formulario de inspección
+  const [showInspectionForm, setShowInspectionForm] = useState(false);
+  const [selectedInspeccion, setSelectedInspeccion] = useState(null);
+  const [emprendimientoData, setEmprendimientoData] = useState(null);
+  const [sector, setSector] = useState(null); // 'agricola' o 'industria_comercio'
+
+  // Cargar inspecciones desde la API
+  useEffect(() => {
+    cargarInspecciones();
+  }, []);
+
+  const cargarInspecciones = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await inspeccionAPI.getAll();
+      if (response.success) {
+        // Mapear los datos de la API al formato que usa el componente
+        const inspeccionesFormateadas = response.data.map(ins => ({
+          id: ins.id_inspeccion,
+          codigo: `INSP-2024-${String(ins.id_inspeccion).padStart(3, '0')}`,
+          id_codigo_exp: ins.id_codigo_exp,
+          id_tipo_insp_clas: ins.id_tipo_insp_clas,
+          estatus_inspeccion: ins.estatus_inspeccion,
+          created_at: ins.created_at,
+          updated_at: ins.updated_at,
+          // Datos complementarios que podrían venir del JOIN
+          codigo_expediente: ins.codigo_expediente || `EXP-${ins.id_codigo_exp}`,
+          nombre_emprendedor: ins.nombre_emprendedor || "No especificado",
+          cedula: ins.cedula || "No especificada",
+          tipo_inspeccion: ins.tipo_inspeccion || getTipoInspeccionDefault(ins.id_tipo_insp_clas),
+          // Campos calculados
+          fechaInspeccion: ins.created_at ? new Date(ins.created_at).toISOString().split('T')[0] : '-',
+          inspector: ins.inspector || "Por asignar",
+          resultado: ins.estatus_inspeccion || "Pendiente",
+          calificacion: ins.calificacion || 0,
+          observaciones: ins.observaciones || "Sin observaciones",
+          recomendaciones: ins.recomendaciones || "Sin recomendaciones",
+          duracion: ins.duracion || "-",
+          actividad: ins.actividad || "No especificada",
+          direccion: ins.direccion || "No especificada",
+          telefono: ins.telefono || "No especificado"
+        }));
+        setInspecciones(inspeccionesFormateadas);
+      } else {
+        setError('Error al cargar las inspecciones');
+      }
+    } catch (error) {
+      console.error('Error al cargar inspecciones:', error);
+      setError('Error al conectar con el servidor. Por favor, intente nuevamente.');
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Función para realizar inspección
+  const handleRealizarInspeccion = async (inspeccion) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Validar que la inspección tenga id_codigo_exp
+      if (!inspeccion.id_codigo_exp) {
+        throw new Error('El emprendimiento no tiene un código de expediente válido');
+      }
+      
+      // Obtener datos completos del emprendimiento
+      const response = await inspeccionAPI.getEmprendimientoData(inspeccion.id_codigo_exp);
+      
+      if (response.success && response.data) {
+        setSelectedInspeccion(inspeccion);
+        setEmprendimientoData(response.data);
+        
+        // Determinar sector basado en la actividad o clasificación
+        const sectorDeterminado = response.data.sector?.toLowerCase().includes('agric') ? 'agricola' : 'industria_comercio';
+        setSector(sectorDeterminado);
+        setShowInspectionForm(true);
+      } else {
+        throw new Error('No se pudieron obtener los datos del emprendimiento');
+      }
+    } catch (error) {
+      console.error('Error al cargar datos para inspección:', error);
+      setError(error.message || 'Error al cargar los datos del emprendimiento');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para guardar los resultados de la inspección
+  const handleSaveInspectionResults = async (resultados) => {
+    try {
+      setLoading(true);
+      
+      // Actualizar la inspección con los resultados completos
+      const updateResponse = await inspeccionAPI.update(selectedInspeccion.id, {
+        estatus_inspeccion: resultados.evaluacionFinal.estatus,
+        calificacion: resultados.evaluacionFinal.calificacion,
+        observaciones: resultados.evaluacionFinal.observaciones_generales,
+        recomendaciones: resultados.evaluacionFinal.recomendaciones,
+        duracion: resultados.evaluacionFinal.duracion_minutos,
+        resultados_completos: resultados // Guardar todo el formulario como JSON
+      });
+      
+      if (updateResponse.success) {
+        // Recargar las inspecciones
+        await cargarInspecciones();
+        // Cerrar el formulario y limpiar estados
+        handleCloseInspectionForm();
+        // Mostrar mensaje de éxito
+        alert(`Inspección ${resultados.evaluacionFinal.estatus} con calificación ${resultados.evaluacionFinal.calificacion}/5.0`);
+      }
+    } catch (error) {
+      console.error('Error al guardar inspección:', error);
+      alert('Error al guardar la inspección');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para cerrar el formulario de inspección
+  const handleCloseInspectionForm = () => {
+    setShowInspectionForm(false);
+    setSelectedInspeccion(null);
+    setEmprendimientoData(null);
+    setSector(null);
+  };
+
+  // Función auxiliar para tipo de inspección por defecto
+  const getTipoInspeccionDefault = (id_tipo_insp_clas) => {
+    const tipos = {
+      1: 'Inicial',
+      2: 'Re-inspección',
+      3: 'Periódica',
+      4: 'Seguimiento'
+    };
+    return tipos[id_tipo_insp_clas] || 'No especificado';
+  };
+
+  // Estadísticas de inspecciones calculadas desde los datos reales
+  const estadisticas = React.useMemo(() => {
+    const inspeccionesConCalificacion = inspecciones.filter(i => i.calificacion > 0);
+    
+    return {
+      total: inspecciones.length,
+      aprobadas: inspecciones.filter(i => i.resultado === "Aprobado").length,
+      aprobadasObs: inspecciones.filter(i => i.resultado === "Aprobado con observaciones").length,
+      rechazadas: inspecciones.filter(i => i.resultado === "Rechazado").length,
+      pendientes: inspecciones.filter(i => i.resultado === "Pendiente").length,
+      promedioCalificacion: inspeccionesConCalificacion.length > 0 
+        ? (inspeccionesConCalificacion.reduce((sum, i) => sum + i.calificacion, 0) / inspeccionesConCalificacion.length).toFixed(1)
+        : "0.0",
+      tiposInspeccion: {
+        inicial: inspecciones.filter(i => i.id_tipo_insp_clas === 1).length,
+        reinpeccion: inspecciones.filter(i => i.id_tipo_insp_clas === 2).length,
+        periodica: inspecciones.filter(i => i.id_tipo_insp_clas === 3).length,
+        pendiente: inspecciones.filter(i => i.id_tipo_insp_clas === 4).length
+      }
+    };
+  }, [inspecciones]);
 
   // Datos del usuario
   const user = {
@@ -1375,21 +276,18 @@ const InspeccionRealizada = () => {
   // Notificaciones no leídas
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Funciones de filtrado y ordenamiento
+  // Funciones de filtrado
   const filteredInspecciones = inspecciones.filter(ins => {
     const matchesSearch = searchTerm === '' || 
       Object.values(ins).some(val => 
         typeof val === 'string' && val.toLowerCase().includes(searchTerm.toLowerCase())
       );
     
-    const matchesTipo = filters.tipoInspeccion === '' || ins.tipoInspeccion === filters.tipoInspeccion;
-    const matchesResultado = filters.resultado === '' || ins.resultado === filters.resultado;
+    const matchesEstatus = filters.estatus_inspeccion === '' || 
+      ins.estatus_inspeccion === filters.estatus_inspeccion;
     
-    let matchesCalificacion = true;
-    if (filters.calificacion && ins.calificacion > 0) {
-      const calif = parseFloat(filters.calificacion);
-      matchesCalificacion = ins.calificacion >= calif;
-    }
+    const matchesTipo = filters.id_tipo_insp_clas === '' || 
+      ins.id_tipo_insp_clas === parseInt(filters.id_tipo_insp_clas);
     
     let matchesFecha = true;
     if (filters.fechaDesde && filters.fechaHasta && ins.fechaInspeccion !== '-') {
@@ -1399,10 +297,7 @@ const InspeccionRealizada = () => {
       matchesFecha = insDate >= desde && insDate <= hasta;
     }
     
-    const matchesInspector = filters.inspector === '' || 
-      ins.inspector.toLowerCase().includes(filters.inspector.toLowerCase());
-    
-    return matchesSearch && matchesTipo && matchesResultado && matchesCalificacion && matchesFecha && matchesInspector;
+    return matchesSearch && matchesEstatus && matchesTipo && matchesFecha;
   });
 
   // Ordenamiento
@@ -1410,6 +305,9 @@ const InspeccionRealizada = () => {
     if (sortConfig.key) {
       let aVal = a[sortConfig.key];
       let bVal = b[sortConfig.key];
+      
+      if (aVal === null || aVal === undefined) return 1;
+      if (bVal === null || bVal === undefined) return -1;
       
       if (typeof aVal === 'string') {
         aVal = aVal.toLowerCase();
@@ -1455,9 +353,16 @@ const InspeccionRealizada = () => {
     }
   };
 
-  const handleViewDetalle = (id) => {
-    console.log('Ver detalle de inspección:', id);
-    navigate(`/inspeccion/${id}`);
+  const handleViewDetalle = async (id) => {
+    try {
+      const response = await inspeccionAPI.getById(id);
+      if (response.success) {
+        console.log('Detalle de inspección:', response.data);
+        navigate(`/inspeccion/${id}`);
+      }
+    } catch (error) {
+      console.error('Error al obtener detalle:', error);
+    }
   };
 
   const handleDownloadInforme = (id) => {
@@ -1468,60 +373,12 @@ const InspeccionRealizada = () => {
     console.log('Generar certificado para inspección:', id);
   };
 
-  // Funciones para el modal de inspección
-  const handleOpenInspectionForm = (emprendimiento = null) => {
-    setSelectedEmprendimiento(emprendimiento);
-    setShowInspectionModal(true);
-  };
-
-  const handleCloseInspectionForm = () => {
-    setShowInspectionModal(false);
-    setSelectedEmprendimiento(null);
-  };
-
-  const handleSaveInspection = (data) => {
-    console.log('Datos de inspección guardados:', data);
-    
-    // Crear nueva inspección con los datos del formulario
-    const nuevaInspeccion = {
-      id: inspecciones.length + 1,
-      codigo: `INSP-2024-${String(inspecciones.length + 1).padStart(3, '0')}`,
-      emprendimiento: data.nombresApellidos || selectedEmprendimiento?.emprendimiento || "Nuevo Emprendimiento",
-      emprendedor: data.nombresApellidos,
-      tipoInspeccion: "Inicial",
-      fechaInspeccion: new Date().toISOString().split('T')[0],
-      inspector: user.name,
-      resultado: "Aprobado",
-      calificacion: 4.0,
-      observaciones: "Inspección completada exitosamente. Cumple con todos los requisitos.",
-      documentos: [
-        { nombre: "Acta de Inspección", url: "#" },
-        { nombre: "Fotos de instalaciones", url: "#" }
-      ],
-      recomendaciones: "Mantener buenas prácticas de higiene y seguridad",
-      proximaInspeccion: new Date(new Date().setMonth(new Date().getMonth() + 6)).toISOString().split('T')[0],
-      duracion: "2 horas",
-      actividad: data.actividad || selectedEmprendimiento?.actividad || "No especificada",
-      direccion: data.direccionUnidadProduccion || selectedEmprendimiento?.direccion || "Por definir",
-      telefono: data.telefono || selectedEmprendimiento?.telefono || "No especificado"
-    };
-    
-    setInspecciones([nuevaInspeccion, ...inspecciones]);
-    
-    // Mostrar mensaje de éxito
-    alert(`✅ Inspección registrada exitosamente para: ${nuevaInspeccion.emprendedor}\n\nCódigo: ${nuevaInspeccion.codigo}\nFecha: ${nuevaInspeccion.fechaInspeccion}\nResultado: ${nuevaInspeccion.resultado}`);
-    
-    handleCloseInspectionForm();
-  };
-
   const resetFilters = () => {
     setFilters({
-      tipoInspeccion: '',
-      resultado: '',
-      calificacion: '',
+      estatus_inspeccion: '',
+      id_tipo_insp_clas: '',
       fechaDesde: '',
-      fechaHasta: '',
-      inspector: ''
+      fechaHasta: ''
     });
     setSearchTerm('');
     setCurrentPage(1);
@@ -1622,16 +479,56 @@ const InspeccionRealizada = () => {
         <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'}`}>
           <div className="p-4 md:p-6 mt-16">
             {/* Título de la sección */}
-            <div className="mb-6">
-              <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                {currentData?.title || "Inspecciones Realizadas"}
-              </h1>
-              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                {currentData?.description || "Historial completo de inspecciones realizadas en emprendimientos"}
-              </p>
+            <div className="mb-6 flex justify-between items-center">
+              <div>
+                <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  {currentData?.title || "Inspecciones Realizadas"}
+                </h1>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {currentData?.description || "Historial completo de inspecciones realizadas en emprendimientos"}
+                </p>
+              </div>
+              <button
+                onClick={cargarInspecciones}
+                disabled={loading}
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                  darkMode 
+                    ? 'bg-gray-700 text-white hover:bg-gray-600' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+                } transition-colors`}
+              >
+                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+                Actualizar
+              </button>
             </div>
 
-            {/* Tarjetas de estadísticas - Actualizado con pendientes */}
+            {/* Mensaje de error */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <div className="flex items-center gap-2 text-red-800 dark:text-red-200">
+                  <AlertCircle size={20} />
+                  <span>{error}</span>
+                </div>
+                <button
+                  onClick={cargarInspecciones}
+                  className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline"
+                >
+                  Intentar nuevamente
+                </button>
+              </div>
+            )}
+
+            {/* Indicador de carga */}
+            {loading && (
+              <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                  <RefreshCw size={20} className="animate-spin" />
+                  <span>Cargando inspecciones...</span>
+                </div>
+              </div>
+            )}
+
+            {/* Tarjetas de estadísticas */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
               <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
                 <div className="flex items-center justify-between mb-2">
@@ -1700,7 +597,7 @@ const InspeccionRealizada = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
                   type="text"
-                  placeholder="Buscar por emprendimiento, emprendedor o código..."
+                  placeholder="Buscar por código, estatus o tipo..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className={`w-full pl-10 pr-4 py-2 rounded-lg border ${
@@ -1723,6 +620,14 @@ const InspeccionRealizada = () => {
                   <Filter size={20} />
                   Filtros
                 </button>
+                {inspecciones.length > 0 && (
+                  <div className={`px-4 py-2 text-sm flex items-center gap-2 ${
+                    darkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    <Database size={16} />
+                    {inspecciones.length} registros
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1731,33 +636,17 @@ const InspeccionRealizada = () => {
               <div className={`mb-6 p-4 rounded-lg border ${
                 darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
               }`}>
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <select
-                    value={filters.tipoInspeccion}
-                    onChange={(e) => setFilters({...filters, tipoInspeccion: e.target.value})}
+                    value={filters.estatus_inspeccion}
+                    onChange={(e) => setFilters({...filters, estatus_inspeccion: e.target.value})}
                     className={`px-3 py-2 rounded-lg border ${
                       darkMode 
                         ? 'bg-gray-700 border-gray-600 text-white' 
                         : 'bg-white border-gray-200'
                     }`}
                   >
-                    <option value="">Todos los tipos</option>
-                    <option value="Inicial">Inicial</option>
-                    <option value="Re-inspección">Re-inspección</option>
-                    <option value="Periódica">Periódica</option>
-                    <option value="Pendiente">Pendiente</option>
-                  </select>
-
-                  <select
-                    value={filters.resultado}
-                    onChange={(e) => setFilters({...filters, resultado: e.target.value})}
-                    className={`px-3 py-2 rounded-lg border ${
-                      darkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white' 
-                        : 'bg-white border-gray-200'
-                    }`}
-                  >
-                    <option value="">Todos los resultados</option>
+                    <option value="">Todos los estatus</option>
                     <option value="Aprobado">Aprobado</option>
                     <option value="Aprobado con observaciones">Aprobado con observaciones</option>
                     <option value="Rechazado">Rechazado</option>
@@ -1765,19 +654,19 @@ const InspeccionRealizada = () => {
                   </select>
 
                   <select
-                    value={filters.calificacion}
-                    onChange={(e) => setFilters({...filters, calificacion: e.target.value})}
+                    value={filters.id_tipo_insp_clas}
+                    onChange={(e) => setFilters({...filters, id_tipo_insp_clas: e.target.value})}
                     className={`px-3 py-2 rounded-lg border ${
                       darkMode 
                         ? 'bg-gray-700 border-gray-600 text-white' 
                         : 'bg-white border-gray-200'
                     }`}
                   >
-                    <option value="">Calificación mínima</option>
-                    <option value="5">5 estrellas</option>
-                    <option value="4">4+ estrellas</option>
-                    <option value="3">3+ estrellas</option>
-                    <option value="2">2+ estrellas</option>
+                    <option value="">Todos los tipos</option>
+                    <option value="1">Inicial</option>
+                    <option value="2">Re-inspección</option>
+                    <option value="3">Periódica</option>
+                    <option value="4">Seguimiento</option>
                   </select>
 
                   <input
@@ -1802,18 +691,6 @@ const InspeccionRealizada = () => {
                         : 'bg-white border-gray-200'
                     }`}
                     placeholder="Fecha hasta"
-                  />
-
-                  <input
-                    type="text"
-                    value={filters.inspector}
-                    onChange={(e) => setFilters({...filters, inspector: e.target.value})}
-                    placeholder="Inspector"
-                    className={`px-3 py-2 rounded-lg border ${
-                      darkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                        : 'bg-white border-gray-200 placeholder-gray-500'
-                    }`}
                   />
                 </div>
                 <div className="flex justify-end mt-4">
@@ -1852,34 +729,39 @@ const InspeccionRealizada = () => {
                         </div>
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                          onClick={() => handleSort('emprendimiento')}>
+                          onClick={() => handleSort('id_codigo_exp')}>
                         <div className="flex items-center gap-2">
-                          Emprendimiento
+                          Expediente
                           <ArrowUpDown size={14} />
                         </div>
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                          onClick={() => handleSort('tipoInspeccion')}>
+                          onClick={() => handleSort('id_tipo_insp_clas')}>
                         <div className="flex items-center gap-2">
                           Tipo
                           <ArrowUpDown size={14} />
                         </div>
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                          onClick={() => handleSort('fechaInspeccion')}>
+                          onClick={() => handleSort('created_at')}>
                         <div className="flex items-center gap-2">
-                          Fecha
+                          Fecha Creación
                           <ArrowUpDown size={14} />
                         </div>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Resultado
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                          onClick={() => handleSort('estatus_inspeccion')}>
+                        <div className="flex items-center gap-2">
+                          Estatus
+                          <ArrowUpDown size={14} />
+                        </div>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Calificación
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Inspector
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                          onClick={() => handleSort('updated_at')}>
+                        <div className="flex items-center gap-2">
+                          Última Actualización
+                          <ArrowUpDown size={14} />
+                        </div>
                       </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
@@ -1907,86 +789,62 @@ const InspeccionRealizada = () => {
                         <td className="px-4 py-3">
                           <div>
                             <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                              {inspeccion.emprendimiento}
+                              {inspeccion.codigo_expediente}
                             </div>
                             <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                              {inspeccion.emprendedor}
+                              ID: {inspeccion.id_codigo_exp}
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-1 text-xs rounded-full ${getTipoInspeccionBadge(inspeccion.tipoInspeccion)}`}>
-                            {inspeccion.tipoInspeccion}
+                          <span className={`px-2 py-1 text-xs rounded-full ${getTipoInspeccionBadge(inspeccion.tipo_inspeccion)}`}>
+                            {inspeccion.tipo_inspeccion}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          {inspeccion.fechaInspeccion !== '-' ? (
-                            <div>
-                              <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                {new Date(inspeccion.fechaInspeccion).toLocaleDateString('es-ES', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric'
-                                })}
-                              </div>
-                              <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                Duración: {inspeccion.duracion}
-                              </div>
+                          <div>
+                            <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                              {inspeccion.created_at ? new Date(inspeccion.created_at).toLocaleDateString('es-ES', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                              }) : '-'}
                             </div>
-                          ) : (
-                            <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                              No realizada
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 text-xs rounded-full ${getResultadoBadge(inspeccion.resultado)}`}>
-                            {inspeccion.resultado}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-col gap-1">
-                            {renderStars(inspeccion.calificacion)}
-                            {inspeccion.calificacion > 0 && (
-                              <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                {inspeccion.calificacion}/5.0
-                              </span>
-                            )}
+                            <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                              {inspeccion.created_at ? new Date(inspeccion.created_at).toLocaleTimeString('es-ES', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : ''}
+                            </div>
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                            {inspeccion.inspector}
+                          <span className={`px-2 py-1 text-xs rounded-full ${getResultadoBadge(inspeccion.estatus_inspeccion)}`}>
+                            {inspeccion.estatus_inspeccion}
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div>
+                            <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                              {inspeccion.updated_at ? new Date(inspeccion.updated_at).toLocaleDateString('es-ES', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                              }) : '-'}
+                            </div>
+                            <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                              {inspeccion.updated_at ? new Date(inspeccion.updated_at).toLocaleTimeString('es-ES', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : ''}
+                            </div>
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-2">
-                            {/* Botón para realizar inspección - Aparece cuando el estado es Pendiente */}
-                            {inspeccion.resultado === "Pendiente" && (
-                              <button
-                                onClick={() => handleOpenInspectionForm({
-                                  emprendimiento: inspeccion.emprendimiento,
-                                  emprendedor: inspeccion.emprendedor,
-                                  actividad: inspeccion.actividad,
-                                  direccion: inspeccion.direccion,
-                                  telefono: inspeccion.telefono
-                                })}
-                                className={`p-1.5 rounded-lg ${
-                                  darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
-                                } transition-colors group relative`}
-                                title="Realizar Inspección"
-                              >
-                                <ClipboardList size={18} className="text-[#2A9D8F]" />
-                                <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                                  Realizar Inspección
-                                </span>
-                              </button>
-                            )}
-                            
-                            {/* Botón ver detalles - Siempre visible */}
                             <button
                               onClick={() => handleViewDetalle(inspeccion.id)}
-                              className={`p-1 rounded-lg ${
+                              className={`p-1.5 rounded-lg ${
                                 darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
                               } transition-colors group relative`}
                               title="Ver detalles"
@@ -1997,27 +855,39 @@ const InspeccionRealizada = () => {
                               </span>
                             </button>
                             
-                            {/* Botón descargar informe - Solo para inspecciones realizadas */}
-                            {inspeccion.resultado !== "Pendiente" && (
+                            {/* Botón para realizar inspección cuando está pendiente */}
+                            {inspeccion.estatus_inspeccion === "Pendiente" && (
                               <button
-                                onClick={() => handleDownloadInforme(inspeccion.id)}
-                                className={`p-1 rounded-lg ${
+                                onClick={() => handleRealizarInspeccion(inspeccion)}
+                                className={`p-1.5 rounded-lg ${
                                   darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
                                 } transition-colors group relative`}
-                                title="Descargar informe"
+                                title="Realizar inspección"
                               >
-                                <Download size={18} className="text-purple-500" />
+                                <ClipboardCheck size={18} className="text-green-500" />
                                 <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                                  Descargar Informe
+                                  Realizar Inspección
                                 </span>
                               </button>
                             )}
                             
-                            {/* Botón generar certificado - Solo para inspecciones aprobadas */}
-                            {inspeccion.resultado === "Aprobado" && (
+                            <button
+                              onClick={() => handleDownloadInforme(inspeccion.id)}
+                              className={`p-1.5 rounded-lg ${
+                                darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
+                              } transition-colors group relative`}
+                              title="Descargar informe"
+                            >
+                              <Download size={18} className="text-purple-500" />
+                              <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                Descargar Informe
+                              </span>
+                            </button>
+                            
+                            {inspeccion.estatus_inspeccion === "Aprobado" && (
                               <button
                                 onClick={() => handleGenerarCertificado(inspeccion.id)}
-                                className={`p-1 rounded-lg ${
+                                className={`p-1.5 rounded-lg ${
                                   darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
                                 } transition-colors group relative`}
                                 title="Generar certificado"
@@ -2096,14 +966,14 @@ const InspeccionRealizada = () => {
                     </button>
                     
                     <span className={`px-3 py-1 text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      Página {currentPage} de {totalPages}
+                      Página {currentPage} de {totalPages || 1}
                     </span>
                     
                     <button
                       onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
+                      disabled={currentPage === totalPages || totalPages === 0}
                       className={`p-1 rounded ${
-                        currentPage === totalPages
+                        currentPage === totalPages || totalPages === 0
                           ? 'text-gray-400 cursor-not-allowed'
                           : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
                       }`}
@@ -2112,9 +982,9 @@ const InspeccionRealizada = () => {
                     </button>
                     <button
                       onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
+                      disabled={currentPage === totalPages || totalPages === 0}
                       className={`p-1 rounded ${
-                        currentPage === totalPages
+                        currentPage === totalPages || totalPages === 0
                           ? 'text-gray-400 cursor-not-allowed'
                           : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
                       }`}
@@ -2127,7 +997,7 @@ const InspeccionRealizada = () => {
             </div>
 
             {/* Si no hay resultados */}
-            {sortedInspecciones.length === 0 && (
+            {!loading && sortedInspecciones.length === 0 && (
               <div className={`text-center py-12 rounded-xl border ${
                 darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
               }`}>
@@ -2136,14 +1006,26 @@ const InspeccionRealizada = () => {
                   No se encontraron inspecciones
                 </h3>
                 <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  No hay inspecciones que coincidan con los filtros aplicados.
+                  {error 
+                    ? "Ocurrió un error al cargar los datos. Por favor, intente nuevamente."
+                    : "No hay inspecciones que coincidan con los filtros aplicados."}
                 </p>
-                <button
-                  onClick={resetFilters}
-                  className="mt-4 px-4 py-2 text-[#2A9D8F] hover:text-[#264653]"
-                >
-                  Limpiar filtros
-                </button>
+                <div className="flex justify-center gap-3 mt-4">
+                  {error && (
+                    <button
+                      onClick={cargarInspecciones}
+                      className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg hover:bg-[#264653]"
+                    >
+                      Reintentar
+                    </button>
+                  )}
+                  <button
+                    onClick={resetFilters}
+                    className="px-4 py-2 text-[#2A9D8F] hover:text-[#264653]"
+                  >
+                    Limpiar filtros
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -2152,14 +1034,17 @@ const InspeccionRealizada = () => {
         </main>
       </div>
 
-      {/* Modal del Formulario de Inspección */}
-      <InspectionFormModal
-        isOpen={showInspectionModal}
-        onClose={handleCloseInspectionForm}
-        darkMode={darkMode}
-        onSubmit={handleSaveInspection}
-        emprendimientoData={selectedEmprendimiento}
-      />
+      {/* MODAL DEL FORMULARIO DE INSPECCIÓN - FUERA DEL MAIN */}
+      {showInspectionForm && selectedInspeccion && emprendimientoData && (
+        <InspectionFormCompleto
+          isOpen={showInspectionForm}
+          onClose={handleCloseInspectionForm}
+          onSave={handleSaveInspectionResults}
+          emprendimientoData={emprendimientoData}
+          sector={sector || 'industria_comercio'}
+          darkMode={darkMode}
+        />
+      )}
     </div>
   );
 };

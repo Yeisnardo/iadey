@@ -110,6 +110,32 @@ CREATE TABLE expediente (
 );
 
 -- =============================================
+-- TABLA: inspeccion
+-- =============================================
+CREATE TABLE inspeccion(
+    id_inspeccion SERIAL PRIMARY KEY,
+    id_codigo_exp INT NOT NULL,
+    id_tipo_insp_clas INT NOT NULL,
+    estatus_inspeccion VARCHAR (20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_codigo_exp) REFERENCES expediente(id_expediente)
+);
+
+
+-- =============================================
+-- TABLA: aprobacion
+-- =============================================
+CREATE TABLE aprobacion (
+    id_aprobacion SERIAL PRIMARY KEY,
+    id_expediente INT NOT NULL,
+    estatus_aprobacion VARCHAR (20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_expediente) REFERENCES expediente(id_expediente)
+);
+
+-- =============================================
 -- TABLA: configuracion_contrato
 -- =============================================
 CREATE TABLE configuracion_contrato (

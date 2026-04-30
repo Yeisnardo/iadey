@@ -12,7 +12,7 @@ const emprendimientoRoutes = require('../backend/routes/emprendimientoRoutes');
 const requisitosRoutes = require('../backend/routes/requisitosRoutes');
 const expedienteRoutes = require('../backend/routes/expedienteRoutes');
 const configuracion_contratoRoutes = require('../backend/routes/configuracion_contratoRoutes');
-
+const inspeccionRoutes = require('../backend/routes/inspeccionRoutes');
 dotenv.config();
 
 const app = express();
@@ -35,7 +35,7 @@ app.use('/api/emprendimiento', emprendimientoRoutes);
 app.use('/api/requisitos', requisitosRoutes);
 app.use('/api/expediente', expedienteRoutes);
 app.use('/api/configuracion_contrato', configuracion_contratoRoutes);
-
+app.use('/api/inspeccion', inspeccionRoutes);
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Servidor funcionando' });
 });
