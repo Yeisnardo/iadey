@@ -2,6 +2,18 @@
 import api from './api_principal';
 
 const inspeccionAPI = {
+
+  getFullData: async (id) => {
+  try {
+    const response = await api.get(`/inspeccion/${id}/full`);
+    return response.data;
+  } catch (error) {
+    console.error('Error en getFullData:', error);
+    throw error.response?.data || { error: 'Error al obtener datos completos' };
+  }
+},
+
+
   // Obtener todas las inspecciones
   getAll: async () => {
     try {
@@ -76,6 +88,28 @@ const inspeccionAPI = {
     } catch (error) {
       console.error('Error en saveResults:', error);
       throw error.response?.data || { error: 'Error al guardar resultados' };
+    }
+  },
+
+  // Guardar inspección completa (nueva)
+  saveFullInspection: async (data) => {
+    try {
+      const response = await api.post('/inspeccion/full', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error en saveFullInspection:', error);
+      throw error.response?.data || { error: 'Error al guardar inspección completa' };
+    }
+  },
+
+  // Actualizar inspección completa
+  updateFullInspection: async (id, data) => {
+    try {
+      const response = await api.put(`/inspeccion/${id}/full`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error en updateFullInspection:', error);
+      throw error.response?.data || { error: 'Error al actualizar inspección completa' };
     }
   }
 };
