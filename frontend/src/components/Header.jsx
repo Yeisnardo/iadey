@@ -1,5 +1,5 @@
 // components/Header.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   Menu, 
   X, 
@@ -11,7 +11,12 @@ import {
   User,
   Settings,
   HelpCircle,
-  LogOut
+  LogOut,
+  CreditCard,
+  Shield,
+  Sparkles,
+  Building2,
+  LayoutDashboard
 } from "lucide-react";
 import usuarioAPI from '../services/api_usuario';
 
@@ -29,31 +34,50 @@ const Header = ({
   unreadCount,
   markAsRead
 }) => {
-  // Estado para almacenar información completa del usuario
   const [userInfo, setUserInfo] = useState({
     name: '',
     cedula: '',
     role: '',
     estatus: ''
   });
+  const [searchOpen, setSearchOpen] = useState(false);
+  const notificationRef = useRef(null);
+  const userMenuRef = useRef(null);
+  const userMenuButtonRef = useRef(null);
 
-  // Cargar información del usuario al montar el componente
   useEffect(() => {
     loadUserInfo();
-  }, []);
+    
+    const handleClickOutside = (event) => {
+      if (
+        notificationRef.current && 
+        !notificationRef.current.contains(event.target)
+      ) {
+        setShowNotifications(false);
+      }
+      
+      if (
+        userMenuRef.current && 
+        !userMenuRef.current.contains(event.target) &&
+        userMenuButtonRef.current &&
+        !userMenuButtonRef.current.contains(event.target)
+      ) {
+        setShowUserMenu(false);
+      }
+    };
 
-  // Función para cargar información del usuario desde localStorage y API
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [setShowNotifications, setShowUserMenu]);
+
   const loadUserInfo = async () => {
     try {
-      // Obtener usuario del localStorage (datos básicos del login)
       const storedUser = usuarioAPI.getCurrentUser();
       
       if (storedUser) {
-        // Si solo tenemos la cédula, obtener datos completos
         if (storedUser.cedula_usuario && !storedUser.nombre) {
           const response = await usuarioAPI.getUsuarioByCedula(storedUser.cedula_usuario);
           if (response.success && response.data) {
-            // Combinar datos de persona y usuario
             setUserInfo({
               name: response.data.persona?.nombre_completo || response.data.cedula_usuario,
               cedula: response.data.cedula_usuario,
@@ -61,7 +85,6 @@ const Header = ({
               estatus: response.data.estatus
             });
           } else {
-            // Fallback con datos básicos
             setUserInfo({
               name: storedUser.cedula_usuario || 'Usuario',
               cedula: storedUser.cedula_usuario,
@@ -70,7 +93,6 @@ const Header = ({
             });
           }
         } else {
-          // Ya tenemos los datos completos
           setUserInfo({
             name: storedUser.nombre_completo || storedUser.nombre || storedUser.cedula_usuario,
             cedula: storedUser.cedula_usuario,
@@ -81,7 +103,6 @@ const Header = ({
       }
     } catch (error) {
       console.error('Error cargando información del usuario:', error);
-      // Fallback: usar datos del localStorage si la API falla
       const storedUser = usuarioAPI.getCurrentUser();
       if (storedUser) {
         setUserInfo({
@@ -94,15 +115,14 @@ const Header = ({
     }
   };
 
-  // Función para obtener el nombre para mostrar
   const getDisplayName = () => {
     if (userInfo.name && userInfo.name !== userInfo.cedula) {
-      return userInfo.name;
+      const names = userInfo.name.split(' ');
+      return names.length > 1 ? `${names[0]} ${names[names.length - 1]}` : names[0];
     }
-    return userInfo.cedula || 'Usuario';
+    return userInfo.cedula ? `V-${userInfo.cedula}` : 'Usuario';
   };
 
-  // Función para obtener el rol formateado (solo emprendedor y administrador)
   const getFormattedRole = () => {
     const roles = {
       'admin': 'Administrador',
@@ -114,98 +134,188 @@ const Header = ({
     return roles[userInfo.role?.toLowerCase()] || userInfo.role || 'Usuario';
   };
 
-  // Función para obtener el color del rol (para badges o estilos)
-  const getRoleColor = () => {
-    const role = userInfo.role?.toLowerCase();
-    if (role === 'admin' || role === 'administrador') {
-      return 'from-purple-500 to-pink-500';
-    }
-    if (role === 'emprendedor') {
-      return 'from-blue-500 to-teal-500';
-    }
-    return 'from-gray-500 to-gray-600';
-  };
-
-  // Función para obtener las iniciales del avatar
   const getInitials = () => {
     const name = getDisplayName();
-    if (name && name !== userInfo.cedula) {
-      // Si tenemos nombre completo, tomar primeras letras
+    if (name && name !== `V-${userInfo.cedula}`) {
       const parts = name.split(' ');
       if (parts.length >= 2) {
-        return (parts[0][0] + parts[1][0]).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
       }
       return name[0].toUpperCase();
     }
-    // Si solo tenemos cédula, tomar primeros 2 caracteres
     return userInfo.cedula ? userInfo.cedula.substring(0, 2).toUpperCase() : 'U';
   };
 
+  const getRoleBadge = () => {
+    const role = userInfo.role?.toLowerCase();
+    if (role === 'admin' || role === 'administrador') {
+      return {
+        icon: Shield,
+        bgColor: 'bg-slate-100 dark:bg-slate-800',
+        textColor: 'text-slate-700 dark:text-slate-300',
+        borderColor: 'border-slate-300 dark:border-slate-600',
+        label: 'Administrador'
+      };
+    }
+    if (role === 'emprendedor') {
+      return {
+        icon: Building2,
+        bgColor: 'bg-slate-100 dark:bg-slate-800',
+        textColor: 'text-slate-700 dark:text-slate-300',
+        borderColor: 'border-slate-300 dark:border-slate-600',
+        label: 'Emprendedor'
+      };
+    }
+    return null;
+  };
+
+  const roleBadge = getRoleBadge();
+
+  const handleUserMenuClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowUserMenu(!showUserMenu);
+    
+    if (showNotifications) {
+      setShowNotifications(false);
+    }
+  };
+
+  const handleNotificationClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowNotifications(!showNotifications);
+    
+    if (showUserMenu) {
+      setShowUserMenu(false);
+    }
+  };
+
   return (
-    <header className={`fixed top-0 w-full z-50 ${
-      darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-    } border-b transition-all duration-300 ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}`}>
-      <div className="h-16 flex items-center justify-between px-4 md:px-6">
+    <header className={`
+      fixed top-0 w-full z-50 h-16
+      ${darkMode 
+        ? 'bg-slate-900 border-slate-800' 
+        : 'bg-white border-slate-200'
+      }
+      border-b shadow-sm
+      transition-all duration-300 
+      ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}
+    `}>
+      <div className="h-full flex items-center justify-between px-4 lg:px-6">
         {/* Left section */}
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-3 lg:gap-4">
+          {/* Mobile menu toggle */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className={`p-2 rounded-lg ${
-              darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'
-            } transition-colors`}
-            aria-label="Toggle sidebar"
+            className={`
+              p-2 rounded-lg transition-all duration-200
+              ${darkMode 
+                ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
+                : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'
+              }
+            `}
+            aria-label={sidebarOpen ? "Cerrar menú" : "Abrir menú"}
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
+
+          {/* Search bar - Desktop */}
+          <div className="hidden lg:flex items-center">
+            <div className="relative">
+              <Search 
+                size={16} 
+                className={`
+                  absolute left-3 top-1/2 -translate-y-1/2
+                  ${darkMode ? 'text-slate-500' : 'text-slate-400'}
+                `} 
+              />
+              <input
+                type="text"
+                placeholder="Buscar en el sistema..."
+                className={`
+                  w-72 xl:w-96 pl-9 pr-4 py-2 rounded-lg text-sm
+                  border transition-all duration-200
+                  ${darkMode 
+                    ? 'bg-slate-800 border-slate-700 focus:border-slate-600 text-slate-200 placeholder-slate-500' 
+                    : 'bg-slate-50 border-slate-200 focus:border-slate-400 text-slate-900 placeholder-slate-400'
+                  }
+                  focus:outline-none focus:ring-1 focus:ring-slate-400
+                `}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Right section */}
-        <div className="flex items-center gap-1 md:gap-3">
-          {/* Search (mobile) */}
-          <button className={`p-2 rounded-lg md:hidden ${
-            darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'
-          }`}>
-            <Search size={20} />
+        <div className="flex items-center gap-1 lg:gap-2">
+          {/* Mobile search toggle */}
+          <button
+            onClick={() => setSearchOpen(!searchOpen)}
+            className={`
+              p-2 rounded-lg lg:hidden transition-all duration-200
+              ${darkMode 
+                ? 'hover:bg-slate-800 text-slate-400' 
+                : 'hover:bg-slate-100 text-slate-600'
+              }
+            `}
+            aria-label="Buscar"
+          >
+            <Search size={18} />
           </button>
 
           {/* Dark mode toggle */}
           <button
             onClick={() => setDarkMode(!darkMode)}
-            className={`p-2 rounded-lg ${
-              darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'
-            } transition-colors`}
-            aria-label="Toggle dark mode"
+            className={`
+              p-2 rounded-lg transition-all duration-200
+              ${darkMode 
+                ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
+                : 'hover:bg-slate-100 text-slate-600 hover:text-slate-800'
+              }
+            `}
+            aria-label={darkMode ? "Modo claro" : "Modo oscuro"}
           >
-            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
           {/* Notifications */}
-          <div className="relative notifications-menu">
+          <div ref={notificationRef} className="relative">
             <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className={`p-2 rounded-lg ${
-                darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'
-              } transition-colors relative`}
-              aria-label="Notifications"
+              onClick={handleNotificationClick}
+              className={`
+                p-2 rounded-lg transition-all duration-200 relative
+                ${darkMode 
+                  ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
+                  : 'hover:bg-slate-100 text-slate-600 hover:text-slate-800'
+                }
+                ${showNotifications ? (darkMode ? 'bg-slate-800' : 'bg-slate-100') : ''}
+              `}
+              aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
             >
-              <Bell size={20} />
+              <Bell size={18} />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900" />
               )}
             </button>
 
             {/* Notifications dropdown */}
             {showNotifications && (
-              <div className={`absolute right-0 mt-2 w-72 md:w-80 rounded-lg shadow-xl ${
-                darkMode ? 'bg-gray-800' : 'bg-white'
-              } border ${darkMode ? 'border-gray-700' : 'border-gray-200'} z-50`}>
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+              <div className={`
+                absolute right-0 mt-2 w-80 lg:w-96 rounded-lg shadow-xl
+                ${darkMode ? 'bg-slate-900' : 'bg-white'}
+                border ${darkMode ? 'border-slate-800' : 'border-slate-200'}
+                z-50 overflow-hidden
+              `}>
+                <div className={`
+                  px-4 py-3 border-b ${darkMode ? 'border-slate-800' : 'border-slate-200'}
+                `}>
                   <div className="flex items-center justify-between">
-                    <h3 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    <h3 className={`text-sm font-semibold ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                       Notificaciones
                     </h3>
                     {unreadCount > 0 && (
-                      <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full">
+                      <span className="px-2 py-0.5 text-xs font-medium bg-slate-700 text-slate-200 rounded">
                         {unreadCount} nuevas
                       </span>
                     )}
@@ -213,122 +323,199 @@ const Header = ({
                 </div>
                 <div className="max-h-96 overflow-y-auto">
                   {notifications.length > 0 ? (
-                    notifications.map((notif) => (
+                    notifications.map((notif, index) => (
                       <div
                         key={notif.id}
                         onClick={() => markAsRead(notif.id)}
-                        className={`p-4 border-b last:border-0 cursor-pointer transition-colors ${
-                          darkMode ? 'hover:bg-gray-700 border-gray-700' : 'hover:bg-gray-50 border-gray-200'
-                        } ${!notif.read ? (darkMode ? 'bg-gray-700/50' : 'bg-blue-50/50') : ''}`}
+                        className={`
+                          px-4 py-3 cursor-pointer transition-colors duration-150
+                          ${darkMode 
+                            ? `hover:bg-slate-800 ${index !== notifications.length - 1 ? 'border-b border-slate-800' : ''}` 
+                            : `hover:bg-slate-50 ${index !== notifications.length - 1 ? 'border-b border-slate-100' : ''}`
+                          }
+                          ${!notif.read 
+                            ? (darkMode ? 'border-l-2 border-l-slate-500' : 'border-l-2 border-l-slate-400') 
+                            : ''
+                          }
+                        `}
                       >
-                        <p className={`text-sm ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                        <p className={`text-sm ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
                           {notif.text}
                         </p>
-                        <div className="flex items-center justify-between mt-2">
-                          <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            Hace {notif.time}
-                          </p>
+                        <div className="flex items-center justify-between mt-1.5">
+                          <span className={`text-xs ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                            {notif.time}
+                          </span>
                           {!notif.read && (
-                            <span className="text-xs text-blue-500 font-medium">Nueva</span>
+                            <span className={`text-xs font-medium ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                              Nueva
+                            </span>
                           )}
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div className="p-8 text-center">
-                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        No hay notificaciones
+                    <div className="p-6 text-center">
+                      <Bell size={24} className={`mx-auto mb-2 ${darkMode ? 'text-slate-700' : 'text-slate-300'}`} />
+                      <p className={`text-sm ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                        No hay notificaciones pendientes
                       </p>
                     </div>
                   )}
                 </div>
-                <div className="p-3 border-t border-gray-200 dark:border-gray-700">
-                  <button className={`w-full text-center text-sm ${
-                    darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-                  } transition-colors`}>
-                    Ver todas las notificaciones
-                  </button>
-                </div>
+                {notifications.length > 0 && (
+                  <div className={`
+                    p-3 border-t ${darkMode ? 'border-slate-800' : 'border-slate-200'}
+                  `}>
+                    <button className={`
+                      w-full text-center text-sm py-1.5 rounded transition-colors
+                      ${darkMode 
+                        ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' 
+                        : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
+                      }
+                    `}>
+                      Ver todas las notificaciones
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
           {/* User menu */}
-          <div className="relative user-menu">
+          <div className="relative">
             <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2 md:gap-3 p-1 md:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              aria-label="User menu"
+              ref={userMenuButtonRef}
+              onClick={handleUserMenuClick}
+              className={`
+                flex items-center gap-2 lg:gap-3 p-1.5 rounded-lg transition-all duration-200
+                ${darkMode 
+                  ? 'hover:bg-slate-800 text-slate-400' 
+                  : 'hover:bg-slate-100 text-slate-700'
+                }
+                ${showUserMenu ? (darkMode ? 'bg-slate-800' : 'bg-slate-100') : ''}
+              `}
+              aria-label={`Menú de usuario ${getDisplayName()}`}
+              aria-expanded={showUserMenu}
+              aria-haspopup="true"
             >
-              <div className={`w-8 h-8 rounded-full bg-gradient-to-r ${getRoleColor()} flex items-center justify-center text-white font-semibold text-sm`}>
+              {/* Avatar */}
+              <div className={`
+                w-8 h-8 rounded-md flex items-center justify-center
+                text-white font-medium text-xs
+                ${darkMode ? 'bg-slate-700' : 'bg-slate-600'}
+              `}>
                 {getInitials()}
               </div>
-              <div className="hidden md:block text-left">
-                <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+
+              {/* User info - Desktop */}
+              <div className="hidden lg:block text-left max-w-[140px]">
+                <p className={`text-sm font-medium truncate ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>
                   {getDisplayName()}
                 </p>
-                <div className="flex items-center gap-1">
-                  <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {getFormattedRole()}
-                  </p>
-                  {userInfo.role?.toLowerCase() === 'admin' && (
-                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-                      Admin
-                    </span>
-                  )}
-                  {userInfo.role?.toLowerCase() === 'emprendedor' && (
-                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                      Emprende
-                    </span>
-                  )}
-                </div>
+                <p className={`text-xs ${darkMode ? 'text-slate-500' : 'text-slate-500'}`}>
+                  {getFormattedRole()}
+                </p>
               </div>
-              <ChevronDown size={16} className={`hidden md:block ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+
+              <ChevronDown 
+                size={14} 
+                className={`
+                  hidden lg:block transition-transform duration-200
+                  ${showUserMenu ? 'rotate-180' : ''}
+                  ${darkMode ? 'text-slate-500' : 'text-slate-400'}
+                `} 
+              />
             </button>
 
             {/* User dropdown */}
             {showUserMenu && (
-              <div className={`absolute right-0 mt-2 w-48 rounded-lg shadow-xl ${
-                darkMode ? 'bg-gray-800' : 'bg-white'
-              } border ${darkMode ? 'border-gray-700' : 'border-gray-200'} z-50`}>
-                <div className="p-2">
-                  <div className={`md:hidden p-3 mb-2 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                    <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {getDisplayName()}
-                    </p>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {getFormattedRole()}
-                    </p>
-                    <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                      Cédula: {userInfo.cedula}
-                    </p>
+              <div 
+                ref={userMenuRef}
+                className={`
+                  absolute right-0 mt-2 w-64 rounded-lg shadow-xl
+                  ${darkMode ? 'bg-slate-900' : 'bg-white'}
+                  border ${darkMode ? 'border-slate-800' : 'border-slate-200'}
+                  z-50 overflow-hidden
+                `}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* User info header */}
+                <div className={`
+                  p-4 border-b ${darkMode ? 'border-slate-800' : 'border-slate-200'}
+                `}>
+                  <div className="flex items-center gap-3">
+                    <div className={`
+                      w-10 h-10 rounded-md flex items-center justify-center text-white font-medium
+                      ${darkMode ? 'bg-slate-700' : 'bg-slate-600'}
+                    `}>
+                      {getInitials()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium truncate ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                        {getDisplayName()}
+                      </p>
+                      <p className={`text-xs ${darkMode ? 'text-slate-500' : 'text-slate-500'}`}>
+                        {getFormattedRole()}
+                      </p>
+                      {userInfo.cedula && (
+                        <p className={`text-xs mt-0.5 ${darkMode ? 'text-slate-600' : 'text-slate-400'}`}>
+                          CI: {userInfo.cedula}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  
+                  {roleBadge && (
+                    <div className="mt-3">
+                      <span className={`
+                        inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium
+                        border ${roleBadge.borderColor} ${roleBadge.bgColor} ${roleBadge.textColor}
+                      `}>
+                        <roleBadge.icon size={12} />
+                        {roleBadge.label}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Menu items */}
+                <div className="p-1.5">
                   <MenuItem 
                     icon={User} 
                     text="Mi Perfil" 
                     darkMode={darkMode}
-                    onClick={() => console.log('Perfil')}
+                    onClick={() => setShowUserMenu(false)}
                   />
                   <MenuItem 
                     icon={Settings} 
                     text="Configuración" 
                     darkMode={darkMode}
-                    onClick={() => console.log('Configuración')}
+                    onClick={() => setShowUserMenu(false)}
+                  />
+                  <MenuItem 
+                    icon={CreditCard} 
+                    text="Mis Créditos" 
+                    darkMode={darkMode}
+                    onClick={() => setShowUserMenu(false)}
                   />
                   <MenuItem 
                     icon={HelpCircle} 
-                    text="Ayuda" 
+                    text="Ayuda y Soporte" 
                     darkMode={darkMode}
-                    onClick={() => console.log('Ayuda')}
+                    onClick={() => setShowUserMenu(false)}
                   />
-                  <div className={`my-2 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`} />
+                  
+                  <div className={`my-1.5 border-t ${darkMode ? 'border-slate-800' : 'border-slate-200'}`} />
+                  
                   <MenuItem 
                     icon={LogOut} 
                     text="Cerrar Sesión" 
                     darkMode={darkMode}
-                    onClick={handleLogout}
-                    className="text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
+                    onClick={() => {
+                      handleLogout();
+                      setShowUserMenu(false);
+                    }}
+                    className="text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                   />
                 </div>
               </div>
@@ -336,20 +523,53 @@ const Header = ({
           </div>
         </div>
       </div>
+
+      {/* Mobile search overlay */}
+      {searchOpen && (
+        <div className={`
+          lg:hidden p-4 border-t ${darkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'}
+        `}>
+          <div className="relative">
+            <Search 
+              size={16} 
+              className={`absolute left-3 top-1/2 -translate-y-1/2 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} 
+            />
+            <input
+              type="text"
+              placeholder="Buscar en el sistema..."
+              className={`
+                w-full pl-9 pr-4 py-2.5 rounded-lg text-sm
+                border transition-all duration-200
+                ${darkMode 
+                  ? 'bg-slate-800 border-slate-700 focus:border-slate-600 text-slate-200 placeholder-slate-500' 
+                  : 'bg-slate-50 border-slate-200 focus:border-slate-400 text-slate-900 placeholder-slate-400'
+                }
+                focus:outline-none focus:ring-1 focus:ring-slate-400
+              `}
+              autoFocus
+            />
+          </div>
+        </div>
+      )}
     </header>
   );
 };
 
-// Componente MenuItem para dropdowns
+// Componente MenuItem corporativo
 const MenuItem = ({ icon: Icon, text, darkMode, onClick, className = "" }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-      darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-700'
-    } ${className}`}
+    className={`
+      w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150 text-sm
+      ${darkMode 
+        ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' 
+        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+      }
+      ${className}
+    `}
   >
-    <Icon size={18} />
-    <span className="text-sm">{text}</span>
+    <Icon size={16} />
+    <span>{text}</span>
   </button>
 );
 

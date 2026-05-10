@@ -128,15 +128,15 @@ CREATE TABLE inspeccion(
 -- =============================================
 CREATE TABLE aprobacion (
     id_aprobacion SERIAL PRIMARY KEY,
+    id_inspeccion INT NOT NULL,
     id_expediente INT NOT NULL,
+    verificacion_requisitos TEXT NOT NULL,
     estatus_aprobacion VARCHAR (20) NOT NULL,
+    seleccion_manejo VARCHAR (10),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_expediente) REFERENCES expediente(id_expediente)
 );
-
-
-
 
 -- INSPECCION INTUSTRIA Y COMERCIO
 --------------------------------------------------------------------------------------------------------
