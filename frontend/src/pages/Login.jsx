@@ -1,24 +1,40 @@
 // pages/Login.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { IdCard, Lock, User, AlertCircle, Shield, Eye, EyeOff, ArrowRight } from "lucide-react";
+import {
+  IdCard,
+  Lock,
+  User,
+  AlertCircle,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import Swal from 'sweetalert2';
-import usuarioAPI from '../services/api_usuario';
+import usuarioAPI from "../services/api_usuario";
 
 const Login = () => {
   const navigate = useNavigate();
+
+  // ==================== ESTADOS ====================
   const [formData, setFormData] = useState({
     cedula_usuario: "",
-    password: ""
+    password: "",
   });
+
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
-  
+
+  const [fieldErrors, setFieldErrors] = useState({
+    cedula: "",
+    password: "",
+  });
+
+  // ==================== EFECTOS ====================
   useEffect(() => {
     setIsVisible(true);
-    
+
     // Verificar si ya está autenticado
     if (usuarioAPI.isAuthenticated()) {
       const user = usuarioAPI.getCurrentUser();
@@ -28,147 +44,294 @@ const Login = () => {
     }
   }, [navigate]);
 
+  // ==================== VALIDACIONES ====================
+  const hasSpaces = (str) => /\s/.test(str);
+
+  const validateCedula = (cedula) => {
+    if (hasSpaces(cedula)) {
+      return { valid: false, message: "La cédula no puede contener espacios" };
+    }
+    
+    if (!cedula) {
+      return { valid: true };
+    }
+    
+    if (/^\d{1,8}$/.test(cedula)) {
+      return { valid: true };
+    }
+    
+    const veFormat = /^[VE]-\d{1,8}$/;
+    if (veFormat.test(cedula)) {
+      return { valid: true };
+    }
+    
+    if (/^[VE]/.test(cedula)) {
+      return {
+        valid: false,
+        message: "Formato incorrecto. Debe ser V-12345678 o E-12345678",
+      };
+    }
+    
+    if (/[A-Za-z]/.test(cedula) && !/^[VE]/.test(cedula)) {
+      return {
+        valid: false,
+        message: "Use V para Venezolano o E para Extranjero",
+      };
+    }
+    
+    return { valid: true };
+  };
+
+  const validatePassword = (password) => {
+    if (password.length < 6) {
+      return {
+        valid: false,
+        message: "La contraseña debe tener al menos 6 caracteres",
+      };
+    }
+    if (hasSpaces(password)) {
+      return {
+        valid: false,
+        message: "La contraseña no puede contener espacios",
+      };
+    }
+    return { valid: true };
+  };
+
+  // ==================== FUNCIONES AUXILIARES ====================
+  const autoFormatCedula = (value) => {
+    if (!value) return value;
+    
+    if (/^\d+$/.test(value)) {
+      return value.substring(0, 8);
+    }
+    
+    if (/^[VE]\d+$/.test(value)) {
+      const letter = value[0];
+      const numbers = value.substring(1).replace(/\D/g, "").substring(0, 8);
+      return letter + "-" + numbers;
+    }
+    
+    if (/^[VE]-.+$/.test(value)) {
+      const letter = value[0];
+      const numbers = value.substring(2).replace(/\D/g, "").substring(0, 8);
+      return letter + "-" + numbers;
+    }
+    
+    return value;
+  };
+
+  // ==================== MANEJADORES ====================
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    setFieldErrors((prev) => ({
+      ...prev,
+      [name === "cedula_usuario" ? "cedula" : "password"]: "",
+    }));
+    setLoginError("");
+
     if (name === "cedula_usuario") {
-      const filteredValue = value.replace(/[^\dVEve-]/g, '');
-      setFormData(prev => ({
-        ...prev,
-        [name]: filteredValue
-      }));
+      const filteredValue = value.toUpperCase().replace(/[^\dVE\-]/g, "");
+
+      if (filteredValue.length > 0) {
+        if (filteredValue.length === 1 && !/^[VE\d]$/.test(filteredValue)) {
+          setFieldErrors((prev) => ({
+            ...prev,
+            cedula: "El prefijo debe ser V o E, o ingrese solo números",
+          }));
+          return;
+        }
+
+        if (/^[VE]$/.test(filteredValue) && filteredValue.length === 1) {
+          setFormData((prev) => ({
+            ...prev,
+            cedula_usuario: filteredValue + "-",
+          }));
+          return;
+        }
+
+        if (/^[VE]-$/.test(filteredValue)) {
+          setFormData((prev) => ({
+            ...prev,
+            cedula_usuario: filteredValue,
+          }));
+          return;
+        }
+
+        const prefixMatch = filteredValue.match(/^([VE]-)(\d*)$/);
+        if (prefixMatch) {
+          const [_, prefix, numbers] = prefixMatch;
+          
+          if (numbers.length <= 8) {
+            setFormData((prev) => ({
+              ...prev,
+              cedula_usuario: filteredValue,
+            }));
+          }
+          return;
+        }
+
+        if (/^\d+$/.test(filteredValue) && filteredValue.length <= 8) {
+          setFormData((prev) => ({
+            ...prev,
+            cedula_usuario: filteredValue,
+          }));
+          return;
+        }
+      } else {
+        setFormData((prev) => ({ ...prev, [name]: "" }));
+      }
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
-  // Función para mostrar alertas de error
-  const showErrorAlert = (message) => {
-    Swal.fire({
-      icon: 'error',
-      title: 'Error de autenticación',
-      text: message,
-      confirmButtonColor: '#264653',
-      confirmButtonText: 'Entendido',
-      timer: 5000,
-      timerProgressBar: true,
-      showClass: {
-        popup: 'animate__animated animate__fadeInDown'
-      },
-      hideClass: {
-        popup: 'animate__animated animate__fadeOutUp'
-      }
-    });
-  };
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
 
-  // Función para mostrar alerta de validación de campos
-  const showValidationAlert = () => {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Campos incompletos',
-      text: 'Por favor completa todos los campos para continuar',
-      confirmButtonColor: '#264653',
-      confirmButtonText: 'Ok',
-      timer: 3000,
-      showConfirmButton: true
-    });
-  };
-
-  // Función para mostrar alerta de éxito en el login
-  const showSuccessAlert = () => {
-    Swal.fire({
-      icon: 'success',
-      title: '¡Bienvenido!',
-      text: 'Inicio de sesión exitoso',
-      confirmButtonColor: '#264653',
-      confirmButtonText: 'Continuar',
-      timer: 2000,
-      showConfirmButton: false,
-      toast: true,
-      position: 'top-end',
-      showClass: {
-        popup: 'animate__animated animate__fadeInRight'
+    if (name === "cedula_usuario" && value) {
+      const formattedValue = autoFormatCedula(value);
+      if (formattedValue !== value) {
+        setFormData((prev) => ({ ...prev, cedula_usuario: formattedValue }));
       }
-    });
+      
+      const validation = validateCedula(formattedValue || value);
+      if (!validation.valid) {
+        setFieldErrors((prev) => ({ ...prev, cedula: validation.message }));
+      }
+    }
+
+    if (name === "password" && value) {
+      const validation = validatePassword(value);
+      if (!validation.valid) {
+        setFieldErrors((prev) => ({ ...prev, password: validation.message }));
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validaciones con SweetAlert
-    if (!formData.cedula_usuario || !formData.password) {
-      showValidationAlert();
-      setLoginError("Por favor completa todos los campos");
-      return;
-    }
-    
-    // Validar formato básico de cédula
-    const cedulaRegex = /^[\dVEve-]+$/;
-    if (!cedulaRegex.test(formData.cedula_usuario)) {
-      showErrorAlert("Formato de cédula inválido");
-      setLoginError("Formato de cédula inválido");
-      return;
-    }
-    
-    setIsLoading(true);
+
+    // Reiniciar errores
+    setFieldErrors({ cedula: "", password: "" });
     setLoginError("");
-    
+
+    // Validar campos vacíos
+    if (!formData.cedula_usuario || !formData.password) {
+      const message =
+        !formData.cedula_usuario && !formData.password
+          ? "Por favor completa todos los campos"
+          : !formData.cedula_usuario
+          ? "Por favor ingresa tu cédula de identidad"
+          : "Por favor ingresa tu contraseña";
+
+      setLoginError(message);
+
+      if (!formData.cedula_usuario) {
+        setFieldErrors((prev) => ({ ...prev, cedula: "Campo requerido" }));
+      }
+      if (!formData.password) {
+        setFieldErrors((prev) => ({ ...prev, password: "Campo requerido" }));
+      }
+      return;
+    }
+
+    // Validar cédula
+    const cedulaValidation = validateCedula(formData.cedula_usuario);
+    if (!cedulaValidation.valid) {
+      setFieldErrors((prev) => ({ ...prev, cedula: cedulaValidation.message }));
+      setLoginError(cedulaValidation.message);
+      return;
+    }
+
+    // Validar contraseña
+    const passwordValidation = validatePassword(formData.password);
+    if (!passwordValidation.valid) {
+      setFieldErrors((prev) => ({ ...prev, password: passwordValidation.message }));
+      setLoginError(passwordValidation.message);
+      return;
+    }
+
+    setIsLoading(true);
+
     try {
       const response = await usuarioAPI.login(formData.cedula_usuario, formData.password);
       
-      if (response.success) {
-        showSuccessAlert();
-        // Pequeña pausa para mostrar la alerta antes de navegar
+      // IMPORTANTE: Verificar explícitamente si success es true
+      if (response && response.success === true) {
+        // Mostrar SweetAlert de éxito
+        await Swal.fire({
+          icon: 'success',
+          title: '¡Bienvenido!',
+          text: 'Has iniciado sesión correctamente',
+          confirmButtonColor: '#264653',
+          confirmButtonText: 'Continuar',
+          timer: 2000,
+          timerProgressBar: true,
+          showConfirmButton: true,
+          allowOutsideClick: false
+        });
+        
+        // Redireccionar después del mensaje
         setTimeout(() => {
           navigate("/dashboard", { replace: true });
-        }, 1500);
+        }, 500);
       } else {
-        showErrorAlert(response.error || "Credenciales incorrectas");
-        setLoginError(response.error || "Credenciales incorrectas");
+        // Credenciales incorrectas o error del servidor
+        // Mostrar SweetAlert de error
+        const errorMessage = response?.message || response?.error || "Las credenciales son incorrectas";
+        
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error de autenticación',
+          text: errorMessage,
+          confirmButtonColor: '#264653',
+          confirmButtonText: 'Intentar de nuevo',
+        });
+        
+        setLoginError(errorMessage);
+        setFormData((prev) => ({ ...prev, password: "" }));
+        
+        // Limpiar cualquier estado de loading que pueda causar problemas
+        setIsLoading(false);
       }
     } catch (error) {
-      console.error("Error de login:", error);
+      // Este catch solo se ejecutará para errores graves de red o servidor
+      console.error("Error grave en login:", error);
       
-      let errorMessage = "Error al conectar con el servidor";
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error de conexión',
+        text: 'Verifica tu conexión a internet',
+        confirmButtonColor: '#264653',
+        confirmButtonText: 'Reintentar',
+      });
       
-      if (error.response?.status === 401) {
-        errorMessage = "Cédula o contraseña incorrecta";
-      } else if (error.response?.status === 403) {
-        errorMessage = "Usuario inactivo o bloqueado";
-      } else if (error.response?.status === 500) {
-        errorMessage = "Error del servidor. Intente más tarde";
-      } else if (error.error) {
-        errorMessage = error.error;
-      }
-      
-      showErrorAlert(errorMessage);
-      setLoginError(errorMessage);
-    } finally {
+      setLoginError("Error de conexión. Verifica tu conexión a internet.");
+      setFormData((prev) => ({ ...prev, password: "" }));
       setIsLoading(false);
     }
   };
 
+  // ==================== RENDER ====================
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#264653] to-white flex items-center justify-center p-4">
-      {/* Tarjeta principal */}
-      <div className={`
-        bg-white rounded-2xl shadow-xl w-full max-w-md
-        transform transition-all duration-700 ease-out
-        border border-gray-100
-        ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}
-      `}>
-        {/* Header con color sólido */}
+      <div
+        className={`
+          bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-100
+          transform transition-all duration-700 ease-out
+          ${isVisible ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"}
+        `}
+      >
+        {/* Header */}
         <div className="bg-[#264653] px-8 py-6 rounded-t-2xl">
           <div className="flex items-center justify-center gap-3">
             <div className="bg-white/10 p-3 rounded-xl">
               <User size={28} className="text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-white">
-                IADEY
-              </h2>
+              <h2 className="text-2xl font-bold text-white">Inicio de Sesión</h2>
               <p className="text-white/80 text-sm">
                 Instituto Autónomo del Desarrollo Económico del Estado Yaracuy
               </p>
@@ -176,72 +339,97 @@ const Login = () => {
           </div>
         </div>
 
+        {/* Body */}
         <div className="p-8">
-          {/* Título de bienvenida */}
-          <div className="text-center mb-8">
-            <h3 className="text-xl font-semibold text-gray-800 mb-1">
-              ¡Bienvenido de vuelta!
-            </h3>
-            <p className="text-gray-500 text-sm">
-              Inicia sesión con tu cédula de identidad
-            </p>
-          </div>
-
-          {/* Mensaje de error tradicional (opcional, puedes mantenerlo o eliminarlo) */}
+          {/* Mensaje de error inline */}
           {loginError && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 animate-shake">
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 animate-fadeIn">
               <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-600">{loginError}</p>
+              <div>
+                <p className="text-sm font-medium text-red-800">{loginError}</p>
+                {(loginError === "Las credenciales son incorrectas" || loginError.includes("credenciales")) && (
+                  <p className="text-xs text-red-600 mt-1">
+                    Verifica tus datos e intenta nuevamente
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Campo de cédula */}
+            {/* Campo: Cédula */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Cédula de Identidad
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <IdCard size={18} className="text-gray-400" />
+                  <IdCard
+                    size={18}
+                    className={fieldErrors.cedula ? "text-red-400" : "text-gray-400"}
+                  />
                 </div>
                 <input
                   type="text"
                   name="cedula_usuario"
                   value={formData.cedula_usuario}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg
-                    focus:outline-none focus:border-[#264653] focus:ring-2 focus:ring-[#264653]/20
-                    transition-all duration-200 bg-white
-                    disabled:opacity-50 disabled:cursor-not-allowed"
-                  placeholder="Ej: 12345678 o V-12345678"
+                  onBlur={handleBlur}
+                  className={`
+                    w-full pl-10 pr-3 py-2.5 border rounded-lg
+                    focus:outline-none focus:ring-2 transition-all duration-200 bg-white
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                    ${
+                      fieldErrors.cedula
+                        ? "border-red-300 focus:border-red-500 focus:ring-red-200"
+                        : "border-gray-300 focus:border-[#264653] focus:ring-[#264653]/20"
+                    }
+                  `}
+                  placeholder="V-12345678"
                   disabled={isLoading}
                   autoComplete="username"
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-1 ml-1">
-                Ingresa tu número de cédula (V-12345678 o 12345678)
-              </p>
+              {fieldErrors.cedula ? (
+                <p className="text-xs text-red-500 mt-1 ml-1 flex items-center gap-1">
+                  <AlertCircle size={12} />
+                  {fieldErrors.cedula}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1 ml-1">
+                  V para Venezolano | E para Extranjero | Solo números sin prefijo
+                </p>
+              )}
             </div>
 
-            {/* Campo de contraseña */}
+            {/* Campo: Contraseña */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Contraseña
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock size={18} className="text-gray-400" />
+                  <Lock
+                    size={18}
+                    className={fieldErrors.password ? "text-red-400" : "text-gray-400"}
+                  />
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg
-                    focus:outline-none focus:border-[#264653] focus:ring-2 focus:ring-[#264653]/20
-                    transition-all duration-200 bg-white
-                    disabled:opacity-50 disabled:cursor-not-allowed"
+                  onBlur={handleBlur}
+                  className={`
+                    w-full pl-10 pr-10 py-2.5 border rounded-lg
+                    focus:outline-none focus:ring-2 transition-all duration-200 bg-white
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                    ${
+                      fieldErrors.password
+                        ? "border-red-300 focus:border-red-500 focus:ring-red-200"
+                        : "border-gray-300 focus:border-[#264653] focus:ring-[#264653]/20"
+                    }
+                  `}
                   placeholder="••••••••"
                   disabled={isLoading}
                   autoComplete="current-password"
@@ -255,19 +443,16 @@ const Login = () => {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-            </div>
-
-            {/* Enlace de olvidé contraseña */}
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => navigate("/recuperar-password")}
-                className="text-sm text-[#264653] hover:text-[#2A9D8F] font-medium 
-                  transition-colors duration-200 flex items-center gap-1 group"
-              >
-                ¿Olvidaste tu contraseña?
-                <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-              </button>
+              {fieldErrors.password ? (
+                <p className="text-xs text-red-500 mt-1 ml-1 flex items-center gap-1">
+                  <AlertCircle size={12} />
+                  {fieldErrors.password}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1 ml-1">
+                  Mínimo 6 caracteres, sin espacios
+                </p>
+              )}
             </div>
 
             {/* Botón de inicio de sesión */}
@@ -282,19 +467,31 @@ const Login = () => {
               {isLoading ? (
                 <div className="flex items-center justify-center gap-2">
                   <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
                   </svg>
-                  <span>Iniciando sesión...</span>
+                  <span>Verificando credenciales...</span>
                 </div>
               ) : (
-                'Iniciar Sesión'
+                "Iniciar Sesión"
               )}
             </button>
 
-            {/* Enlace de registro */}
+            {/* Registro */}
             <p className="text-center text-gray-600 text-sm mt-6">
-              ¿No tienes una cuenta?{' '}
+              ¿No tienes una cuenta?{" "}
               <button
                 type="button"
                 onClick={() => navigate("/registro-emprendedor")}

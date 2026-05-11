@@ -1,33 +1,60 @@
-import api from '../services/api_principal';
+// services/api_usuario.js
+import api from './api_principal';
 
 const usuarioAPI = {
   // ========== AUTENTICACIÓN ==========
   
-  // Iniciar sesión (ahora usando cédula en lugar de email)
+  // Iniciar sesión
   login: async (cedula_usuario, clave) => {
     try {
       const response = await api.post('/usuarios/login', { cedula_usuario, clave });
+      
       if (response.data.success) {
         // Guardar token
         if (response.data.token) {
           localStorage.setItem('token', response.data.token);
         }
         
-        // Guardar información del usuario (con rol específico)
+        // Guardar información del usuario con datos de persona
         const userData = {
           cedula_usuario: response.data.data.cedula_usuario,
-          rol: response.data.data.rol, // 'administrador' o 'emprendedor'
+          rol: response.data.data.rol,
           estatus: response.data.data.estatus,
-          nombre_completo: response.data.data.persona?.nombre_completo || null,
+          nombre_completo: response.data.data.nombre_completo || null,
+          nombres: response.data.data.nombres || response.data.data.persona?.nombres || null,
+          apellidos: response.data.data.apellidos || response.data.data.persona?.apellidos || null,
           ultimo_acceso: response.data.data.ultimo_acceso
         };
         
         localStorage.setItem('user', JSON.stringify(userData));
       }
+      
       return response.data;
+      
     } catch (error) {
       console.error('Error en login:', error);
-      throw error.response?.data || { error: 'Error al iniciar sesión' };
+      
+      if (error.response?.status === 401) {
+        return {
+          success: false,
+          error: 'Credenciales incorrectas',
+          message: error.response?.data?.message || 'Las credenciales son incorrectas'
+        };
+      }
+      
+      if (error.response?.data) {
+        return {
+          success: false,
+          error: error.response.data.error || 'Error al iniciar sesión',
+          message: error.response.data.message || 'Error de conexión con el servidor'
+        };
+      }
+      
+      return {
+        success: false,
+        error: 'Error de conexión',
+        message: 'No se pudo conectar con el servidor. Verifica tu conexión.'
+      };
     }
   },
 
@@ -77,21 +104,33 @@ const usuarioAPI = {
     }
   },
 
-  // Obtener usuario por cédula (reemplaza a getUsuarioByEmail)
+  // Obtener usuario por cédula
   getUsuarioByCedula: async (cedula_usuario) => {
     try {
       const response = await api.get(`/usuarios/cedula/${cedula_usuario}`);
+      
+      // Asegurarse de que la respuesta tenga la estructura esperada
+      if (response.data && response.data.success) {
+        return {
+          success: true,
+          data: response.data.data
+        };
+      }
+      
       return response.data;
     } catch (error) {
       console.error('Error en getUsuarioByCedula:', error);
-      throw error.response?.data || { error: 'Error al obtener el usuario por cédula' };
+      
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Error al obtener el usuario por cédula'
+      };
     }
   },
 
-  // Crear nuevo usuario (sin email)
+  // Crear nuevo usuario
   createUsuario: async (usuarioData) => {
     try {
-      // Asegurarse de que no se envíe email
       const { email, ...dataSinEmail } = usuarioData;
       const response = await api.post('/usuarios', dataSinEmail);
       return response.data;
@@ -101,7 +140,7 @@ const usuarioAPI = {
     }
   },
 
-  // Actualizar usuario (sin email)
+  // Actualizar usuario
   updateUsuario: async (id, usuarioData) => {
     try {
       const { email, ...dataSinEmail } = usuarioData;
@@ -124,7 +163,7 @@ const usuarioAPI = {
     }
   },
 
-  // Cambiar estatus del usuario (activo, inactivo, bloqueado)
+  // Cambiar estatus del usuario
   cambiarEstatus: async (id, estatus) => {
     try {
       const response = await api.put(`/usuarios/${id}/estatus`, { estatus });

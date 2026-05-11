@@ -1,4 +1,5 @@
-const UsuarioModel = require('../models/usuarioModel');
+// controllers/usuarioController.js
+const UsuarioModel = require('../models/UsuarioModel');
 const bcrypt = require('bcrypt');
 
 const usuarioController = {
@@ -31,13 +32,14 @@ const usuarioController = {
     }
   },
 
-  // Obtener usuario por cédula (reemplaza a getByEmail)
+  // Obtener usuario por cédula
   async getByCedula(req, res) {
     try {
       const usuario = await UsuarioModel.getByCedula(req.params.cedula_usuario);
       if (!usuario) {
         return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
       }
+      // No enviar la contraseña en la respuesta
       const { clave, ...usuarioSinClave } = usuario;
       res.json({ success: true, data: usuarioSinClave });
     } catch (error) {
@@ -45,7 +47,7 @@ const usuarioController = {
     }
   },
 
-  // Crear usuario (sin email)
+  // Crear usuario
   async create(req, res) {
     try {
       const { cedula_usuario, clave, rol, estatus } = req.body;
@@ -73,7 +75,7 @@ const usuarioController = {
     }
   },
 
-  // Actualizar usuario (sin email)
+  // Actualizar usuario
   async update(req, res) {
     try {
       const { rol, estatus } = req.body;
@@ -132,46 +134,31 @@ const usuarioController = {
     }
   },
 
-  // Login (usando cédula en lugar de email)
+  // Login
   async login(req, res) {
     try {
-      console.log('🔐 [LOGIN] Petición recibida');
-      console.log('📦 Body:', req.body);
-      
       const { cedula_usuario, clave } = req.body;
       
       // Validar que los campos no estén vacíos
       if (!cedula_usuario || !clave) {
-        console.log('❌ [LOGIN] Campos vacíos');
         return res.status(400).json({ 
           success: false, 
           error: 'Cédula y contraseña son requeridos' 
         });
       }
       
-      console.log('🔍 [LOGIN] Buscando usuario con cédula:', cedula_usuario);
-      
-      // Buscar por cédula
+      // Buscar por cédula (incluye datos de persona)
       const usuario = await UsuarioModel.getByCedula(cedula_usuario);
       
       if (!usuario) {
-        console.log('❌ [LOGIN] Usuario no encontrado');
         return res.status(401).json({ 
           success: false, 
           error: 'Credenciales incorrectas' 
         });
       }
-      
-      console.log('✅ [LOGIN] Usuario encontrado:', {
-        id: usuario.id,
-        cedula: usuario.cedula_usuario,
-        rol: usuario.rol,
-        estatus: usuario.estatus
-      });
 
       // Verificar estatus
       if (usuario.estatus !== 'activo') {
-        console.log('❌ [LOGIN] Usuario inactivo:', usuario.estatus);
         return res.status(401).json({ 
           success: false, 
           error: 'Usuario inactivo' 
@@ -179,16 +166,9 @@ const usuarioController = {
       }
 
       // Verificar contraseña
-      console.log('🔑 [LOGIN] Verificando contraseña...');
-      console.log('  - Contraseña ingresada (longitud):', clave.length);
-      console.log('  - Hash almacenado:', usuario.clave ? usuario.clave.substring(0, 20) + '...' : 'NO EXISTE');
-      
       const claveValida = await bcrypt.compare(clave, usuario.clave);
       
-      console.log('  - ¿Contraseña válida?:', claveValida);
-      
       if (!claveValida) {
-        console.log('❌ [LOGIN] Contraseña incorrecta');
         return res.status(401).json({ 
           success: false, 
           error: 'Credenciales incorrectas' 
@@ -196,12 +176,10 @@ const usuarioController = {
       }
 
       // Actualizar último acceso
-      console.log('📝 [LOGIN] Actualizando último acceso');
       await UsuarioModel.updateUltimoAcceso(cedula_usuario);
 
+      // Eliminar clave de la respuesta
       const { clave: _, ...usuarioSinClave } = usuario;
-      
-      console.log('✅ [LOGIN] Login exitoso para:', usuarioSinClave.cedula_usuario);
       
       res.json({ 
         success: true, 
@@ -209,12 +187,10 @@ const usuarioController = {
       });
       
     } catch (error) {
-      console.error('💥 [LOGIN] Error:', error);
-      console.error('  - Mensaje:', error.message);
-      console.error('  - Stack:', error.stack);
+      console.error('Error en login:', error);
       res.status(500).json({ 
         success: false, 
-        error: 'Error interno del servidor: ' + error.message 
+        error: 'Error interno del servidor' 
       });
     }
   }

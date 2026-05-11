@@ -29,22 +29,16 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
   const location = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-  const [hoveredItem, setHoveredItem] = useState(null);
 
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 1024;
-      setIsMobile(mobile);
+      setIsMobile(window.innerWidth < 1024);
     };
-
-    // Verificar estado inicial
     handleResize();
-
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Cerrar sidebar al cambiar de ruta en móvil
   useEffect(() => {
     if (isMobile && sidebarOpen) {
       setSidebarOpen(false);
@@ -58,76 +52,16 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
   }, [location.pathname, sidebarOpen]);
 
   const menuItems = [
-    { 
-      id: "overview", 
-      icon: LayoutDashboard, 
-      text: "Panel General", 
-      path: "/Dashboard",
-      section: "principal"
-    },
-    { 
-      id: "credit-request", 
-      icon: FileCheck, 
-      text: "Solicitud de Crédito", 
-      path: "/Solicitud",
-      section: "operaciones"
-    },
-    { 
-      id: "entrepreneur-file", 
-      icon: FolderOpen, 
-      text: "Expediente", 
-      path: "/Expediente",
-      section: "operaciones"
-    },
-    { 
-      id: "inspection", 
-      icon: ClipboardCheck, 
-      text: "Inspección", 
-      path: "/Inspeccion",
-      section: "operaciones"
-    },
-    { 
-      id: "approval", 
-      icon: Handshake, 
-      text: "Aprobación", 
-      path: "/aprobacion",
-      section: "operaciones"
-    },
-    { 
-      id: "banck", 
-      icon: Landmark, 
-      text: "Crédito a Banco", 
-      path: "/Bancarios",
-      section: "financiero"
-    },
-    { 
-      id: "contract", 
-      icon: FileSignature, 
-      text: "Contrato", 
-      path: "/Contrato",
-      section: "financiero"
-    },
-    { 
-      id: "disbursement", 
-      icon: DollarSign, 
-      text: "Desembolso", 
-      path: "/desembolso",
-      section: "financiero"
-    },
-    { 
-      id: "payment", 
-      icon: CreditCard, 
-      text: "Pago de Cuota", 
-      path: "/pago",
-      section: "financiero"
-    },
-    { 
-      id: "portfolio", 
-      icon: FileSearch, 
-      text: "Cartera de Créditos", 
-      path: "/Cartera",
-      section: "financiero"
-    }
+    { id: "overview", icon: LayoutDashboard, text: "Panel General", path: "/Dashboard", section: "principal" },
+    { id: "credit-request", icon: FileCheck, text: "Solicitud de Crédito", path: "/Solicitud", section: "operaciones" },
+    { id: "entrepreneur-file", icon: FolderOpen, text: "Expediente", path: "/Expediente", section: "operaciones" },
+    { id: "inspection", icon: ClipboardCheck, text: "Inspección", path: "/Inspeccion", section: "operaciones" },
+    { id: "approval", icon: Handshake, text: "Aprobación", path: "/aprobacion", section: "operaciones" },
+    { id: "banck", icon: Landmark, text: "Crédito a Banco", path: "/Bancarios", section: "financiero" },
+    { id: "contract", icon: FileSignature, text: "Contrato", path: "/Contrato", section: "financiero" },
+    { id: "disbursement", icon: DollarSign, text: "Desembolso", path: "/desembolso", section: "financiero" },
+    { id: "payment", icon: CreditCard, text: "Pago de Cuota", path: "/pago", section: "financiero" },
+    { id: "portfolio", icon: FileSearch, text: "Cartera de Créditos", path: "/Cartera", section: "financiero" }
   ];
 
   const settingsSubItems = [
@@ -139,14 +73,10 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
 
   const handleMenuItemClick = (item) => {
     navigate(item.path);
-    // Cerrar sidebar en móvil después de navegar
-    if (isMobile) {
-      setSidebarOpen(false);
-    }
+    if (isMobile) setSidebarOpen(false);
   };
 
-  const handleSettingsClick = (e) => {
-    e.preventDefault();
+  const handleSettingsClick = () => {
     if (sidebarOpen) {
       setSettingsOpen(!settingsOpen);
     } else {
@@ -157,27 +87,17 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
 
   const handleSubItemClick = (subItem) => {
     navigate(subItem.path);
-    // Cerrar sidebar en móvil después de navegar
-    if (isMobile) {
-      setSidebarOpen(false);
-    }
+    if (isMobile) setSidebarOpen(false);
   };
 
   const handleLogoClick = () => {
     navigate("/");
-    // Cerrar sidebar en móvil después de navegar
-    if (isMobile) {
-      setSidebarOpen(false);
-    }
-  };
-
-  const handleCloseSidebar = () => {
-    setSidebarOpen(false);
+    if (isMobile) setSidebarOpen(false);
   };
 
   const isItemActive = (itemPath) => {
     if (itemPath === "/") return location.pathname === "/";
-    return location.pathname.startsWith(itemPath);
+    return location.pathname === itemPath;
   };
 
   const isSettingsActive = () => {
@@ -186,94 +106,79 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
 
   const getSectionTitle = (section) => {
     const titles = {
-      principal: "Principal",
-      operaciones: "Operaciones",
-      financiero: "Gestión Financiera"
+      principal: "PRINCIPAL",
+      operaciones: "OPERACIONES",
+      financiero: "GESTIÓN FINANCIERA"
     };
     return titles[section];
   };
 
+  const sidebarStyles = darkMode
+    ? "bg-gray-900 border-gray-800 text-gray-300"
+    : "bg-white border-gray-200 text-gray-600";
+
+  const itemActiveStyles = darkMode
+    ? "bg-gray-800 text-white"
+    : "bg-gray-100 text-gray-900";
+
+  const itemHoverStyles = darkMode
+    ? "hover:bg-gray-800 hover:text-gray-200"
+    : "hover:bg-gray-50 hover:text-gray-800";
+
   return (
     <>
-      {/* Overlay para móvil - solo se muestra cuando sidebar está abierto */}
       {sidebarOpen && isMobile && (
         <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300"
-          onClick={handleCloseSidebar}
-          aria-label="Cerrar menú lateral"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
       <aside 
         className={`
-          fixed left-0 top-0 h-full z-50 transition-all duration-300 ease-in-out
-          border-r shadow-xl
-          ${darkMode 
-            ? "bg-slate-900 border-slate-800 text-slate-300" 
-            : "bg-white border-slate-200 text-slate-600"
-          }
+          fixed left-0 top-0 h-full z-50
+          border-r
+          ${sidebarStyles}
           ${sidebarOpen ? "w-64" : "w-20"}
           ${isMobile 
-            ? sidebarOpen 
-              ? "translate-x-0" // Abierto en móvil
-              : "-translate-x-full" // Cerrado en móvil (fuera de pantalla)
-            : "translate-x-0" // Siempre visible en desktop
+            ? sidebarOpen ? "translate-x-0" : "-translate-x-full"
+            : "translate-x-0"
           }
-          overflow-hidden
+          transition-transform duration-200 ease-out
+          flex flex-col
         `}
-        aria-label="Menú principal"
-        aria-hidden={isMobile && !sidebarOpen}
       >
-        {/* Logo section */}
-        <div className={`
-          h-16 flex items-center justify-between border-b
-          ${darkMode ? 'border-slate-800' : 'border-slate-200'}
-        `}>
+        {/* Logo */}
+        <div className={`h-16 flex items-center border-b ${darkMode ? 'border-gray-800' : 'border-gray-200'}`}>
           <button
             onClick={handleLogoClick}
-            className="flex-1 h-full flex items-center px-4 hover:opacity-80 transition-opacity"
-            aria-label="Ir al inicio"
+            className="flex-1 h-full flex items-center px-4"
           >
             {sidebarOpen ? (
               <div className="flex items-center gap-3">
-                <div className={`
-                  w-9 h-9 rounded-md flex items-center justify-center
-                  ${darkMode ? 'bg-slate-700' : 'bg-slate-800'}
-                `}>
-                  <span className="text-white font-semibold text-lg">I</span>
+                <div className="w-8 h-8 rounded bg-indigo-600 flex items-center justify-center">
+                  <span className="text-white font-semibold text-sm">I</span>
                 </div>
-                <div className="flex flex-col">
-                  <span className={`text-lg font-bold tracking-tight ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                <div>
+                  <span className={`text-base font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                     IADEY
                   </span>
-                  <span className={`text-[10px] leading-tight ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                    Sistema de Créditos
+                  <span className={`text-[10px] block leading-tight ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Créditos
                   </span>
                 </div>
               </div>
             ) : (
-              <div className={`
-                w-9 h-9 rounded-md flex items-center justify-center mx-auto
-                ${darkMode ? 'bg-slate-700' : 'bg-slate-800'}
-              `}>
-                <span className="text-white font-semibold text-lg">I</span>
+              <div className="w-8 h-8 rounded bg-indigo-600 flex items-center justify-center mx-auto">
+                <span className="text-white font-semibold text-sm">I</span>
               </div>
             )}
           </button>
 
-          {/* Botón de cerrar en móvil */}
           {isMobile && sidebarOpen && (
             <button
-              onClick={handleCloseSidebar}
-              className={`
-                mr-2 p-2 rounded-md transition-all duration-150
-                ${darkMode 
-                  ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
-                  : 'hover:bg-slate-100 text-slate-500 hover:text-slate-700'
-                }
-              `}
-              aria-label="Cerrar menú"
+              onClick={() => setSidebarOpen(false)}
+              className={`mr-3 p-1 rounded ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
             >
               <X size={18} />
             </button>
@@ -281,9 +186,9 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="p-3 overflow-y-auto h-[calc(100%-4rem)] scrollbar-thin">
-          {/* Versión expandida (sidebar abierto) */}
+        <nav className="flex-1 overflow-y-auto p-3">
           {sidebarOpen ? (
+            /* Expanded mode */
             <>
               {['principal', 'operaciones', 'financiero'].map((section) => {
                 const sectionItems = menuItems.filter(item => item.section === section);
@@ -291,10 +196,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
                 
                 return (
                   <div key={section} className="mb-4">
-                    <div className={`
-                      px-3 mb-1 text-[11px] font-semibold uppercase tracking-wider
-                      ${darkMode ? 'text-slate-500' : 'text-slate-400'}
-                    `}>
+                    <div className={`px-2 mb-2 text-[10px] font-semibold tracking-wider ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                       {getSectionTitle(section)}
                     </div>
                     {sectionItems.map((item) => (
@@ -302,110 +204,60 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
                         key={item.id}
                         onClick={() => handleMenuItemClick(item)}
                         className={`
-                          w-full flex items-center gap-3 px-3 py-2 mb-0.5 rounded-md transition-all duration-150
-                          text-sm group
-                          ${isItemActive(item.path)
-                            ? `${darkMode 
-                                ? 'bg-slate-800 text-slate-100' 
-                                : 'bg-slate-100 text-slate-900'
-                              } font-medium`
-                            : `${darkMode 
-                                ? 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200' 
-                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-                              }`
-                          }
+                          w-full flex items-center gap-3 px-3 py-2 mb-0.5 rounded
+                          text-sm transition-colors duration-150
+                          ${isItemActive(item.path) ? itemActiveStyles : ''}
+                          ${!isItemActive(item.path) ? itemHoverStyles : ''}
                         `}
-                        aria-label={item.text}
-                        aria-current={isItemActive(item.path) ? "page" : undefined}
                       >
-                        <item.icon 
-                          size={18} 
-                          className={`flex-shrink-0 ${isItemActive(item.path) ? 'opacity-100' : 'opacity-70'}`} 
-                        />
+                        <item.icon size={18} className="flex-shrink-0" />
                         <span className="flex-1 text-left">{item.text}</span>
-                        {isItemActive(item.path) && (
-                          <span className={`
-                            w-1 h-1 rounded-full flex-shrink-0
-                            ${darkMode ? 'bg-slate-400' : 'bg-slate-500'}
-                          `} />
-                        )}
                       </button>
                     ))}
                   </div>
                 );
               })}
 
-              {/* Separador */}
-              <div className={`my-3 border-t ${darkMode ? 'border-slate-800' : 'border-slate-200'}`} />
+              <div className={`my-2 border-t ${darkMode ? 'border-gray-800' : 'border-gray-200'}`} />
 
-              {/* Configuración */}
+              {/* Settings */}
               <div>
-                <div className={`
-                  px-3 mb-1 text-[11px] font-semibold uppercase tracking-wider
-                  ${darkMode ? 'text-slate-500' : 'text-slate-400'}
-                `}>
-                  Sistema
+                <div className={`px-2 mb-2 text-[10px] font-semibold tracking-wider ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                  SISTEMA
                 </div>
                 <button
                   onClick={handleSettingsClick}
                   className={`
-                    w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150
-                    text-sm group
-                    ${isSettingsActive()
-                      ? `${darkMode 
-                          ? 'bg-slate-800 text-slate-100' 
-                          : 'bg-slate-100 text-slate-900'
-                        } font-medium`
-                      : `${darkMode 
-                          ? 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200' 
-                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-                        }`
-                    }
+                    w-full flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors duration-150
+                    ${isSettingsActive() ? itemActiveStyles : ''}
+                    ${!isSettingsActive() ? itemHoverStyles : ''}
                   `}
-                  aria-label="Configuración"
-                  aria-expanded={settingsOpen}
-                  aria-haspopup="true"
                 >
-                  <Settings size={18} className={`flex-shrink-0 ${isSettingsActive() ? 'opacity-100' : 'opacity-70'}`} />
+                  <Settings size={18} className="flex-shrink-0" />
                   <span className="flex-1 text-left">Configuración</span>
                   <ChevronDown 
                     size={14} 
-                    className={`
-                      transition-transform duration-200 flex-shrink-0
-                      ${settingsOpen ? 'rotate-180' : ''}
-                      ${darkMode ? 'text-slate-600' : 'text-slate-400'}
-                    `} 
+                    className={`transition-transform duration-150 ${settingsOpen ? 'rotate-180' : ''}`}
                   />
                 </button>
 
-                {/* Submenu */}
                 {settingsOpen && (
-                  <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 border-slate-200 dark:border-slate-700 pl-3">
+                  <div className="ml-4 mt-1 pl-2 border-l-2 border-gray-200 dark:border-gray-700">
                     {settingsSubItems.map((subItem) => (
                       <button
                         key={subItem.id}
                         onClick={() => handleSubItemClick(subItem)}
                         className={`
-                          w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md transition-all duration-150 text-sm
+                          w-full flex items-center gap-2.5 px-3 py-1.5 rounded text-sm
+                          transition-colors duration-150
                           ${location.pathname === subItem.path
-                            ? `${darkMode 
-                                ? 'bg-slate-800/50 text-slate-200' 
-                                : 'bg-slate-50 text-slate-800'
-                              } font-medium`
-                            : `${darkMode 
-                                ? 'text-slate-500 hover:bg-slate-800/30 hover:text-slate-300' 
-                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
-                              }`
+                            ? (darkMode ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-900')
+                            : (darkMode ? 'text-gray-400 hover:bg-gray-800 hover:text-gray-200' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700')
                           }
                         `}
-                        role="menuitem"
-                        aria-current={location.pathname === subItem.path ? "page" : undefined}
                       >
-                        <subItem.icon 
-                          size={14} 
-                          className={`flex-shrink-0 ${location.pathname === subItem.path ? 'opacity-100' : 'opacity-60'}`}
-                        />
-                        <span className="flex-1 text-left text-[13px]">{subItem.text}</span>
+                        <subItem.icon size={14} className="flex-shrink-0" />
+                        <span>{subItem.text}</span>
                       </button>
                     ))}
                   </div>
@@ -413,124 +265,52 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
               </div>
             </>
           ) : (
-            /* Versión colapsada (sidebar cerrado en desktop) */
+            /* Collapsed mode */
             <>
               {menuItems.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => handleMenuItemClick(item)}
-                  onMouseEnter={() => setHoveredItem(item.id)}
-                  onMouseLeave={() => setHoveredItem(null)}
                   className={`
-                    w-full flex items-center justify-center p-2.5 mb-0.5 rounded-md transition-all duration-150
-                    group relative
-                    ${isItemActive(item.path)
-                      ? `${darkMode 
-                          ? 'bg-slate-800 text-slate-100' 
-                          : 'bg-slate-100 text-slate-900'
-                        }`
-                      : `${darkMode 
-                          ? 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300' 
-                          : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'
-                        }`
-                    }
+                    w-full flex justify-center p-2.5 mb-0.5 rounded
+                    transition-colors duration-150
+                    ${isItemActive(item.path) ? itemActiveStyles : ''}
+                    ${!isItemActive(item.path) ? itemHoverStyles : ''}
                   `}
                   title={item.text}
-                  aria-label={item.text}
-                  aria-current={isItemActive(item.path) ? "page" : undefined}
                 >
-                  <item.icon size={20} className={isItemActive(item.path) ? 'opacity-100' : 'opacity-70'} />
-                  
-                  {/* Tooltip */}
-                  {hoveredItem === item.id && (
-                    <div className={`
-                      absolute left-full ml-3 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap
-                      ${darkMode ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800'}
-                      shadow-lg border ${darkMode ? 'border-slate-700' : 'border-slate-200'}
-                      z-50
-                    `}>
-                      {item.text}
-                      <div className={`
-                        absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2
-                        w-2 h-2 rotate-45
-                        ${darkMode ? 'bg-slate-800 border-l border-t border-slate-700' : 'bg-white border-l border-t border-slate-200'}
-                      `} />
-                    </div>
-                  )}
+                  <item.icon size={20} />
                 </button>
               ))}
 
-              {/* Separador colapsado */}
-              <div className={`my-3 border-t ${darkMode ? 'border-slate-800' : 'border-slate-200'}`} />
+              <div className={`my-2 border-t ${darkMode ? 'border-gray-800' : 'border-gray-200'}`} />
 
-              {/* Configuración colapsado */}
-              <div>
-                <button
-                  onClick={handleSettingsClick}
-                  onMouseEnter={() => setHoveredItem('settings')}
-                  onMouseLeave={() => setHoveredItem(null)}
-                  className={`
-                    w-full flex items-center justify-center p-2.5 rounded-md transition-all duration-150
-                    group relative
-                    ${isSettingsActive()
-                      ? `${darkMode 
-                          ? 'bg-slate-800 text-slate-100' 
-                          : 'bg-slate-100 text-slate-900'
-                        }`
-                      : `${darkMode 
-                          ? 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300' 
-                          : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'
-                        }`
-                    }
-                  `}
-                  title="Configuración"
-                  aria-label="Configuración"
-                >
-                  <Settings size={20} className={isSettingsActive() ? 'opacity-100' : 'opacity-70'} />
-                  
-                  {/* Tooltip */}
-                  {hoveredItem === 'settings' && (
-                    <div className={`
-                      absolute left-full ml-3 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap
-                      ${darkMode ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800'}
-                      shadow-lg border ${darkMode ? 'border-slate-700' : 'border-slate-200'}
-                      z-50
-                    `}>
-                      Configuración
-                      <div className={`
-                        absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2
-                        w-2 h-2 rotate-45
-                        ${darkMode ? 'bg-slate-800 border-l border-t border-slate-700' : 'bg-white border-l border-t border-slate-200'}
-                      `} />
-                    </div>
-                  )}
-                </button>
-              </div>
+              <button
+                onClick={handleSettingsClick}
+                className={`
+                  w-full flex justify-center p-2.5 rounded transition-colors duration-150
+                  ${isSettingsActive() ? itemActiveStyles : ''}
+                  ${!isSettingsActive() ? itemHoverStyles : ''}
+                `}
+                title="Configuración"
+              >
+                <Settings size={20} />
+              </button>
             </>
           )}
         </nav>
 
-        {/* Botón de colapso en desktop - oculto en móvil */}
+        {/* Collapse button - Desktop only */}
         {!isMobile && (
-          <div className={`
-            absolute bottom-0 left-0 right-0 p-3 border-t
-            ${darkMode ? 'border-slate-800' : 'border-slate-200'}
-          `}>
+          <div className={`p-3 border-t ${darkMode ? 'border-gray-800' : 'border-gray-200'}`}>
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className={`
-                w-full flex items-center justify-center p-2 rounded-md transition-all duration-200
-                ${darkMode 
-                  ? 'text-slate-500 hover:bg-slate-800 hover:text-slate-300' 
-                  : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
-                }
+                w-full flex justify-center p-2 rounded transition-colors duration-150
+                ${darkMode ? 'hover:bg-gray-800 text-gray-500' : 'hover:bg-gray-100 text-gray-400'}
               `}
-              aria-label={sidebarOpen ? "Colapsar menú" : "Expandir menú"}
             >
-              <ChevronLeft 
-                size={16} 
-                className={`transition-transform duration-300 ${!sidebarOpen ? 'rotate-180' : ''}`} 
-              />
+              <ChevronLeft size={16} className={`transition-transform duration-200 ${!sidebarOpen ? 'rotate-180' : ''}`} />
             </button>
           </div>
         )}

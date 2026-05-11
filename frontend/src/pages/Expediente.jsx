@@ -475,20 +475,6 @@ const GestionExpedientes = () => {
                   <FolderPlus size={32} className="text-yellow-500" />
                 </div>
               </div>
-              
-              <div className={`p-4 rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg transition-all hover:shadow-xl`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className={`text-xs uppercase font-semibold ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
-                      Monto Total
-                    </p>
-                    <p className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
-                      {formatMonto(stats.montoTotal)}
-                    </p>
-                  </div>
-                  <DollarSign size={32} className="text-green-500" />
-                </div>
-              </div>
             </div>
 
             {/* Barra de búsqueda */}
@@ -526,7 +512,6 @@ const GestionExpedientes = () => {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Solicitante</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Emprendimiento</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expediente</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
@@ -691,12 +676,6 @@ const GestionExpedientes = () => {
                           <span className={`text-xs ${darkMode ? "text-blue-300" : "text-blue-600"}`}>Emprendimiento:</span>
                           <p className={`font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>
                             {solicitudSeleccionada.nombre_emprendimiento || "N/A"}
-                          </p>
-                        </div>
-                        <div>
-                          <span className={`text-xs ${darkMode ? "text-blue-300" : "text-blue-600"}`}>Monto:</span>
-                          <p className={`font-medium ${darkMode ? "text-green-400" : "text-green-600"}`}>
-                            {formatMonto(solicitudSeleccionada.monto_solicitado)}
                           </p>
                         </div>
                       </div>

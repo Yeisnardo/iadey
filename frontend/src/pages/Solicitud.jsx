@@ -5,8 +5,6 @@ import {
   Search,
   Plus,
   Eye,
-  Edit,
-  Trash2,
   FileText,
   DollarSign,
   Calendar,
@@ -14,15 +12,15 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  AlertCircle,
   Phone,
   Mail,
   MapPin,
-  Briefcase,
   Building,
   ChevronLeft,
   X,
   Check,
+  Briefcase,
+  AlertCircle,
 } from "lucide-react";
 
 import Header from "../components/Header";
@@ -43,37 +41,27 @@ const SolicitudesPersona = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
 
-  // Estados para los datos de la API de clasificación
   const [clasificaciones, setClasificaciones] = useState([]);
   const [loadingClasificaciones, setLoadingClasificaciones] = useState(false);
   const [sectoresUnicos, setSectoresUnicos] = useState([]);
   const [actividadesPorSector, setActividadesPorSector] = useState({});
 
-  // Estados para solicitudes (desde API)
   const [solicitudes, setSolicitudes] = useState([]);
   const [loadingSolicitudes, setLoadingSolicitudes] = useState(false);
   const [saving, setSaving] = useState(false);
-  
-  // Estados para actualizar estatus
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedSolicitudId, setSelectedSolicitudId] = useState(null);
   const [motivoRechazo, setMotivoRechazo] = useState("");
-
-  // Estado para el usuario logueado
   const [currentUser, setCurrentUser] = useState(null);
 
-  // Estados para el modal
   const [showModal, setShowModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
-    // ===== TABLA solicitud =====
     cedula_persona: "",
     solicitud: "",
     monto_solicitado: "",
     fecha_solicitud: "",
-    
-    // ===== TABLA emprendimiento =====
     nombre_emprendimiento: "",
     direccion_empredimiento: "",
     cedula_emprendimiento: "",
@@ -83,7 +71,6 @@ const SolicitudesPersona = () => {
     subsector: "",
   });
 
-  // Datos de la persona
   const [persona, setPersona] = useState({
     id: "",
     tipoPersona: "",
@@ -116,9 +103,6 @@ const SolicitudesPersona = () => {
     { id: 1, text: "Notificaciones del sistema", time: "5 min", read: false },
   ]);
 
-  // ============================================
-  // CARGAR DATOS INICIALES
-  // ============================================
   useEffect(() => {
     cargarUsuarioYPersona();
     cargarClasificaciones();
@@ -126,38 +110,33 @@ const SolicitudesPersona = () => {
   }, []);
 
   const cargarUsuarioYPersona = async () => {
-    // Obtener usuario logueado
     const usuarioLogueado = usuarioAPI.getCurrentUser();
     setCurrentUser(usuarioLogueado);
-    
+
     if (usuarioLogueado && usuarioLogueado.cedula_usuario) {
-      // Establecer la cédula del usuario logueado en el formulario
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         cedula_persona: usuarioLogueado.cedula_usuario,
-        cedula_emprendimiento: usuarioLogueado.cedula_usuario
+        cedula_emprendimiento: usuarioLogueado.cedula_usuario,
       }));
-      
-      // Cargar datos de la persona usando la cédula del usuario logueado
       await cargarPersona(usuarioLogueado.cedula_usuario);
     } else {
-      console.error("No hay usuario logueado");
-      // Redirigir al login si no hay usuario
       navigate("/login");
     }
   };
 
   const cargarPersona = async (cedula) => {
     try {
-      // Importar API de persona (debes crearla si no existe)
       const PersonaAPI = (await import("../services/api_persona")).default;
       const response = await PersonaAPI.getByCedula(cedula);
-      
+
       if (response.success && response.data) {
         setPersona({
           id: response.data.id_persona,
           tipoPersona: response.data.tipo_persona || "Natural",
-          nombreCompleto: response.data.nombre_completo || response.data.nombres + " " + response.data.apellidos,
+          nombreCompleto:
+            response.data.nombre_completo ||
+            response.data.nombres + " " + response.data.apellidos,
           cedula: response.data.cedula,
           rif: response.data.rif || "",
           telefono: response.data.telefono || "",
@@ -175,16 +154,7 @@ const SolicitudesPersona = () => {
         });
       }
     } catch (error) {
-      console.error('Error cargando persona:', error);
-      // Datos de ejemplo mientras se conecta la API real
-      setPersona({
-        ...persona,
-        cedula: cedula,
-        nombreCompleto: "Usuario Actual",
-        telefono: "0412-1234567",
-        email: "usuario@email.com",
-        direccion: "Dirección registrada",
-      });
+      console.error("Error cargando persona:", error);
     }
   };
 
@@ -194,40 +164,28 @@ const SolicitudesPersona = () => {
       const response = await clasidEmprendAPI.getAll();
       if (response.success && response.data) {
         setClasificaciones(response.data);
-        
+
         const sectores = [];
         const actividadesMap = {};
-        
-        response.data.forEach(item => {
+
+        response.data.forEach((item) => {
           if (!sectores.includes(item.sector)) {
             sectores.push(item.sector);
             actividadesMap[item.sector] = [];
           }
-          
-          if (item.actividad && !actividadesMap[item.sector].includes(item.actividad)) {
+          if (
+            item.actividad &&
+            !actividadesMap[item.sector].includes(item.actividad)
+          ) {
             actividadesMap[item.sector].push(item.actividad);
           }
         });
-        
+
         setSectoresUnicos(sectores);
         setActividadesPorSector(actividadesMap);
-      } else {
-        console.error('Error al cargar clasificaciones:', response.error);
-        setSectoresUnicos(["Industria", "Comercio", "Agricultura"]);
-        setActividadesPorSector({
-          "Industria": ["Manufactura", "Construcción", "Energía"],
-          "Comercio": ["Venta al por mayor", "Venta al por menor", "E-commerce"],
-          "Agricultura": ["Cultivos", "Ganadería", "Pesca"]
-        });
       }
     } catch (error) {
-      console.error('Error en cargarClasificaciones:', error);
-      setSectoresUnicos(["Industria", "Comercio", "Agricultura"]);
-      setActividadesPorSector({
-        "Industria": ["Manufactura", "Construcción", "Energía"],
-        "Comercio": ["Venta al por mayor", "Venta al por menor", "E-commerce"],
-        "Agricultura": ["Cultivos", "Ganadería", "Pesca"]
-      });
+      console.error("Error cargando clasificaciones:", error);
     } finally {
       setLoadingClasificaciones(false);
     }
@@ -238,54 +196,37 @@ const SolicitudesPersona = () => {
     try {
       const usuarioLogueado = usuarioAPI.getCurrentUser();
       if (usuarioLogueado && usuarioLogueado.cedula_usuario) {
-        const response = await SolicitudAPI.getByCedula(usuarioLogueado.cedula_usuario);
-        
-        console.log("📊 Respuesta de la API:", response);
-        
+        const response = await SolicitudAPI.getByCedula(
+          usuarioLogueado.cedula_usuario,
+        );
+
         if (response && response.success && response.data) {
-          const solicitudesFormateadas = response.data.map(sol => ({
+          const solicitudesFormateadas = response.data.map((sol) => ({
             id: sol.id_solicitud,
             fechaSolicitud: sol.fecha_solicitud,
-            emprendimiento: sol.nombre_emprendimiento || 'Sin especificar',
+            emprendimiento: sol.nombre_emprendimiento || "Sin especificar",
             rifEmprendimiento: sol.cedula_emprendimiento || sol.cedula_persona,
             montoSolicitado: parseFloat(sol.monto_solicitado) || 0,
-            estatus: sol.estatus || 'Pendiente',
+            estatus: sol.estatus || "Pendiente",
             motivo_rechazo: sol.motivo_rechazo,
             destino: sol.solicitud,
-            analista: 'Por asignar',
-            clasificacion: sol.sector && sol.actividad ? `${sol.sector} - ${sol.actividad}` : 'No especificada',
-            anos_experiencia: sol.anos_experiencia || 'No especificado',
-            direccion_emprendimiento: sol.direccion_empredimiento || 'No especificada',
+            analista: "Por asignar",
+            clasificacion:
+              sol.sector && sol.actividad
+                ? `${sol.sector} - ${sol.actividad}`
+                : "No especificada",
+            anos_experiencia: sol.anos_experiencia || "No especificado",
+            direccion_emprendimiento:
+              sol.direccion_empredimiento || "No especificada",
           }));
-          
-          console.log("📋 Solicitudes formateadas:", solicitudesFormateadas);
-          setSolicitudes(solicitudesFormateadas);
-        } else if (response && response.data && !response.success) {
-          const solicitudesFormateadas = response.data.map(sol => ({
-            id: sol.id_solicitud,
-            fechaSolicitud: sol.fecha_solicitud,
-            emprendimiento: sol.nombre_emprendimiento || 'Sin especificar',
-            rifEmprendimiento: sol.cedula_emprendimiento || sol.cedula_persona,
-            montoSolicitado: parseFloat(sol.monto_solicitado) || 0,
-            estatus: sol.estatus || 'Pendiente',
-            motivo_rechazo: sol.motivo_rechazo,
-            destino: sol.solicitud,
-            analista: 'Por asignar',
-            clasificacion: 'No especificada',
-            anos_experiencia: sol.anos_experiencia || 'No especificado',
-            direccion_emprendimiento: sol.direccion_empredimiento || 'No especificada',
-          }));
-          
+
           setSolicitudes(solicitudesFormateadas);
         } else {
           setSolicitudes([]);
         }
-      } else {
-        console.log("No hay usuario logueado");
-        setSolicitudes([]);
       }
     } catch (error) {
-      console.error('❌ Error cargando solicitudes:', error);
+      console.error("Error cargando solicitudes:", error);
       setSolicitudes([]);
     } finally {
       setLoadingSolicitudes(false);
@@ -294,44 +235,49 @@ const SolicitudesPersona = () => {
 
   const obtenerIdClasificacion = (sector, actividad) => {
     const clasificacion = clasificaciones.find(
-      c => c.sector === sector && c.actividad === actividad
+      (c) => c.sector === sector && c.actividad === actividad,
     );
     return clasificacion ? clasificacion.id_clasificacion : null;
   };
 
   const stats = {
     totalSolicitudes: solicitudes.length,
-    montoTotal: solicitudes.reduce((acc, s) => acc + (s.montoSolicitado || 0), 0),
-    solicitudesPendientes: solicitudes.filter((s) => s.estatus === "Pendiente").length,
-    solicitudesAprobadas: solicitudes.filter((s) => s.estatus === "Aprobado").length,
-    solicitudesRechazadas: solicitudes.filter((s) => s.estatus === "Rechazado").length,
+    montoTotal: solicitudes.reduce(
+      (acc, s) => acc + (s.montoSolicitado || 0),
+      0,
+    ),
+    solicitudesPendientes: solicitudes.filter((s) => s.estatus === "Pendiente")
+      .length,
+    solicitudesAprobadas: solicitudes.filter((s) => s.estatus === "Aprobado")
+      .length,
+    solicitudesRechazadas: solicitudes.filter((s) => s.estatus === "Rechazado")
+      .length,
   };
 
   const filteredSolicitudes = solicitudes.filter((solicitud) => {
     const matchesSearch =
-      solicitud.emprendimiento?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      solicitud.id?.toString().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "todos" || solicitud.estatus === statusFilter;
+      solicitud.emprendimiento
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      solicitud.id?.toString().includes(searchTerm);
+    const matchesStatus =
+      statusFilter === "todos" || solicitud.estatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
 
     if (name === "sectorEconomico") {
-      setFormData((prev) => ({
-        ...prev,
-        subsector: "",
-        id_clasificacion: "",
-      }));
+      setFormData((prev) => ({ ...prev, subsector: "", id_clasificacion: "" }));
     }
-    
+
     if (name === "subsector") {
-      const id_clasificacion = obtenerIdClasificacion(formData.sectorEconomico, value);
+      const id_clasificacion = obtenerIdClasificacion(
+        formData.sectorEconomico,
+        value,
+      );
       setFormData((prev) => ({
         ...prev,
         id_clasificacion: id_clasificacion || "",
@@ -346,7 +292,7 @@ const SolicitudesPersona = () => {
       navigate("/login");
       return;
     }
-    
+
     setShowModal(true);
     setCurrentStep(1);
     setFormData({
@@ -366,14 +312,18 @@ const SolicitudesPersona = () => {
 
   const handleGuardarSolicitud = async () => {
     const usuarioLogueado = usuarioAPI.getCurrentUser();
-    
+
     if (!usuarioLogueado || !usuarioLogueado.cedula_usuario) {
-      alert("No se ha detectado un usuario logueado. Por favor, inicie sesión nuevamente.");
+      alert("No se ha detectado un usuario logueado");
       navigate("/login");
       return;
     }
-    
-    if (!formData.solicitud || !formData.monto_solicitado || !formData.fecha_solicitud) {
+
+    if (
+      !formData.solicitud ||
+      !formData.monto_solicitado ||
+      !formData.fecha_solicitud
+    ) {
       alert("Por favor completa los datos del crédito");
       setCurrentStep(1);
       return;
@@ -398,19 +348,19 @@ const SolicitudesPersona = () => {
         solicitud: formData.solicitud,
         fecha_solicitud: formData.fecha_solicitud,
         monto_solicitado: formData.monto_solicitado,
-        estatus: "Pendiente"
+        estatus: "Pendiente",
       };
 
-      console.log("📝 Enviando a solicitud:", solicitudData);
       const solicitudResponse = await SolicitudAPI.create(solicitudData);
-      
+
       if (!solicitudResponse.success) {
-        throw new Error(solicitudResponse.error || "Error al crear la solicitud");
+        throw new Error(
+          solicitudResponse.error || "Error al crear la solicitud",
+        );
       }
 
       const nuevaSolicitud = solicitudResponse.data;
       const id_solicitud = nuevaSolicitud.id_solicitud;
-      console.log("✅ Solicitud creada con ID:", id_solicitud);
 
       const emprendimientoData = {
         id_solicitud: id_solicitud,
@@ -418,22 +368,23 @@ const SolicitudesPersona = () => {
         cedula_emprendimiento: usuarioLogueado.cedula_usuario,
         anos_experiencia: formData.anos_experiencia,
         nombre_emprendimiento: formData.nombre_emprendimiento,
-        direccion_empredimiento: formData.direccion_empredimiento
+        direccion_empredimiento: formData.direccion_empredimiento,
       };
 
-      console.log("📝 Enviando a emprendimiento:", emprendimientoData);
-      const emprendimientoResponse = await EmprendimientoAPI.create(emprendimientoData);
-      
+      const emprendimientoResponse =
+        await EmprendimientoAPI.create(emprendimientoData);
+
       if (!emprendimientoResponse.success) {
-        console.error("Error al crear emprendimiento, eliminando solicitud...");
         await SolicitudAPI.delete(id_solicitud);
-        throw new Error(emprendimientoResponse.error || "Error al crear el emprendimiento");
+        throw new Error(
+          emprendimientoResponse.error || "Error al crear el emprendimiento",
+        );
       }
 
-      console.log("✅ Emprendimiento creado exitosamente");
+      const clasificacion = clasificaciones.find(
+        (c) => c.id_clasificacion === parseInt(formData.id_clasificacion),
+      );
 
-      const clasificacion = clasificaciones.find(c => c.id_clasificacion === parseInt(formData.id_clasificacion));
-      
       const nuevaSolicitudLocal = {
         id: nuevaSolicitud.id_solicitud,
         fechaSolicitud: formData.fecha_solicitud,
@@ -444,18 +395,19 @@ const SolicitudesPersona = () => {
         motivo_rechazo: null,
         destino: formData.solicitud,
         analista: "Por asignar",
-        clasificacion: clasificacion ? `${clasificacion.sector} - ${clasificacion.actividad}` : "No especificada",
+        clasificacion: clasificacion
+          ? `${clasificacion.sector} - ${clasificacion.actividad}`
+          : "No especificada",
         anos_experiencia: formData.anos_experiencia,
         direccion_emprendimiento: formData.direccion_empredimiento,
       };
 
       setSolicitudes([nuevaSolicitudLocal, ...solicitudes]);
       setShowModal(false);
-      alert("✅ Solicitud guardada exitosamente");
-      
+      alert("Solicitud guardada exitosamente");
     } catch (error) {
-      console.error("❌ Error al guardar:", error);
-      alert(`Error al guardar la solicitud: ${error.message || "Intente nuevamente"}`);
+      console.error("Error al guardar:", error);
+      alert(`Error al guardar: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -465,110 +417,106 @@ const SolicitudesPersona = () => {
     navigate(`/solicitud/${solicitudId}`);
   };
 
-  // Función para aprobar solicitud
   const handleAprobarSolicitud = async (solicitudId) => {
-    if (!confirm("¿Estás seguro de aprobar esta solicitud?")) return;
-    
+    if (!window.confirm("¿Estás seguro de aprobar esta solicitud?")) return;
+
     setUpdatingStatus(true);
     try {
-      const response = await SolicitudAPI.updateEstatus(solicitudId, "Aprobado", null);
-      
+      const response = await SolicitudAPI.updateEstatus(
+        solicitudId,
+        "Aprobado",
+        null,
+      );
+
       if (response.success) {
-        // Actualizar la lista de solicitudes
-        setSolicitudes(prevSolicitudes => 
-          prevSolicitudes.map(sol => 
-            sol.id === solicitudId 
+        setSolicitudes((prevSolicitudes) =>
+          prevSolicitudes.map((sol) =>
+            sol.id === solicitudId
               ? { ...sol, estatus: "Aprobado", motivo_rechazo: null }
-              : sol
-          )
+              : sol,
+          ),
         );
-        alert("✅ Solicitud aprobada exitosamente");
-      } else {
-        throw new Error(response.error || "Error al aprobar la solicitud");
+        alert("Solicitud aprobada exitosamente");
       }
     } catch (error) {
-      console.error("Error al aprobar:", error);
       alert(`Error al aprobar: ${error.message}`);
     } finally {
       setUpdatingStatus(false);
     }
   };
 
-  // Función para abrir modal de rechazo
   const handleRechazarSolicitud = (solicitudId) => {
     setSelectedSolicitudId(solicitudId);
     setMotivoRechazo("");
     setShowRejectModal(true);
   };
 
-  // Función para confirmar rechazo
   const handleConfirmarRechazo = async () => {
     if (!motivoRechazo.trim()) {
       alert("Por favor, ingrese el motivo del rechazo");
       return;
     }
-    
+
     setUpdatingStatus(true);
     try {
       const response = await SolicitudAPI.updateEstatus(
-        selectedSolicitudId, 
-        "Rechazado", 
-        motivoRechazo
+        selectedSolicitudId,
+        "Rechazado",
+        motivoRechazo,
       );
-      
+
       if (response.success) {
-        // Actualizar la lista de solicitudes
-        setSolicitudes(prevSolicitudes => 
-          prevSolicitudes.map(sol => 
-            sol.id === selectedSolicitudId 
+        setSolicitudes((prevSolicitudes) =>
+          prevSolicitudes.map((sol) =>
+            sol.id === selectedSolicitudId
               ? { ...sol, estatus: "Rechazado", motivo_rechazo: motivoRechazo }
-              : sol
-          )
+              : sol,
+          ),
         );
         setShowRejectModal(false);
         setMotivoRechazo("");
         setSelectedSolicitudId(null);
-        alert("❌ Solicitud rechazada");
-      } else {
-        throw new Error(response.error || "Error al rechazar la solicitud");
+        alert("Solicitud rechazada");
       }
     } catch (error) {
-      console.error("Error al rechazar:", error);
       alert(`Error al rechazar: ${error.message}`);
     } finally {
       setUpdatingStatus(false);
     }
   };
 
-  const handleVolver = () => {
-    navigate(-1);
-  };
+  const handleVolver = () => navigate(-1);
 
   const getStatusColor = (estatus) => {
     const colores = {
-      Pendiente: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-      Aprobado: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-      Rechazado: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+      Pendiente: "bg-amber-50 text-amber-700 border-amber-200",
+      Aprobado: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      Rechazado: "bg-red-50 text-red-700 border-red-200",
     };
-    return colores[estatus] || "bg-gray-100 text-gray-800";
+    return colores[estatus] || "bg-gray-50 text-gray-700 border-gray-200";
   };
 
   const getStatusIcon = (estatus) => {
     switch (estatus) {
-      case "Pendiente": return <Clock size={14} className="mr-1" />;
-      case "Aprobado": return <CheckCircle size={14} className="mr-1" />;
-      case "Rechazado": return <XCircle size={14} className="mr-1" />;
-      default: return null;
+      case "Pendiente":
+        return <Clock size={12} />;
+      case "Aprobado":
+        return <CheckCircle size={12} />;
+      case "Rechazado":
+        return <XCircle size={12} />;
+      default:
+        return null;
     }
   };
 
   const formatMonto = (monto) => {
-    return new Intl.NumberFormat("es-VE", {
-      style: "currency",
-      currency: "VES",
-      minimumFractionDigits: 0,
-    }).format(monto);
-  };
+  return new Intl.NumberFormat("es-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(monto);
+};
 
   const formatFecha = (fecha) => {
     if (!fecha) return "N/A";
@@ -589,7 +537,9 @@ const SolicitudesPersona = () => {
   };
 
   const markAsRead = (id) => {
-    setNotifications(notifications.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    setNotifications(
+      notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    );
   };
 
   const user = {
@@ -599,8 +549,20 @@ const SolicitudesPersona = () => {
     avatar: null,
   };
 
+  const cardStyle = darkMode
+    ? "bg-gray-800 border-gray-700"
+    : "bg-white border-gray-200";
+  const textPrimary = darkMode ? "text-white" : "text-gray-900";
+  const textSecondary = darkMode ? "text-gray-400" : "text-gray-500";
+  const inputStyle = darkMode
+    ? "bg-gray-700 border-gray-600 text-white focus:border-indigo-500"
+    : "bg-white border-gray-300 text-gray-900 focus:border-indigo-500";
+  const labelStyle = darkMode ? "text-gray-300" : "text-gray-700";
+
   return (
-    <div className={`min-h-screen flex flex-col ${darkMode ? "dark bg-gray-900" : "bg-gray-50"}`}>
+    <div
+      className={`min-h-screen flex flex-col ${darkMode ? "dark bg-gray-900" : "bg-gray-50"}`}
+    >
       <Header
         darkMode={darkMode}
         setDarkMode={setDarkMode}
@@ -626,102 +588,60 @@ const SolicitudesPersona = () => {
           darkMode={darkMode}
         />
 
-        <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? "lg:ml-64" : "lg:ml-20"}`}>
+        <main
+          className={`flex-1 transition-all duration-200 ${sidebarOpen ? "lg:ml-64" : "lg:ml-20"}`}
+        >
           <div className="p-4 md:p-6 mt-16">
-            <button 
-              onClick={handleVolver} 
-              className={`flex items-center gap-2 mb-4 ${darkMode ? "text-gray-400 hover:text-white" : "text-gray-600 hover:text-gray-900"} transition-colors`}
-            >
-              <ChevronLeft size={20} />
-              <span>Volver</span>
-            </button>
 
-            {/* Información de la persona */}
-            <div className={`mb-6 p-6 rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg`}>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`p-4 rounded-full ${persona.tipoPersona === "Jurídica" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}`}>
-                    {persona.tipoPersona === "Jurídica" ? <Building size={32} /> : <User size={32} />}
-                  </div>
-                  <div>
-                    <h1 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
-                      {persona.nombreCompleto || "Cargando..."}
-                    </h1>
-                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-                      {persona.tipoPersona || "Natural"} • C.I: {persona.cedula || currentUser?.cedula_usuario}
-                    </p>
-                  </div>
-                </div>
-                <button 
-                  onClick={handleNuevaSolicitud} 
-                  className="px-4 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
-                >
-                  <Plus size={20} />
-                  Nueva Solicitud
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                <div className={`p-3 rounded-lg ${darkMode ? "bg-gray-700" : "bg-gray-50"}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Phone size={16} className="text-gray-400" />
-                    <span className={`text-xs font-medium ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Teléfonos</span>
-                  </div>
-                  <p className={`text-sm ${darkMode ? "text-white" : "text-gray-800"}`}>{persona.telefono || "No registrado"}</p>
-                </div>
-                <div className={`p-3 rounded-lg ${darkMode ? "bg-gray-700" : "bg-gray-50"}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Mail size={16} className="text-gray-400" />
-                    <span className={`text-xs font-medium ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Email</span>
-                  </div>
-                  <p className={`text-sm ${darkMode ? "text-white" : "text-gray-800"}`}>{persona.email || "No registrado"}</p>
-                </div>
-                <div className={`p-3 rounded-lg ${darkMode ? "bg-gray-700" : "bg-gray-50"}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <MapPin size={16} className="text-gray-400" />
-                    <span className={`text-xs font-medium ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Dirección</span>
-                  </div>
-                  <p className={`text-sm ${darkMode ? "text-white" : "text-gray-800"}`}>{persona.direccion || "No registrada"}</p>
-                </div>
-              </div>
+            {/* Título de la sección */}
+            <div className="mb-6">
+              <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                Solicitud de credito
+              </h1>
+              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Realiza tu nueva solicitud
+              </p>
             </div>
 
-            {/* Estadísticas */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className={`p-4 rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg`}>
-                <p className={`text-xs uppercase font-semibold ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Total Solicitudes</p>
-                <p className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>{stats.totalSolicitudes}</p>
-              </div>
-              <div className={`p-4 rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg border-l-4 border-yellow-500`}>
-                <p className={`text-xs uppercase font-semibold ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Pendientes</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.solicitudesPendientes}</p>
-              </div>
-              <div className={`p-4 rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg border-l-4 border-green-500`}>
-                <p className={`text-xs uppercase font-semibold ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Aprobadas</p>
-                <p className="text-2xl font-bold text-green-600">{stats.solicitudesAprobadas}</p>
-              </div>
-              <div className={`p-4 rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg border-l-4 border-red-500`}>
-                <p className={`text-xs uppercase font-semibold ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Rechazadas</p>
-                <p className="text-2xl font-bold text-red-600">{stats.solicitudesRechazadas}</p>
-              </div>
+
+            {/* Header Section with Back Button and New Request Button */}
+            <div className="flex justify-between items-center mb-5">
+              <button
+                onClick={handleVolver}
+                className={`flex items-center gap-1.5 text-sm ${textSecondary} hover:${textPrimary} transition-colors`}
+              >
+                <ChevronLeft size={18} />
+                <span>Volver</span>
+              </button>
+
+              <button
+                onClick={handleNuevaSolicitud}
+                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm"
+              >
+                <Plus size={16} />
+                Nueva Solicitud
+              </button>
             </div>
 
-            {/* Filtros */}
-            <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <div className="relative w-full sm:w-96">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <input 
-                  type="text" 
-                  placeholder="Buscar por emprendimiento o ID..." 
-                  value={searchTerm} 
-                  onChange={(e) => setSearchTerm(e.target.value)} 
-                  className={`w-full pl-10 pr-4 py-2 rounded-lg border ${darkMode ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-200"} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`} 
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-5">
+              <div className="relative flex-1 max-w-sm">
+                <Search
+                  size={16}
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 ${textSecondary}`}
+                />
+                <input
+                  type="text"
+                  placeholder="Buscar por emprendimiento o ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className={`w-full pl-9 pr-3 py-2 text-sm rounded-md border ${inputStyle} outline-none focus:ring-1 focus:ring-indigo-500`}
                 />
               </div>
-              <select 
-                value={statusFilter} 
-                onChange={(e) => setStatusFilter(e.target.value)} 
-                className={`px-4 py-2 rounded-lg border ${darkMode ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-200"} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className={`px-3 py-2 text-sm rounded-md border ${inputStyle} outline-none focus:ring-1 focus:ring-indigo-500`}
               >
                 <option value="todos">Todos los estados</option>
                 <option value="Pendiente">Pendiente</option>
@@ -730,420 +650,442 @@ const SolicitudesPersona = () => {
               </select>
             </div>
 
-            {/* Tabla de solicitudes */}
-            <div className={`rounded-xl overflow-hidden ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg`}>
+            {/* Table */}
+            <div
+              className={`${cardStyle} rounded-lg border shadow-sm overflow-hidden`}
+            >
               {loadingSolicitudes ? (
                 <div className="p-12 text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2A9D8F] mx-auto mb-4"></div>
-                  <p className={`text-lg ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Cargando solicitudes...</p>
+                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-indigo-600 border-t-transparent"></div>
+                  <p className={`text-sm ${textSecondary} mt-3`}>
+                    Cargando solicitudes...
+                  </p>
                 </div>
               ) : filteredSolicitudes.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className={`${darkMode ? "bg-gray-700" : "bg-gray-50"}`}>
+                    <thead
+                      className={`${darkMode ? "bg-gray-700/50" : "bg-gray-50"} border-b ${darkMode ? "border-gray-700" : "border-gray-200"}`}
+                    >
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Emprendimiento</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">RIF</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Monto</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Clasificación</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estatus</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Motivo Rechazo</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                        <th
+                          className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                        >
+                          ID
+                        </th>
+                        <th
+                          className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                        >
+                          Fecha
+                        </th>
+                        <th
+                          className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                        >
+                          Emprendimiento
+                        </th>
+                        <th
+                          className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                        >
+                          RIF
+                        </th>
+                        <th
+                          className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                        >
+                          Monto
+                        </th>
+                        <th
+                          className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                        >
+                          Estatus
+                        </th>
+                        <th
+                          className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                        >
+                          Acciones
+                        </th>
                       </tr>
                     </thead>
-                    <tbody className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-200"}`}>
+                    <tbody
+                      className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-100"}`}
+                    >
                       {filteredSolicitudes.map((solicitud) => (
-                        <tr key={solicitud.id} className={`${darkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"} transition-colors`}>
+                        <tr
+                          key={solicitud.id}
+                          className={`${darkMode ? "hover:bg-gray-700/50" : "hover:bg-gray-50"} transition-colors`}
+                        >
                           <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`text-sm font-mono ${darkMode ? "text-white" : "text-gray-900"}`}>{solicitud.id}</span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`text-xs ${darkMode ? "text-gray-300" : "text-gray-600"}`}>{formatFecha(solicitud.fechaSolicitud)}</span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`text-sm ${darkMode ? "text-white" : "text-gray-900"}`}>{solicitud.emprendimiento}</span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`text-xs ${darkMode ? "text-gray-300" : "text-gray-600"}`}>{solicitud.rifEmprendimiento}</span>
+                            <span
+                              className={`text-sm font-mono ${textPrimary}`}
+                            >
+                              {solicitud.id}
+                            </span>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-900"}`}>{formatMonto(solicitud.montoSolicitado)}</span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`text-xs ${darkMode ? "text-gray-300" : "text-gray-600"}`}>{solicitud.clasificacion}</span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs rounded-full flex items-center w-fit ${getStatusColor(solicitud.estatus)}`}>
-                              {getStatusIcon(solicitud.estatus)}{solicitud.estatus}
+                            <span className={`text-sm ${textSecondary}`}>
+                              {formatFecha(solicitud.fechaSolicitud)}
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            {solicitud.estatus === "Rechazado" && solicitud.motivo_rechazo ? (
-                              <span className={`text-xs ${darkMode ? "text-red-300" : "text-red-600"} cursor-help`} 
-                                    title={solicitud.motivo_rechazo}>
-                                Ver motivo
-                              </span>
-                            ) : (
-                              <span className="text-xs text-gray-400">—</span>
-                            )}
+                            <span
+                              className={`text-sm font-medium ${textPrimary}`}
+                            >
+                              {solicitud.emprendimiento}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-sm ${textSecondary}`}>
+                              {solicitud.rifEmprendimiento}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span
+                              className={`text-sm font-medium ${textPrimary}`}
+                            >
+                              {formatMonto(solicitud.montoSolicitado)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${getStatusColor(solicitud.estatus)}`}
+                            >
+                              {getStatusIcon(solicitud.estatus)}
+                              {solicitud.estatus}
+                            </span>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex items-center gap-2">
-                              <button 
-                                onClick={() => handleVerDetalle(solicitud.id)} 
-                                className="p-1 text-blue-600 hover:bg-blue-50 rounded-lg dark:hover:bg-blue-900/20 transition-colors"
-                                title="Ver detalles"
-                                disabled={updatingStatus}
-                              >
-                                <Eye size={16} />
-                              </button>
-                              
-                              {/* Botones de Aceptar/Rechazar - solo para solicitudes pendientes */}
+                              <ActionButton
+                                icon={Eye}
+                                onClick={() => handleVerDetalle(solicitud.id)}
+                                tooltip="Ver detalles"
+                                darkMode={darkMode}
+                              />
                               {solicitud.estatus === "Pendiente" && (
                                 <>
-                                  <button 
-                                    onClick={() => handleAprobarSolicitud(solicitud.id)} 
-                                    className="p-1 text-green-600 hover:bg-green-50 rounded-lg dark:hover:bg-green-900/20 transition-colors"
-                                    title="Aprobar solicitud"
-                                    disabled={updatingStatus}
-                                  >
-                                    <CheckCircle size={16} />
-                                  </button>
-                                  <button 
-                                    onClick={() => handleRechazarSolicitud(solicitud.id)} 
-                                    className="p-1 text-red-600 hover:bg-red-50 rounded-lg dark:hover:bg-red-900/20 transition-colors"
-                                    title="Rechazar solicitud"
-                                    disabled={updatingStatus}
-                                  >
-                                    <XCircle size={16} />
-                                  </button>
+                                  <ActionButton
+                                    icon={CheckCircle}
+                                    onClick={() =>
+                                      handleAprobarSolicitud(solicitud.id)
+                                    }
+                                    tooltip="Aprobar"
+                                    variant="success"
+                                    darkMode={darkMode}
+                                  />
+                                  <ActionButton
+                                    icon={XCircle}
+                                    onClick={() =>
+                                      handleRechazarSolicitud(solicitud.id)
+                                    }
+                                    tooltip="Rechazar"
+                                    variant="danger"
+                                    darkMode={darkMode}
+                                  />
                                 </>
                               )}
                             </div>
-                           </td>
-                         </tr>
+                          </td>
+                        </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               ) : (
-                <div className="p-12 text-center">
-                  <FileText size={48} className="mx-auto text-gray-400 mb-4" />
-                  <p className={`text-lg ${darkMode ? "text-gray-300" : "text-gray-600"}`}>No hay solicitudes para mostrar</p>
-                  <button 
-                    onClick={handleNuevaSolicitud}
-                    className="mt-4 px-4 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all inline-flex items-center gap-2"
-                  >
-                    <Plus size={18} />
-                    Crear primera solicitud
-                  </button>
-                </div>
+                <EmptyState onNew={handleNuevaSolicitud} darkMode={darkMode} />
               )}
             </div>
           </div>
 
-          {/* MODAL - Formulario para ambas tablas */}
+          {/* Modal - New Request */}
           {showModal && (
-            <div className="fixed inset-0 z-50 overflow-y-auto">
-              <div className="fixed inset-0 bg-black bg-opacity-70" onClick={() => setShowModal(false)}></div>
-              <div className="flex min-h-full items-center justify-center p-4">
-                <div className={`relative w-full max-w-3xl rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-2xl max-h-[90vh] overflow-y-auto`}>
-                  <div className={`px-6 py-4 border-b ${darkMode ? "border-gray-700" : "border-gray-200"} sticky top-0 ${darkMode ? "bg-gray-800" : "bg-white"} z-10 flex justify-between items-center`}>
-                    <h2 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>Nueva Solicitud de Crédito</h2>
-                    <button onClick={() => setShowModal(false)} className={`p-2 rounded-lg ${darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"}`}>
-                      <X size={20} />
-                    </button>
-                  </div>
+            <Modal
+              title="Nueva Solicitud de Crédito"
+              onClose={() => setShowModal(false)}
+              darkMode={darkMode}
+            >
+              <div className="space-y-5">
+                {/* User info banner */}
+                <div
+                  className={`p-3 rounded-md ${darkMode ? "bg-indigo-900/30" : "bg-indigo-50"} text-sm`}
+                >
+                  <p
+                    className={darkMode ? "text-indigo-300" : "text-indigo-800"}
+                  >
+                    Solicitante:{" "}
+                    {persona.nombreCompleto || currentUser?.cedula_usuario}
+                  </p>
+                </div>
 
-                  <div className="px-6 py-4">
-                    {/* Mostrar información del usuario logueado */}
-                    <div className={`mb-4 p-3 rounded-lg ${darkMode ? "bg-blue-900/30" : "bg-blue-50"} text-sm`}>
-                      <p className={`${darkMode ? "text-blue-300" : "text-blue-800"}`}>
-                        📌 Solicitante: {persona.nombreCompleto || currentUser?.cedula_usuario} (C.I: {currentUser?.cedula_usuario})
-                      </p>
-                      <p className={`${darkMode ? "text-blue-300" : "text-blue-800"} text-xs mt-1`}>
-                        La cédula se asignará automáticamente a la solicitud y al emprendimiento
-                      </p>
-                    </div>
+                {currentStep === 1 && (
+                  <div className="space-y-4">
+                    <h3 className={`text-base font-semibold ${textPrimary}`}>
+                      Datos de la Solicitud
+                    </h3>
 
-                    {/* Paso 1: Datos de la solicitud */}
-                    {currentStep === 1 && (
-                      <div className="space-y-4">
-                        <h3 className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>📋 Datos de la Solicitud</h3>
-                        
-                        <div>
-                          <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                            Motivo / Descripción <span className="text-red-500">*</span>
-                          </label>
-                          <textarea 
-                            name="solicitud" 
-                            value={formData.solicitud} 
-                            onChange={handleChange} 
-                            rows="3" 
-                            className={`w-full px-4 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`} 
-                            placeholder="Describa detalladamente el motivo del préstamo..." 
-                            required 
-                          />
-                        </div>
-
-                        <div>
-                          <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                            Monto Solicitado (Bs.) <span className="text-red-500">*</span>
-                          </label>
-                          <input 
-                            type="number" 
-                            name="monto_solicitado" 
-                            value={formData.monto_solicitado} 
-                            onChange={handleChange} 
-                            className={`w-full px-4 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`} 
-                            placeholder="0.00" 
-                            min="0" 
-                            required 
-                          />
-                        </div>
-
-                        <div>
-                          <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                            Fecha de Solicitud <span className="text-red-500">*</span>
-                          </label>
-                          <input 
-                            type="date" 
-                            name="fecha_solicitud" 
-                            value={formData.fecha_solicitud} 
-                            onChange={handleChange} 
-                            className={`w-full px-4 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`} 
-                            required 
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Paso 2: Datos del emprendimiento */}
-                    {currentStep === 2 && (
-                      <div className="space-y-4">
-                        <h3 className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>🏢 Datos del Emprendimiento</h3>
-                        
-                        <div>
-                          <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                            Nombre del Emprendimiento <span className="text-red-500">*</span>
-                          </label>
-                          <input 
-                            type="text" 
-                            name="nombre_emprendimiento" 
-                            value={formData.nombre_emprendimiento} 
-                            onChange={handleChange} 
-                            className={`w-full px-4 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`} 
-                            placeholder="Ej: Panadería La Espiga" 
-                            required 
-                          />
-                        </div>
-
-                        <div>
-                          <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                            RIF / Cédula del Emprendimiento <span className="text-red-500">*</span>
-                          </label>
-                          <input 
-                            type="text" 
-                            name="cedula_emprendimiento" 
-                            value={formData.cedula_emprendimiento} 
-                            onChange={handleChange} 
-                            className={`w-full px-4 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] bg-gray-100 dark:bg-gray-600`} 
-                            placeholder="J-12345678-9" 
-                            required 
-                            readOnly
-                          />
-                          <p className={`text-xs mt-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
-                            Se usa la misma cédula del solicitante automáticamente
-                          </p>
-                        </div>
-
-                        <div>
-                          <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                            Dirección del Emprendimiento <span className="text-red-500">*</span>
-                          </label>
-                          <textarea 
-                            name="direccion_empredimiento" 
-                            value={formData.direccion_empredimiento} 
-                            onChange={handleChange} 
-                            rows="2" 
-                            className={`w-full px-4 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`} 
-                            placeholder="Dirección completa" 
-                            required 
-                          />
-                        </div>
-
-                        <div>
-                          <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                            Años de Experiencia <span className="text-red-500">*</span>
-                          </label>
-                          <select 
-                            name="anos_experiencia" 
-                            value={formData.anos_experiencia} 
-                            onChange={handleChange} 
-                            className={`w-full px-4 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`} 
-                            required
-                          >
-                            <option value="">Seleccione</option>
-                            {añosOperando.map((año) => (
-                              <option key={año} value={año}>{año}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                            Sector Económico <span className="text-red-500">*</span>
-                          </label>
-                          <select 
-                            name="sectorEconomico" 
-                            value={formData.sectorEconomico} 
-                            onChange={handleChange} 
-                            className={`w-full px-4 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`} 
-                            disabled={loadingClasificaciones} 
-                            required
-                          >
-                            <option value="">{loadingClasificaciones ? "Cargando..." : "Seleccione un sector"}</option>
-                            {sectoresUnicos.map((sector) => (
-                              <option key={sector} value={sector}>{sector}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                            Actividad / Subsector <span className="text-red-500">*</span>
-                          </label>
-                          <select 
-                            name="subsector" 
-                            value={formData.subsector} 
-                            onChange={handleChange} 
-                            disabled={!formData.sectorEconomico} 
-                            className={`w-full px-4 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"} disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`} 
-                            required
-                          >
-                            <option value="">
-                              {!formData.sectorEconomico ? "Primero seleccione un sector" : "Seleccione una actividad"}
-                            </option>
-                            {formData.sectorEconomico && actividadesPorSector[formData.sectorEconomico]?.map((actividad) => (
-                              <option key={actividad} value={actividad}>{actividad}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {formData.id_clasificacion && (
-                          <div className={`p-3 rounded-lg ${darkMode ? "bg-green-900/30" : "bg-green-50"}`}>
-                            <p className={`text-sm ${darkMode ? "text-green-300" : "text-green-800"}`}>
-                              ✓ Clasificación ID: {formData.id_clasificacion} asignada automáticamente
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Botones de navegación */}
-                    <div className="flex justify-between mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <button 
-                        onClick={() => currentStep > 1 ? setCurrentStep(currentStep - 1) : setShowModal(false)} 
-                        className={`px-4 py-2 rounded-lg ${darkMode ? "bg-gray-700 text-white hover:bg-gray-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                    <div>
+                      <label
+                        className={`block text-sm font-medium mb-1.5 ${labelStyle}`}
                       >
-                        {currentStep === 1 ? "Cancelar" : "Anterior"}
-                      </button>
-                      {currentStep < 2 ? (
-                        <button 
-                          onClick={() => setCurrentStep(currentStep + 1)} 
-                          className="px-6 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg" 
-                          disabled={saving}
-                        >
-                          Siguiente
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={handleGuardarSolicitud} 
-                          className="px-6 py-2 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-lg hover:shadow-lg flex items-center gap-2" 
-                          disabled={saving}
-                        >
-                          {saving ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                              Guardando...
-                            </>
-                          ) : (
-                            <>
-                              <Check size={18} /> Guardar Solicitud
-                            </>
-                          )}
-                        </button>
-                      )}
+                        Motivo / Descripción{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        name="solicitud"
+                        value={formData.solicitud}
+                        onChange={handleChange}
+                        rows="3"
+                        className={`w-full px-3 py-2 text-sm rounded-md border ${inputStyle} outline-none focus:ring-1 focus:ring-indigo-500`}
+                        placeholder="Describa el motivo del préstamo..."
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        className={`block text-sm font-medium mb-1.5 ${labelStyle}`}
+                      >
+                        Monto Solicitado (Bs.){" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        name="monto_solicitado"
+                        value={formData.monto_solicitado}
+                        onChange={handleChange}
+                        className={`w-full px-3 py-2 text-sm rounded-md border ${inputStyle} outline-none focus:ring-1 focus:ring-indigo-500`}
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        className={`block text-sm font-medium mb-1.5 ${labelStyle}`}
+                      >
+                        Fecha de Solicitud{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        name="fecha_solicitud"
+                        value={formData.fecha_solicitud}
+                        onChange={handleChange}
+                        className={`w-full px-3 py-2 text-sm rounded-md border ${inputStyle} outline-none focus:ring-1 focus:ring-indigo-500`}
+                      />
                     </div>
                   </div>
+                )}
+
+                {currentStep === 2 && (
+                  <div className="space-y-4">
+                    <h3 className={`text-base font-semibold ${textPrimary}`}>
+                      Datos del Emprendimiento
+                    </h3>
+
+                    <div>
+                      <label
+                        className={`block text-sm font-medium mb-1.5 ${labelStyle}`}
+                      >
+                        Nombre del Emprendimiento{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="nombre_emprendimiento"
+                        value={formData.nombre_emprendimiento}
+                        onChange={handleChange}
+                        className={`w-full px-3 py-2 text-sm rounded-md border ${inputStyle} outline-none focus:ring-1 focus:ring-indigo-500`}
+                        placeholder="Ej: Panadería La Espiga"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        className={`block text-sm font-medium mb-1.5 ${labelStyle}`}
+                      >
+                        Dirección <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        name="direccion_empredimiento"
+                        value={formData.direccion_empredimiento}
+                        onChange={handleChange}
+                        rows="2"
+                        className={`w-full px-3 py-2 text-sm rounded-md border ${inputStyle} outline-none focus:ring-1 focus:ring-indigo-500`}
+                        placeholder="Dirección completa"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        className={`block text-sm font-medium mb-1.5 ${labelStyle}`}
+                      >
+                        Años de Experiencia{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="anos_experiencia"
+                        value={formData.anos_experiencia}
+                        onChange={handleChange}
+                        className={`w-full px-3 py-2 text-sm rounded-md border ${inputStyle} outline-none focus:ring-1 focus:ring-indigo-500`}
+                      >
+                        <option value="">Seleccione</option>
+                        {añosOperando.map((año) => (
+                          <option key={año} value={año}>
+                            {año}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        className={`block text-sm font-medium mb-1.5 ${labelStyle}`}
+                      >
+                        Sector Económico <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="sectorEconomico"
+                        value={formData.sectorEconomico}
+                        onChange={handleChange}
+                        className={`w-full px-3 py-2 text-sm rounded-md border ${inputStyle} outline-none focus:ring-1 focus:ring-indigo-500`}
+                      >
+                        <option value="">Seleccione un sector</option>
+                        {sectoresUnicos.map((sector) => (
+                          <option key={sector} value={sector}>
+                            {sector}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        className={`block text-sm font-medium mb-1.5 ${labelStyle}`}
+                      >
+                        Actividad / Subsector{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="subsector"
+                        value={formData.subsector}
+                        onChange={handleChange}
+                        disabled={!formData.sectorEconomico}
+                        className={`w-full px-3 py-2 text-sm rounded-md border ${inputStyle} outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50`}
+                      >
+                        <option value="">
+                          {!formData.sectorEconomico
+                            ? "Primero seleccione un sector"
+                            : "Seleccione una actividad"}
+                        </option>
+                        {formData.sectorEconomico &&
+                          actividadesPorSector[formData.sectorEconomico]?.map(
+                            (actividad) => (
+                              <option key={actividad} value={actividad}>
+                                {actividad}
+                              </option>
+                            ),
+                          )}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() =>
+                      currentStep > 1
+                        ? setCurrentStep(currentStep - 1)
+                        : setShowModal(false)
+                    }
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                      darkMode
+                        ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    {currentStep === 1 ? "Cancelar" : "Anterior"}
+                  </button>
+                  {currentStep < 2 ? (
+                    <button
+                      onClick={() => setCurrentStep(2)}
+                      className="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
+                    >
+                      Siguiente
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleGuardarSolicitud}
+                      className="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                      disabled={saving}
+                    >
+                      {saving ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                          Guardando...
+                        </>
+                      ) : (
+                        <>
+                          <Check size={16} /> Guardar
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
-            </div>
+            </Modal>
           )}
 
-          {/* MODAL DE RECHAZO */}
+          {/* Reject Modal */}
           {showRejectModal && (
-            <div className="fixed inset-0 z-50 overflow-y-auto">
-              <div className="fixed inset-0 bg-black bg-opacity-70" onClick={() => setShowRejectModal(false)}></div>
-              <div className="flex min-h-full items-center justify-center p-4">
-                <div className={`relative w-full max-w-md rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"} shadow-2xl`}>
-                  <div className={`px-6 py-4 border-b ${darkMode ? "border-gray-700" : "border-gray-200"} flex justify-between items-center`}>
-                    <h2 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
-                      Rechazar Solicitud
-                    </h2>
-                    <button 
-                      onClick={() => setShowRejectModal(false)} 
-                      className={`p-2 rounded-lg ${darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"}`}
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-                  
-                  <div className="px-6 py-4">
-                    <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                      Motivo del Rechazo <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      value={motivoRechazo}
-                      onChange={(e) => setMotivoRechazo(e.target.value)}
-                      rows="4"
-                      className={`w-full px-4 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"} focus:outline-none focus:ring-2 focus:ring-red-500`}
-                      placeholder="Explique detalladamente por qué se rechaza esta solicitud..."
-                      autoFocus
-                    />
-                    
-                    <div className="flex justify-end gap-3 mt-6">
-                      <button
-                        onClick={() => setShowRejectModal(false)}
-                        className={`px-4 py-2 rounded-lg ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-200 hover:bg-gray-300"} transition-colors`}
-                        disabled={updatingStatus}
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onClick={handleConfirmarRechazo}
-                        disabled={updatingStatus}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-                      >
-                        {updatingStatus ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            Procesando...
-                          </>
-                        ) : (
-                          <>
-                            <XCircle size={18} />
-                            Rechazar Solicitud
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
+            <Modal
+              title="Rechazar Solicitud"
+              onClose={() => setShowRejectModal(false)}
+              darkMode={darkMode}
+            >
+              <div>
+                <label
+                  className={`block text-sm font-medium mb-1.5 ${labelStyle}`}
+                >
+                  Motivo del Rechazo <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={motivoRechazo}
+                  onChange={(e) => setMotivoRechazo(e.target.value)}
+                  rows="4"
+                  className={`w-full px-3 py-2 text-sm rounded-md border ${inputStyle} outline-none focus:ring-1 focus:ring-red-500`}
+                  placeholder="Explique por qué se rechaza esta solicitud..."
+                  autoFocus
+                />
+
+                <div className="flex justify-end gap-3 mt-5">
+                  <button
+                    onClick={() => setShowRejectModal(false)}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                      darkMode
+                        ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                    disabled={updatingStatus}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleConfirmarRechazo}
+                    disabled={updatingStatus}
+                    className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors flex items-center gap-2"
+                  >
+                    {updatingStatus ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        Procesando...
+                      </>
+                    ) : (
+                      <>
+                        <XCircle size={16} />
+                        Rechazar
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
-            </div>
+            </Modal>
           )}
 
           <Footer darkMode={darkMode} />
@@ -1152,5 +1094,107 @@ const SolicitudesPersona = () => {
     </div>
   );
 };
+
+// Subcomponents
+const StatCard = ({ title, value, color = "default", darkMode }) => {
+  const colors = {
+    default: "border-gray-200 dark:border-gray-700",
+    amber: "border-l-4 border-l-amber-500",
+    emerald: "border-l-4 border-l-emerald-500",
+    red: "border-l-4 border-l-red-500",
+  };
+
+  return (
+    <div
+      className={`bg-white dark:bg-gray-800 rounded-lg border ${colors[color]} shadow-sm p-4`}
+    >
+      <p
+        className={`text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-500" : "text-gray-400"}`}
+      >
+        {title}
+      </p>
+      <p
+        className={`text-2xl font-semibold mt-1 ${darkMode ? "text-white" : "text-gray-800"}`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+};
+
+const ActionButton = ({
+  icon: Icon,
+  onClick,
+  tooltip,
+  variant = "default",
+  darkMode,
+}) => {
+  const variants = {
+    default: darkMode
+      ? "text-gray-400 hover:bg-gray-700"
+      : "text-gray-500 hover:bg-gray-100",
+    success:
+      "text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/30",
+    danger:
+      "text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30",
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`p-1.5 rounded-md transition-colors ${variants[variant]}`}
+      title={tooltip}
+    >
+      <Icon size={16} />
+    </button>
+  );
+};
+
+const EmptyState = ({ onNew, darkMode }) => (
+  <div className="p-12 text-center">
+    <FileText
+      size={40}
+      className={`mx-auto ${darkMode ? "text-gray-600" : "text-gray-300"} mb-3`}
+    />
+    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+      No hay solicitudes para mostrar
+    </p>
+    <button
+      onClick={onNew}
+      className="mt-4 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors inline-flex items-center gap-2"
+    >
+      <Plus size={16} />
+      Crear primera solicitud
+    </button>
+  </div>
+);
+
+const Modal = ({ title, onClose, darkMode, children }) => (
+  <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60" onClick={onClose}></div>
+    <div className="flex min-h-full items-center justify-center p-4">
+      <div
+        className={`relative w-full max-w-2xl rounded-lg ${darkMode ? "bg-gray-800" : "bg-white"} shadow-xl max-h-[90vh] overflow-y-auto`}
+      >
+        <div
+          className={`sticky top-0 px-5 py-4 border-b ${darkMode ? "border-gray-700" : "border-gray-100"} flex justify-between items-center ${darkMode ? "bg-gray-800" : "bg-white"}`}
+        >
+          <h2
+            className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-900"}`}
+          >
+            {title}
+          </h2>
+          <button
+            onClick={onClose}
+            className={`p-1 rounded-md ${darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"}`}
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="px-5 py-5">{children}</div>
+      </div>
+    </div>
+  </div>
+);
 
 export default SolicitudesPersona;
