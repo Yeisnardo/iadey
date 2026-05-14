@@ -132,7 +132,8 @@ CREATE TABLE aprobacion (
     id_expediente INT NOT NULL,
     verificacion_requisitos TEXT NOT NULL,
     estatus_aprobacion VARCHAR (20) NOT NULL,
-    seleccion_manejo VARCHAR (10),
+    seleccion_manejo VARCHAR (10) NOT NULL,
+    opbervaciones TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_expediente) REFERENCES expediente(id_expediente)
@@ -366,4 +367,46 @@ CREATE TABLE configuracion_contrato (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(100),
     updated_by VARCHAR(100)
+);
+
+ID Aprobación
+
+la tabla va a tener ID, emprendedor, numero_cuotas, inicio, cierre, estatus.
+
+en acciones va a estar el: gestionar contrato, realizar desembolso,
+
+ademas en el estar va estar por defecto Pendiente que es un boton que al pulsar cambia a Activo y en la acciones aparece automaticamente un boton el boton de realizar desembolso
+
+
+
+CREATE TABLE contrato (
+    id_contrato SERIAL PRIMARY KEY,
+    id_aprob INT NOT NULL,
+    id_config INT NOT NULL,
+    numero_contrato VARCHAR (30) NOT NULL,
+    moneda VARCHAR (50) NOT NULL,
+    monto_moneda VARCHAR (50) NOT NULL,
+    cambio  VARCHAR (50) NOT NULL,
+    flat  VARCHAR (50) NOT NULL,
+    interes  VARCHAR (50) NOT NULL,
+    devolvimiento VARCHAR (50) NOT NULL,
+    numero_cuotas VARCHAR (50) NOT NULL,
+    inicio VARCHAR (50) NOT NULL,
+    cierre VARCHAR (50) NOT NULL,
+    estatus  VARCHAR (50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_aprob) REFERENCES aprobacion(id_aprobacion),
+    FOREIGN KEY (id_config) REFERENCES configuracion_contrato(id_configuracion)
+);
+
+
+CREATE TABLE desembolso (
+    id_desembolso SERIAL PRIMARY KEY,
+    id_cont INT NOT NULL,
+    fecha_desembolso VARCHAR (15) NOT NULL,
+    referecia_bancaria VARCHAR (6) NOT NULL,
+    monto_pagado TEXT NOT NULL,
+    estatus VARCHAR (20) NOT NULL,
+    FOREIGN KEY (id_cont) REFERENCES contrato(id_contrato)
 );

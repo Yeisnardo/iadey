@@ -1,52 +1,26 @@
-// components/CreditContracts.jsx
-import React, { useState, useEffect, useRef } from "react";
+// pages/Contrato.jsx
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  FileText,
-  Plus,
-  Search,
-  Eye,
-  Edit,
-  Trash2,
-  Download,
-  Printer,
+import { 
+  Search, 
+  FileSignature,
+  Clock,
+  TrendingUp,
+  Calendar,
   Filter,
-  ArrowUpDown,
   ChevronLeft,
   ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
+  FileText,
+  MoreVertical,
   CheckCircle,
-  DollarSign,
-  Percent,
-  CreditCard,
-  Receipt,
-  Save,
   X,
-  Check,
-  AlertTriangle,
-  Info,
-  User,
-  TrendingUp,
-  FileSignature,
-  Calendar,
-  Briefcase,
-  ClipboardCheck,
-  Handshake,
-  Users,
-  Building,
-  Clock,
+  CreditCard,
+  DollarSign,
   AlertCircle,
-  FolderPlus,
-  UserCheck,
-  LayoutDashboard,
-  Settings,
-  LogOut,
-  Bell,
-  Menu,
-  Moon,
-  Sun,
-  ChevronDown
+  Loader2,
+  User,
+  Hourglass,
+  Ban
 } from "lucide-react";
 
 // Importamos nuestros componentes personalizados
@@ -54,78 +28,109 @@ import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
 
-const CreditContracts = () => {
+// Importamos la API
+import ContratoAPI from "../services/api_contrato";
+
+const Contrato = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [activeTab, setActiveTab] = useState("contracts");
-  
-  // Estados específicos del componente de contratos
-  const [contractsActiveTab, setContractsActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedFilter, setSelectedFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [sortConfig, setSortConfig] = useState({ key: 'fechaInicio', direction: 'desc' });
+  const [itemsPerPage] = useState(8);
   const [showFilters, setShowFilters] = useState(false);
-  const [showContractModal, setShowContractModal] = useState(false);
-  const [selectedContract, setSelectedContract] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [contractToDelete, setContractToDelete] = useState(null);
-  
-  // Notificaciones
-  const [notifications, setNotifications] = useState([
-    { id: 1, text: "Nuevo contrato de crédito pendiente de revisión", time: "5 min", read: false },
-    { id: 2, text: "Pago de cuota registrado - Contrato CRE-2024-0001", time: "1 hora", read: false },
-    { id: 3, text: "Contrato por vencer en 30 días", time: "3 horas", read: true },
-    { id: 4, text: "Solicitud de crédito aprobada", time: "1 día", read: true },
-  ]);
-  
-  // Constantes para los cálculos
-  const FLAT_PORCENTAJE = 5; // 5% flat
-  const INTERES_PORCENTAJE = 10; // 10% interés
-  const CUOTAS_FIJAS = 12; // 12 cuotas fijas
+  const [showDesembolsoModal, setShowDesembolsoModal] = useState(false);
+  const [selectedContractForDesembolso, setSelectedContractForDesembolso] = useState(null);
 
-  // Estados para el formulario de contrato
-  const [formData, setFormData] = useState({
-    codigo: "",
-    emprendedor: "",
-    emprendedorId: "",
-    cedula: "",
-    telefono: "",
-    email: "",
-    emprendimiento: "",
-    montoDolares: "",
-    montoBolivares: "",
-    tasaInteres: INTERES_PORCENTAJE.toString(),
-    plazo: CUOTAS_FIJAS.toString(),
-    cuotaMensual: "",
-    fechaInicio: new Date().toISOString().split('T')[0],
-    fechaVencimiento: "",
-    estado: "Pendiente",
-    tipoCredito: "Ordinario",
-    destino: "",
-    garantias: "",
-    observaciones: "",
-    cuotasPagadas: 0,
-    totalCuotas: CUOTAS_FIJAS,
-    saldoPendiente: "",
-    historialPagos: []
+  // Estados para el modal de desembolso
+  const [formDesembolso, setFormDesembolso] = useState({
+    referencia_bancaria: "",
+  monto_pagado: "",
+  fecha_desembolso: new Date().toISOString().split('T')[0],
   });
+  const [desembolsoErrors, setDesembolsoErrors] = useState({});
+  const [desembolsoSubmitting, setDesembolsoSubmitting] = useState(false);
 
-  // Estados para filtros
-  const [filters, setFilters] = useState({
-    estado: "",
-    tipoCredito: "",
-    fechaDesde: "",
-    fechaHasta: "",
-    montoMin: "",
-    montoMax: ""
+  // Estados para el modal de gestión de contrato
+  const [showGestionModal, setShowGestionModal] = useState(false);
+  const [selectedContractForGestion, setSelectedContractForGestion] = useState(null);
+  const [lastContractNumber, setLastContractNumber] = useState(0);
+  const [formGestion, setFormGestion] = useState({
+    numero_contrato: "",
+    moneda: "Bolívares",
+    monto_moneda: "",
+    cambio: "",
+    flat: "",
+    interes: "",
+    devolvimiento: "",
+    numero_cuotas: "",
+    inicio: "",
+    cierre: ""
   });
+  const [formErrors, setFormErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+
+  // Estados para los datos de la API
+  const [contractsData, setContractsData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Definir el flujo de estados: Pendiente -> Pendiente por Desembolso -> Activo
+  const STATUS_FLOW = {
+    'Esperando contrato': {
+      next: 'Pendiente',
+      color: 'gray',
+      icon: Hourglass,
+      bgColor: 'bg-gray-400',
+      hoverColor: 'hover:bg-gray-500',
+      label: 'Esperando contrato'
+    },
+    'Pendiente': {
+      next: 'Pendiente por desembolso',
+      color: 'yellow',
+      icon: Clock,
+      bgColor: 'bg-yellow-500',
+      hoverColor: 'hover:bg-yellow-600',
+      label: 'Pendiente'
+    },
+    'Pendiente por desembolso': {
+      next: 'Activo',
+      color: 'orange',
+      icon: DollarSign,
+      bgColor: 'bg-orange-500',
+      hoverColor: 'hover:bg-orange-600',
+      label: 'Pendiente por desembolso'
+    },
+    'Activo': {
+      next: 'Finalizado',
+      color: 'green',
+      icon: CheckCircle,
+      bgColor: 'bg-green-500',
+      hoverColor: 'hover:bg-green-600',
+      label: 'Activo'
+    },
+    'Finalizado': {
+      next: 'Cancelado',
+      color: 'blue',
+      icon: CheckCircle,
+      bgColor: 'bg-blue-500',
+      hoverColor: 'hover:bg-blue-600',
+      label: 'Finalizado'
+    },
+    'Cancelado': {
+      next: 'Esperando contrato',
+      color: 'red',
+      icon: Ban,
+      bgColor: 'bg-red-500',
+      hoverColor: 'hover:bg-red-600',
+      label: 'Cancelado'
+    }
+  };
 
   // Datos del usuario
   const user = {
@@ -140,552 +145,487 @@ const CreditContracts = () => {
     performance: "98%"
   };
 
-  // Datos de ejemplo para contratos de crédito
-  const [contracts, setContracts] = useState([
-    {
-      id: 1,
-      codigo: "CRE-2024-0001",
-      emprendedor: "María González Pérez",
-      cedula: "V-12345678",
-      telefono: "0412-1234567",
-      email: "maria@email.com",
-      emprendimiento: "Restaurante El Sazón",
-      montoDolares: 25000,
-      montoBolivares: 950000,
-      tasaInteres: 10,
-      plazo: 12,
-      cuotaMensual: 2291.67,
-      fechaInicio: "2024-01-15",
-      fechaVencimiento: "2025-01-15",
-      estado: "Activo",
-      tipoCredito: "Ordinario",
-      cuotasPagadas: 3,
-      totalCuotas: 12,
-      saldoPendiente: 25000,
-      destino: "Compra de equipos de cocina y remodelación del local",
-      garantias: "Equipos adquiridos como garantía",
-      observaciones: "Cliente con buen historial crediticio",
-      historialPagos: [
-        { fecha: "2024-02-15", monto: 2291.67, estado: "Pagado", referencia: "PAG-001" },
-        { fecha: "2024-03-15", monto: 2291.67, estado: "Pagado", referencia: "PAG-002" },
-        { fecha: "2024-04-15", monto: 2291.67, estado: "Pagado", referencia: "PAG-003" }
-      ]
-    },
-    {
-      id: 2,
-      codigo: "CRE-2024-0002",
-      emprendedor: "Juan Pérez Rodríguez",
-      cedula: "V-87654321",
-      telefono: "0416-7654321",
-      email: "juan@email.com",
-      emprendimiento: "Taller Mecánico Rápido",
-      montoDolares: 15000,
-      montoBolivares: 570000,
-      tasaInteres: 10,
-      plazo: 12,
-      cuotaMensual: 1375,
-      fechaInicio: "2024-02-01",
-      fechaVencimiento: "2025-02-01",
-      estado: "Activo",
-      tipoCredito: "Microcrédito",
-      cuotasPagadas: 2,
-      totalCuotas: 12,
-      saldoPendiente: 15000,
-      destino: "Compra de herramientas y equipos de diagnóstico",
-      garantias: "Maquinaria y herramientas",
-      observaciones: "",
-      historialPagos: [
-        { fecha: "2024-03-01", monto: 1375, estado: "Pagado", referencia: "PAG-004" },
-        { fecha: "2024-04-01", monto: 1375, estado: "Pagado", referencia: "PAG-005" }
-      ]
-    },
-    {
-      id: 3,
-      codigo: "CRE-2024-0003",
-      emprendedor: "Carlos Rodríguez Silva",
-      cedula: "V-11223344",
-      telefono: "0424-1122334",
-      email: "carlos@email.com",
-      emprendimiento: "Tienda de Ropa Moda",
-      montoDolares: 50000,
-      montoBolivares: 1900000,
-      tasaInteres: 10,
-      plazo: 12,
-      cuotaMensual: 4583.33,
-      fechaInicio: "2024-01-10",
-      fechaVencimiento: "2025-01-10",
-      estado: "Pendiente",
-      tipoCredito: "Expansión",
-      cuotasPagadas: 0,
-      totalCuotas: 12,
-      saldoPendiente: 50000,
-      destino: "Ampliación del local y compra de inventario",
-      garantias: "Local comercial",
-      observaciones: "En espera de evaluación de garantías",
-      historialPagos: []
-    },
-    {
-      id: 4,
-      codigo: "CRE-2023-0012",
-      emprendedor: "Ana Martínez López",
-      cedula: "V-55667788",
-      telefono: "0412-5566778",
-      email: "ana@email.com",
-      emprendimiento: "Distribuidora de Alimentos",
-      montoDolares: 80000,
-      montoBolivares: 3040000,
-      tasaInteres: 10,
-      plazo: 12,
-      cuotaMensual: 7333.33,
-      fechaInicio: "2023-06-01",
-      fechaVencimiento: "2024-06-01",
-      estado: "Activo",
-      tipoCredito: "Ordinario",
-      cuotasPagadas: 10,
-      totalCuotas: 12,
-      saldoPendiente: 80000,
-      destino: "Compra de vehículo de distribución",
-      garantias: "Vehículo",
-      observaciones: "Pagos al día",
-      historialPagos: [
-        { fecha: "2023-07-01", monto: 7333.33, estado: "Pagado", referencia: "PAG-010" },
-        { fecha: "2023-08-01", monto: 7333.33, estado: "Pagado", referencia: "PAG-011" }
-      ]
-    },
-    {
-      id: 5,
-      codigo: "CRE-2023-0015",
-      emprendedor: "Luis Torres Méndez",
-      cedula: "V-99887766",
-      telefono: "0416-9988776",
-      email: "luis@email.com",
-      emprendimiento: "Servicios de Tecnología",
-      montoDolares: 35000,
-      montoBolivares: 1330000,
-      tasaInteres: 10,
-      plazo: 12,
-      cuotaMensual: 3208.33,
-      fechaInicio: "2023-12-01",
-      fechaVencimiento: "2024-12-01",
-      estado: "Vencido",
-      tipoCredito: "Ordinario",
-      cuotasPagadas: 4,
-      totalCuotas: 12,
-      saldoPendiente: 35000,
-      destino: "Compra de servidores y equipos de red",
-      garantias: "Equipos tecnológicos",
-      observaciones: "Cliente con retraso en pagos",
-      historialPagos: [
-        { fecha: "2024-01-01", monto: 3208.33, estado: "Pagado", referencia: "PAG-015" },
-        { fecha: "2024-02-01", monto: 3208.33, estado: "Pagado", referencia: "PAG-016" }
-      ]
-    },
-    {
-      id: 6,
-      codigo: "CRE-2024-0004",
-      emprendedor: "Elena Sánchez Díaz",
-      cedula: "V-44332211",
-      telefono: "0412-4433221",
-      email: "elena@email.com",
-      emprendimiento: "Panadería La Espiga",
-      montoDolares: 10000,
-      montoBolivares: 380000,
-      tasaInteres: 10,
-      plazo: 12,
-      cuotaMensual: 916.67,
-      fechaInicio: "2024-03-01",
-      fechaVencimiento: "2025-03-01",
-      estado: "Aprobado",
-      tipoCredito: "Microcrédito",
-      cuotasPagadas: 0,
-      totalCuotas: 12,
-      saldoPendiente: 10000,
-      destino: "Compra de horno industrial",
-      garantias: "Equipo adquirido",
-      observaciones: "Documentación en regla",
-      historialPagos: []
+  // Cargar datos de la API y establecer valores por defecto
+  useEffect(() => {
+    const fetchContratos = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await ContratoAPI.getAll();
+        
+        if (response.success) {
+          // Mapear los datos agregando campos por defecto
+          const dataConDefaults = response.data.map(item => ({
+            ...item,
+            numero_cuotas: item.numero_cuotas || "Sin definir",
+            inicio: item.inicio || "Sin definir",
+            cierre: item.cierre || "Sin definir",
+            estatus: item.estatus || "Esperando contrato",
+            emprendedor: item.emprendedor || "Sin definir",
+            numero_contrato: item.numero_contrato || ""
+          }));
+          setContractsData(dataConDefaults);
+        } else {
+          setError(response.error || "Error al cargar los contratos");
+        }
+      } catch (err) {
+        console.error("Error cargando contratos:", err);
+        setError(err.error || "Error al conectar con el servidor");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchContratos();
+  }, []);
+
+  // Cargar el último número de contrato
+  useEffect(() => {
+    const fetchLastContract = async () => {
+      try {
+        const response = await ContratoAPI.getLastContractNumber();
+        if (response.success && response.data) {
+          const lastNumber = response.data.numero_contrato;
+          if (lastNumber) {
+            const parts = lastNumber.split('-');
+            if (parts.length === 3) {
+              setLastContractNumber(parseInt(parts[2]) || 0);
+            }
+          }
+        }
+      } catch (error) {
+        console.log("Usando número de contrato local");
+        const contractsWithNumbers = contractsData.filter(c => 
+          c.numero_contrato && c.numero_contrato.startsWith('IADEY-')
+        );
+        if (contractsWithNumbers.length > 0) {
+          const numbers = contractsWithNumbers.map(c => {
+            const parts = c.numero_contrato.split('-');
+            return parseInt(parts[2]) || 0;
+          });
+          setLastContractNumber(Math.max(...numbers));
+        }
+      }
+    };
+
+    if (contractsData.length > 0) {
+      fetchLastContract();
     }
-  ]);
+  }, [contractsData]);
 
-  // Lista de emprendedores (para el formulario)
-  const emprendedores = [
-    { id: 1, nombre: "María González Pérez", cedula: "V-12345678", telefono: "0412-1234567", email: "maria@email.com", emprendimiento: "Restaurante El Sazón" },
-    { id: 2, nombre: "Juan Pérez Rodríguez", cedula: "V-87654321", telefono: "0416-7654321", email: "juan@email.com", emprendimiento: "Taller Mecánico Rápido" },
-    { id: 3, nombre: "Carlos Rodríguez Silva", cedula: "V-11223344", telefono: "0424-1122334", email: "carlos@email.com", emprendimiento: "Tienda de Ropa Moda" },
-    { id: 4, nombre: "Ana Martínez López", cedula: "V-55667788", telefono: "0412-5566778", email: "ana@email.com", emprendimiento: "Distribuidora de Alimentos" },
-    { id: 5, nombre: "Luis Torres Méndez", cedula: "V-99887766", telefono: "0416-9988776", email: "luis@email.com", emprendimiento: "Servicios de Tecnología" },
-    { id: 6, nombre: "Elena Sánchez Díaz", cedula: "V-44332211", telefono: "0412-4433221", email: "elena@email.com", emprendimiento: "Panadería La Espiga" }
-  ];
+  // Contadores para estadísticas
+  const contratosActivos = contractsData.filter(c => c.estatus === "Activo").length;
+  const contratosPendientes = contractsData.filter(c => c.estatus === "Pendiente").length;
+  const contratosPendientesDesembolso = contractsData.filter(c => c.estatus === "Pendiente por desembolso").length;
+  const contratosEsperando = contractsData.filter(c => c.estatus === "Esperando contrato").length;
 
-  // Tipos de crédito
-  const tiposCredito = [
-    "Ordinario",
-    "Microcrédito",
-    "Expansión",
-    "Maquinaria y Equipo",
-    "Capital de Trabajo",
-    "Emergencia"
-  ];
+  // Datos específicos por sección
+  const sectionData = {
+    contracts: {
+      title: "Gestión de Contratos",
+      description: "Administración de contratos con manejo interno",
+      stats: [
+        { id: 1, title: "Contratos Activos", value: contratosActivos, icon: CheckCircle, color: "green", bgColor: "bg-green-50", textColor: "text-green-600" },
+        { id: 2, title: "Pendientes", value: contratosPendientes, icon: Clock, color: "yellow", bgColor: "bg-yellow-50", textColor: "text-yellow-600" },
+        { id: 3, title: "Pend. Desembolso", value: contratosPendientesDesembolso, icon: DollarSign, color: "orange", bgColor: "bg-orange-50", textColor: "text-orange-600" },
+        { id: 4, title: "Esperando Contrato", value: contratosEsperando, icon: Hourglass, color: "gray", bgColor: "bg-gray-50", textColor: "text-gray-600" },
+      ]
+    }
+  };
 
-  // Estados del contrato
-  const estados = [
-    "Pendiente",
-    "Aprobado",
-    "Activo",
-    "Vencido",
-    "Pagado",
-    "Cancelado",
-    "Rechazado"
-  ];
+  const currentData = sectionData.contracts;
 
+  // Notificaciones no leídas
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Función para calcular el monto en bolívares basado en el monto en dólares
-  const calcularMontoBolivares = (montoDolares) => {
-    if (!montoDolares || montoDolares <= 0) return 0;
-    const tasaCambio = 40;
-    const montoBs = montoDolares * tasaCambio;
-    const montoConFlat = montoBs * (1 - FLAT_PORCENTAJE / 100);
-    return Math.round(montoConFlat * 100) / 100;
-  };
-
-  // Función para calcular la cuota mensual
-  const calcularCuotaMensual = (montoDolares) => {
-    if (!montoDolares || montoDolares <= 0) return 0;
-    const montoConInteres = montoDolares * (1 + INTERES_PORCENTAJE / 100);
-    const cuota = montoConInteres / CUOTAS_FIJAS;
-    return Math.round(cuota * 100) / 100;
-  };
-
-  // Generar código de contrato
-  const generarCodigoContrato = () => {
-    const año = new Date().getFullYear();
-    const contratosAño = contracts.filter(c => c.codigo.includes(año.toString()));
-    const nuevoNumero = contratosAño.length + 1;
-    return `CRE-${año}-${String(nuevoNumero).padStart(4, '0')}`;
-  };
-
-  // Actualizar cálculos cuando cambia el monto en dólares
-  useEffect(() => {
-    if (formData.montoDolares && parseFloat(formData.montoDolares) > 0) {
-      const montoDolaresNum = parseFloat(formData.montoDolares);
-      const montoBolivares = calcularMontoBolivares(montoDolaresNum);
-      const cuotaMensual = calcularCuotaMensual(montoDolaresNum);
-      const saldoPendiente = montoDolaresNum;
+  // Función para avanzar al siguiente estado (Pendiente -> Pendiente por desembolso)
+  const avanzarEstado = async (id, currentStatus) => {
+    const statusInfo = STATUS_FLOW[currentStatus];
+    if (!statusInfo) return;
+    
+    const nextStatus = statusInfo.next;
+    
+    try {
+      // Llamar a la API para actualizar el estatus
+      const response = await ContratoAPI.updateStatus(id, nextStatus);
       
-      setFormData(prev => ({
-        ...prev,
-        montoBolivares: montoBolivares.toFixed(2),
-        cuotaMensual: cuotaMensual.toFixed(2),
-        saldoPendiente: saldoPendiente.toFixed(2),
-        totalCuotas: CUOTAS_FIJAS,
-        plazo: CUOTAS_FIJAS.toString()
-      }));
-    }
-  }, [formData.montoDolares]);
-
-  // Actualizar fecha de vencimiento cuando cambia la fecha de inicio
-  useEffect(() => {
-    if (formData.fechaInicio) {
-      const fechaInicio = new Date(formData.fechaInicio);
-      const fechaVenc = new Date(fechaInicio);
-      fechaVenc.setMonth(fechaVenc.getMonth() + CUOTAS_FIJAS);
-      setFormData(prev => ({
-        ...prev,
-        fechaVencimiento: fechaVenc.toISOString().split('T')[0]
-      }));
-    }
-  }, [formData.fechaInicio]);
-
-  // Abrir modal para nuevo contrato
-  const handleNewContract = () => {
-    setSelectedContract(null);
-    setFormData({
-      codigo: generarCodigoContrato(),
-      emprendedor: "",
-      emprendedorId: "",
-      cedula: "",
-      telefono: "",
-      email: "",
-      emprendimiento: "",
-      montoDolares: "",
-      montoBolivares: "",
-      tasaInteres: INTERES_PORCENTAJE.toString(),
-      plazo: CUOTAS_FIJAS.toString(),
-      cuotaMensual: "",
-      fechaInicio: new Date().toISOString().split('T')[0],
-      fechaVencimiento: "",
-      estado: "Pendiente",
-      tipoCredito: "Ordinario",
-      destino: "",
-      garantias: "",
-      observaciones: "",
-      cuotasPagadas: 0,
-      totalCuotas: CUOTAS_FIJAS,
-      saldoPendiente: "",
-      historialPagos: []
-    });
-    setShowContractModal(true);
-  };
-
-  // Editar contrato
-  const handleEditContract = (contract) => {
-    setSelectedContract(contract);
-    setFormData({
-      ...contract,
-      montoDolares: contract.montoDolares.toString(),
-      montoBolivares: contract.montoBolivares.toString(),
-      tasaInteres: contract.tasaInteres.toString(),
-      plazo: contract.plazo.toString(),
-      cuotaMensual: contract.cuotaMensual.toString()
-    });
-    setShowContractModal(true);
-  };
-
-  // Guardar contrato
-  const handleSaveContract = () => {
-    const montoDolaresNum = parseFloat(formData.montoDolares);
-    const montoBolivaresNum = parseFloat(formData.montoBolivares);
-    const cuotaNum = parseFloat(formData.cuotaMensual);
-    
-    if (!formData.emprendedor || !formData.montoDolares) {
-      alert("Por favor, complete los campos requeridos (Emprendedor y Monto en Dólares)");
-      return;
-    }
-    
-    if (montoDolaresNum <= 0) {
-      alert("El monto en dólares debe ser mayor a 0");
-      return;
-    }
-    
-    if (selectedContract) {
-      const updatedContracts = contracts.map(c => 
-        c.id === selectedContract.id 
-          ? { 
-              ...c, 
-              ...formData, 
-              montoDolares: montoDolaresNum, 
-              montoBolivares: montoBolivaresNum,
-              cuotaMensual: cuotaNum,
-              totalCuotas: CUOTAS_FIJAS,
-              plazo: CUOTAS_FIJAS
-            }
-          : c
-      );
-      setContracts(updatedContracts);
-      const nuevaNotificacion = {
-        id: notifications.length + 1,
-        text: `Contrato ${selectedContract.codigo} actualizado`,
-        time: "Ahora",
-        read: false
-      };
-      setNotifications([nuevaNotificacion, ...notifications]);
-    } else {
-      const newContract = {
-        id: contracts.length + 1,
-        ...formData,
-        montoDolares: montoDolaresNum,
-        montoBolivares: montoBolivaresNum,
-        cuotaMensual: cuotaNum,
-        totalCuotas: CUOTAS_FIJAS,
-        plazo: CUOTAS_FIJAS,
-        historialPagos: []
-      };
-      setContracts([newContract, ...contracts]);
-      const nuevaNotificacion = {
-        id: notifications.length + 1,
-        text: `Nuevo contrato creado: ${newContract.codigo} - ${newContract.emprendedor}`,
-        time: "Ahora",
-        read: false
-      };
-      setNotifications([nuevaNotificacion, ...notifications]);
-    }
-    
-    setShowContractModal(false);
-    alert(selectedContract ? "Contrato actualizado exitosamente" : "Contrato creado exitosamente");
-  };
-
-  // Eliminar contrato
-  const handleDeleteContract = (id) => {
-    setContractToDelete(id);
-    setShowDeleteConfirm(true);
-  };
-
-  const confirmDelete = () => {
-    setContracts(contracts.filter(c => c.id !== contractToDelete));
-    setShowDeleteConfirm(false);
-    setContractToDelete(null);
-    alert("Contrato eliminado exitosamente");
-  };
-
-  // Ver detalles del contrato
-  const handleViewDetails = (contract) => {
-    setSelectedContract(contract);
-    setShowDetailModal(true);
-  };
-
-  // Registrar pago
-  const handleRegisterPayment = (contract) => {
-    setSelectedContract(contract);
-    setSelectedPayment({
-      monto: contract.cuotaMensual,
-      fecha: new Date().toISOString().split('T')[0],
-      referencia: "",
-      observaciones: ""
-    });
-    setShowPaymentModal(true);
-  };
-
-  const savePayment = () => {
-    if (!selectedPayment.referencia) {
-      alert("Por favor, ingrese el número de referencia del pago");
-      return;
-    }
-    
-    const nuevoPago = {
-      fecha: selectedPayment.fecha,
-      monto: parseFloat(selectedPayment.monto),
-      estado: "Pagado",
-      referencia: selectedPayment.referencia,
-      observaciones: selectedPayment.observaciones
-    };
-    
-    const updatedContracts = contracts.map(c => {
-      if (c.id === selectedContract.id) {
-        const nuevasCuotasPagadas = c.cuotasPagadas + 1;
-        const nuevoEstado = nuevasCuotasPagadas === c.totalCuotas ? "Pagado" : c.estado;
-        return {
-          ...c,
-          cuotasPagadas: nuevasCuotasPagadas,
-          historialPagos: [nuevoPago, ...c.historialPagos],
-          estado: nuevoEstado
-        };
+      if (response.success) {
+        // Actualizar el estado en la lista local
+        setContractsData(prevData => 
+          prevData.map(contract => 
+            contract.id_aprobacion === id 
+              ? { ...contract, estatus: nextStatus }
+              : contract
+          )
+        );
+        
+        // Notificación de éxito
+        setNotifications(prev => [
+          { 
+            id: Date.now(), 
+            text: `Contrato #${id} avanzó a estado: ${nextStatus}`, 
+            time: "Ahora", 
+            read: false
+          },
+          ...prev
+        ]);
+      } else {
+        throw new Error(response.error || 'Error al cambiar el estado');
       }
-      return c;
+    } catch (error) {
+      console.error("Error al cambiar estado:", error);
+      
+      // Notificación de error
+      setNotifications(prev => [
+        { 
+          id: Date.now(), 
+          text: `Error al cambiar estado del contrato #${id}: ${error.message || 'Error desconocido'}`, 
+          time: "Ahora", 
+          read: false,
+          type: 'error'
+        },
+        ...prev
+      ]);
+    }
+  };
+
+  // Función para abrir modal de gestión de contrato
+  const gestionarContrato = (contract) => {
+    setSelectedContractForGestion(contract);
+    setShowGestionModal(true);
+    
+    // Calcular el siguiente número de contrato
+    const currentYear = new Date().getFullYear();
+    const nextNumber = lastContractNumber + 1;
+    const formattedNumber = String(nextNumber).padStart(3, '0');
+    const numeroContratoAuto = `IADEY-${currentYear}-${formattedNumber}`;
+    
+    // Inicializar el formulario con el número de contrato automático
+    setFormGestion({
+      numero_contrato: numeroContratoAuto,
+      moneda: "Bolívares",
+      monto_moneda: "",
+      cambio: "",
+      flat: "",
+      interes: "",
+      devolvimiento: "",
+      numero_cuotas: contract.numero_cuotas !== "Sin definir" ? contract.numero_cuotas : "",
+      inicio: contract.inicio !== "Sin definir" ? contract.inicio : new Date().toISOString().split('T')[0],
+      cierre: contract.cierre !== "Sin definir" ? contract.cierre : "",
+    });
+    setFormErrors({});
+  };
+
+  // Función para abrir modal de desembolso
+  // Función para abrir modal de desembolso
+const abrirDesembolso = (contract) => {
+  setSelectedContractForDesembolso(contract);
+  setFormDesembolso({
+    referencia_bancaria: "",
+    monto_pagado: "",
+    fecha_desembolso: new Date().toISOString().split('T')[0],
+    observaciones: ""
+  });
+  setDesembolsoErrors({});
+  setShowDesembolsoModal(true);
+};
+
+  // Manejar cambios en el formulario de desembolso
+  // Manejar cambios en el formulario de desembolso
+const handleDesembolsoChange = (field, value) => {
+  setFormDesembolso(prev => ({
+    ...prev,
+    [field]: value
+  }));
+  
+  if (desembolsoErrors[field]) {
+    setDesembolsoErrors(prev => ({
+      ...prev,
+      [field]: undefined
+    }));
+  }
+};
+
+  // Validar formulario de desembolso
+const validateDesembolsoForm = () => {
+  const errors = {};
+  
+  if (!formDesembolso.referencia_bancaria.trim()) {
+    errors.referencia_bancaria = "La referencia bancaria es requerida";
+  } else if (formDesembolso.referencia_bancaria.length > 6) {
+    errors.referencia_bancaria = "La referencia bancaria debe tener máximo 6 caracteres";
+  } else if (!/^[A-Z0-9]+$/i.test(formDesembolso.referencia_bancaria)) {
+    errors.referencia_bancaria = "Solo letras y números permitidos";
+  }
+  
+  if (!formDesembolso.monto_pagado.trim()) {
+    errors.monto_pagado = "El monto pagado es requerido";
+  } else if (isNaN(formDesembolso.monto_pagado) || Number(formDesembolso.monto_pagado) <= 0) {
+    errors.monto_pagado = "Ingrese un monto válido";
+  }
+  
+  if (!formDesembolso.fecha_desembolso) {
+    errors.fecha_desembolso = "La fecha es requerida";
+  }
+  
+  setDesembolsoErrors(errors);
+  return Object.keys(errors).length === 0;
+};
+
+  // Función para realizar desembolso usando la API
+const realizarDesembolso = async () => {
+  if (!validateDesembolsoForm()) {
+    return;
+  }
+  
+  setDesembolsoSubmitting(true);
+  
+  try {
+    const desembolsoData = {
+      referencia_bancaria: formDesembolso.referencia_bancaria.toUpperCase(),
+      monto_pagado: formDesembolso.monto_pagado,
+      fecha_desembolso: formDesembolso.fecha_desembolso,
+      observaciones: formDesembolso.observaciones,
+      estatus: "Pendiente" // Estatus inicial del desembolso
+    };
+    
+    // Llamar a la API de desembolso (actualizar la llamada según tu API)
+    const response = await ContratoAPI.realizarDesembolso(
+      selectedContractForDesembolso.id_aprobacion, 
+      desembolsoData
+    );
+    
+    if (response.success) {
+      // Actualizar el estado del contrato a "Activo" en la lista local
+      setContractsData(prevData => 
+        prevData.map(contract => 
+          contract.id_aprobacion === selectedContractForDesembolso.id_aprobacion 
+            ? { ...contract, estatus: "Activo" }
+            : contract
+        )
+      );
+      
+      // Notificación de éxito
+      setNotifications(prev => [
+        { 
+          id: Date.now(), 
+          text: `Desembolso registrado exitosamente para contrato #${selectedContractForDesembolso.id_aprobacion}. Referencia: ${desembolsoData.referencia_bancaria}`, 
+          time: "Ahora", 
+          read: false 
+        },
+        ...prev
+      ]);
+      
+      // Cerrar modal
+      setShowDesembolsoModal(false);
+      setSelectedContractForDesembolso(null);
+    } else {
+      throw new Error(response.error || 'Error al registrar el desembolso');
+    }
+  } catch (error) {
+    console.error("Error al realizar desembolso:", error);
+    
+    setDesembolsoErrors({
+      submit: error.error || error.message || "Error al procesar el desembolso"
     });
     
-    setContracts(updatedContracts);
-    setShowPaymentModal(false);
-    
-    const nuevaNotificacion = {
-      id: notifications.length + 1,
-      text: `Pago registrado para contrato ${selectedContract.codigo} - Monto: ${formatCurrency(nuevoPago.monto)}`,
-      time: "Ahora",
-      read: false
-    };
-    setNotifications([nuevaNotificacion, ...notifications]);
-    
-    alert("Pago registrado exitosamente");
-  };
+    setNotifications(prev => [
+      { 
+        id: Date.now(), 
+        text: `Error al registrar desembolso: ${error.message || 'Error desconocido'}`, 
+        time: "Ahora", 
+        read: false,
+        type: 'error'
+      },
+      ...prev
+    ]);
+  } finally {
+    setDesembolsoSubmitting(false);
+  }
+};
 
-  // Descargar contrato (PDF simulado)
-  const handleDownloadContract = (contract) => {
-    alert(`Descargando contrato ${contract.codigo}...`);
-  };
-
-  // Imprimir contrato
-  const handlePrintContract = (contract) => {
-    window.print();
-  };
-
-  // Filtrar contratos
-  const filteredContracts = contracts.filter(contract => {
-    const matchesSearch = searchTerm === "" ||
-      contract.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      contract.emprendedor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      contract.cedula.includes(searchTerm) ||
-      contract.emprendimiento.toLowerCase().includes(searchTerm.toLowerCase());
+  // Funciones para el formulario de gestión
+  const validateForm = () => {
+    const errors = {};
     
-    let matchesTab = true;
-    if (contractsActiveTab === "active") matchesTab = contract.estado === "Activo";
-    if (contractsActiveTab === "pending") matchesTab = contract.estado === "Pendiente" || contract.estado === "Aprobado";
-    if (contractsActiveTab === "expired") matchesTab = contract.estado === "Vencido";
-    
-    const matchesEstado = !filters.estado || contract.estado === filters.estado;
-    const matchesTipo = !filters.tipoCredito || contract.tipoCredito === filters.tipoCredito;
-    const matchesFechaDesde = !filters.fechaDesde || contract.fechaInicio >= filters.fechaDesde;
-    const matchesFechaHasta = !filters.fechaHasta || contract.fechaInicio <= filters.fechaHasta;
-    const matchesMontoMin = !filters.montoMin || contract.montoDolares >= parseFloat(filters.montoMin);
-    const matchesMontoMax = !filters.montoMax || contract.montoDolares <= parseFloat(filters.montoMax);
-    
-    return matchesSearch && matchesTab && matchesEstado && matchesTipo && 
-           matchesFechaDesde && matchesFechaHasta && matchesMontoMin && matchesMontoMax;
-  });
-
-  // Ordenar contratos
-  const sortedContracts = [...filteredContracts].sort((a, b) => {
-    let aVal = a[sortConfig.key];
-    let bVal = b[sortConfig.key];
-    
-    if (typeof aVal === 'string') {
-      aVal = aVal.toLowerCase();
-      bVal = bVal.toLowerCase();
+    if (!formGestion.numero_contrato.trim()) {
+      errors.numero_contrato = "El número de contrato es requerido";
     }
     
-    if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-    return 0;
+    if (!formGestion.moneda.trim()) {
+      errors.moneda = "La moneda es requerida";
+    }
+    
+    if (!formGestion.monto_moneda.trim()) {
+      errors.monto_moneda = "El monto en moneda es requerido";
+    } else if (isNaN(formGestion.monto_moneda) || Number(formGestion.monto_moneda) <= 0) {
+      errors.monto_moneda = "Ingrese un monto válido";
+    }
+    
+    if (!formGestion.cambio.trim()) {
+      errors.cambio = "El cambio es requerido";
+    } else if (isNaN(formGestion.cambio) || Number(formGestion.cambio) <= 0) {
+      errors.cambio = "Ingrese un cambio válido";
+    }
+    
+    if (!formGestion.flat.trim()) {
+      errors.flat = "El flat es requerido";
+    } else if (isNaN(formGestion.flat) || Number(formGestion.flat) < 0) {
+      errors.flat = "Ingrese un valor válido";
+    }
+    
+    if (!formGestion.interes.trim()) {
+      errors.interes = "El interés es requerido";
+    } else if (isNaN(formGestion.interes) || Number(formGestion.interes) < 0) {
+      errors.interes = "Ingrese un interés válido";
+    }
+    
+    if (!formGestion.devolvimiento.trim()) {
+      errors.devolvimiento = "El devolvimiento es requerido";
+    } else if (isNaN(formGestion.devolvimiento) || Number(formGestion.devolvimiento) <= 0) {
+      errors.devolvimiento = "Ingrese un devolvimiento válido";
+    }
+    
+    if (!formGestion.numero_cuotas.trim()) {
+      errors.numero_cuotas = "El número de cuotas es requerido";
+    } else if (isNaN(formGestion.numero_cuotas) || Number(formGestion.numero_cuotas) <= 0) {
+      errors.numero_cuotas = "Ingrese un número válido";
+    }
+    
+    if (!formGestion.inicio) {
+      errors.inicio = "La fecha de inicio es requerida";
+    }
+    
+    if (!formGestion.cierre) {
+      errors.cierre = "La fecha de cierre es requerida";
+    } else if (formGestion.inicio && formGestion.cierre < formGestion.inicio) {
+      errors.cierre = "La fecha de cierre debe ser posterior al inicio";
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormGestion(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Limpiar error del campo si existe
+    if (formErrors[field]) {
+      setFormErrors(prev => ({
+        ...prev,
+        [field]: undefined
+      }));
+    }
+  };
+
+  const confirmarGestion = async () => {
+    if (!validateForm()) {
+      return;
+    }
+    
+    setSubmitting(true);
+    setFormErrors({});
+    
+    try {
+      // Preparar datos para enviar a la API
+      const contratoData = {
+        id_aprob: selectedContractForGestion.id_aprobacion,
+        id_config: selectedContractForGestion.id_config || 1,
+        numero_contrato: formGestion.numero_contrato,
+        moneda: formGestion.moneda,
+        monto_moneda: formGestion.monto_moneda,
+        cambio: formGestion.cambio,
+        flat: formGestion.flat,
+        interes: formGestion.interes,
+        devolvimiento: formGestion.devolvimiento,
+        numero_cuotas: formGestion.numero_cuotas,
+        inicio: formGestion.inicio,
+        cierre: formGestion.cierre
+      };
+
+      // Llamar a la API para registrar el contrato
+      const response = await ContratoAPI.create(contratoData);
+      
+      if (response.success) {
+        // Actualizar el estado del contrato en la lista a "Pendiente"
+        setContractsData(prevData => 
+          prevData.map(contract => 
+            contract.id_aprobacion === selectedContractForGestion.id_aprobacion 
+              ? { 
+                  ...contract, 
+                  estatus: "Pendiente",
+                  numero_cuotas: formGestion.numero_cuotas,
+                  inicio: formGestion.inicio,
+                  cierre: formGestion.cierre,
+                  numero_contrato: formGestion.numero_contrato
+                }
+              : contract
+          )
+        );
+        
+        // Incrementar el contador para el próximo contrato
+        setLastContractNumber(prev => prev + 1);
+        
+        // Notificación
+        setNotifications(prev => [
+          { 
+            id: Date.now(), 
+            text: `Contrato ${formGestion.numero_contrato} registrado exitosamente - Estado: Pendiente`, 
+            time: "Ahora", 
+            read: false 
+          },
+          ...prev
+        ]);
+        
+        // Cerrar modal
+        setShowGestionModal(false);
+        setSelectedContractForGestion(null);
+      } else {
+        throw new Error(response.error || 'Error al registrar el contrato');
+      }
+      
+    } catch (error) {
+      console.error("Error al gestionar contrato:", error);
+      setFormErrors({ 
+        submit: error.error || error.message || "Error al guardar el contrato. Intente nuevamente." 
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const cerrarModalGestion = () => {
+    setShowGestionModal(false);
+    setSelectedContractForGestion(null);
+    setFormErrors({});
+  };
+
+  // Filtrado de contratos
+  const filteredContracts = contractsData.filter(contract => {
+    const searchFields = [
+      contract.id_aprobacion?.toString(),
+      contract.emprendedor,
+      contract.estatus
+    ].join(" ").toLowerCase();
+    
+    const matchesSearch = searchFields.includes(searchTerm.toLowerCase());
+    
+    const matchesFilter = selectedFilter === "all" || 
+                         contract.estatus?.toLowerCase() === selectedFilter.toLowerCase();
+    
+    return matchesSearch && matchesFilter;
   });
 
   // Paginación
-  const totalPages = Math.ceil(sortedContracts.length / rowsPerPage);
-  const startIndex = (currentPage - 1) * rowsPerPage;
-  const paginatedContracts = sortedContracts.slice(startIndex, startIndex + rowsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredContracts.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredContracts.length / itemsPerPage);
 
-  // Estadísticas
-  const stats = {
-    total: contracts.length,
-    activos: contracts.filter(c => c.estado === "Activo").length,
-    pendientes: contracts.filter(c => c.estado === "Pendiente" || c.estado === "Aprobado").length,
-    vencidos: contracts.filter(c => c.estado === "Vencido").length,
-    montoTotalDolares: contracts.reduce((sum, c) => sum + c.montoDolares, 0),
-    montoTotalBolivares: contracts.reduce((sum, c) => sum + c.montoBolivares, 0),
-    tasaPromedio: INTERES_PORCENTAJE
-  };
-
-  const getStatusBadge = (status) => {
-    const styles = {
-      'Activo': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      'Pendiente': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-      'Aprobado': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-      'Vencido': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-      'Pagado': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
-      'Cancelado': 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
-      'Rechazado': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-    };
-    return styles[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-  };
-
-  const handleSort = (key) => {
-    setSortConfig({
-      key,
-      direction: sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc'
-    });
-  };
-
-  const resetFilters = () => {
-    setFilters({
-      estado: "",
-      tipoCredito: "",
-      fechaDesde: "",
-      fechaHasta: "",
-      montoMin: "",
-      montoMax: ""
-    });
-    setSearchTerm("");
-    setContractsActiveTab("all");
-    setCurrentPage(1);
-  };
-
-  // Formatear moneda
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'USD' }).format(amount);
-  };
-
-  const formatCurrencyBs = (amount) => {
-    return new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'VES' }).format(amount);
-  };
-
+  // Manejar logout
   const handleLogout = () => {
     localStorage.removeItem('usuario');
     localStorage.removeItem('rememberToken');
@@ -693,12 +633,14 @@ const CreditContracts = () => {
     navigate('/login');
   };
 
+  // Marcar notificaciones como leídas
   const markAsRead = (id) => {
     setNotifications(notifications.map(n => 
       n.id === id ? { ...n, read: true } : n
     ));
   };
 
+  // Cerrar menús al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (!e.target.closest('.notifications-menu') && !e.target.closest('.user-menu')) {
@@ -709,6 +651,105 @@ const CreditContracts = () => {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
+  // Resetear página al cambiar filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedFilter]);
+
+  // Función para obtener el componente de estatus según el estado
+  const getStatusComponent = (contract) => {
+    const statusInfo = STATUS_FLOW[contract.estatus];
+    if (!statusInfo) return null;
+
+    const IconComponent = statusInfo.icon;
+
+    return (
+      <span className={`inline-flex items-center gap-2 px-4 py-2 ${statusInfo.bgColor} text-white rounded-lg text-sm font-medium`}>
+        <IconComponent size={14} />
+        {statusInfo.label}
+      </span>
+    );
+  };
+
+  // Función para obtener las acciones disponibles según el estado
+  const getActionButtons = (contract) => {
+    const actions = [];
+
+    // Botón Gestionar Contrato - Solo cuando está "Esperando contrato"
+    if (contract.estatus === "Esperando contrato") {
+      actions.push(
+        <button
+          key="gestionar"
+          onClick={() => gestionarContrato(contract)}
+          className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            darkMode 
+              ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+              : 'bg-blue-500 hover:bg-blue-600 text-white'
+          }`}
+          title="Gestionar contrato"
+        >
+          <FileText size={14} />
+          Gestionar
+        </button>
+      );
+    }
+
+    // Botón Avanzar Estado - Para estados que no son "Esperando contrato", "Pendiente por desembolso" ni "Cancelado"
+    if (contract.estatus !== "Esperando contrato" && 
+        contract.estatus !== "Pendiente por desembolso" && 
+        contract.estatus !== "Cancelado") {
+      const statusInfo = STATUS_FLOW[contract.estatus];
+      const IconComponent = statusInfo.icon;
+      const nextStatus = statusInfo.next;
+      
+      actions.push(
+        <button
+          key="avanzar"
+          onClick={() => avanzarEstado(contract.id_aprobacion, contract.estatus)}
+          className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            darkMode 
+              ? 'bg-green-600 hover:bg-green-700 text-white' 
+              : 'bg-green-500 hover:bg-green-600 text-white'
+          }`}
+          title={`Avanzar a ${nextStatus}`}
+        >
+          <TrendingUp size={14} />
+          Avanzar
+        </button>
+      );
+    }
+
+    // Botón Realizar Desembolso - Solo cuando está "Pendiente por desembolso"
+    if (contract.estatus === "Pendiente por desembolso") {
+      actions.push(
+        <button
+          key="desembolsar"
+          onClick={() => abrirDesembolso(contract)}
+          className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            darkMode 
+              ? 'bg-emerald-600 hover:bg-emerald-700 text-white' 
+              : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+          }`}
+          title="Realizar desembolso"
+        >
+          <CreditCard size={14} />
+          Desembolsar
+        </button>
+      );
+    }
+
+    // Si no hay acciones, mostrar un mensaje
+    if (actions.length === 0) {
+      return (
+        <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+          Sin acciones
+        </span>
+      );
+    }
+
+    return <div className="flex items-center justify-center gap-2 flex-wrap">{actions}</div>;
+  };
 
   return (
     <div className={`min-h-screen flex flex-col ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
@@ -739,1276 +780,1027 @@ const CreditContracts = () => {
 
         <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'}`}>
           <div className="p-4 md:p-6 mt-16">
-            <div className="space-y-6">
-              {/* Encabezado */}
-              <div className="mb-6">
-                <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  Contratos de Crédito
-                </h1>
-                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Gestión de contratos de crédito para emprendedores
-                </p>
+            
+            {/* ============ ENCABEZADO DE PÁGINA ============ */}
+            <div className="mb-6">
+              <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                <span>Inicio</span>
+                <ChevronRight size={14} />
+                <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>
+                  Gestión de Contratos
+                </span>
               </div>
+              <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                Gestión de Contratos
+              </h1>
+              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Administración de contratos con manejo interno
+              </p>
+            </div>
 
-              {/* Tarjetas de estadísticas */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <FileText className="text-blue-500" size={24} />
-                    <span className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {stats.total}
-                    </span>
+            {/* ============ TARJETAS DE ESTADÍSTICAS ============ */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              {currentData?.stats?.map((stat) => (
+                <div 
+                  key={stat.id}
+                  className={`p-6 rounded-xl ${
+                    darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-100'
+                  } shadow-sm hover:shadow-md transition-all`}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`p-3 rounded-lg ${stat.bgColor}`}>
+                      <stat.icon className={stat.textColor} size={22} />
+                    </div>
+                    <button className="text-gray-400 hover:text-gray-600">
+                      <MoreVertical size={16} />
+                    </button>
                   </div>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Contratos</p>
+                  <h3 className={`text-2xl font-bold mb-1 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    {loading ? (
+                      <Loader2 size={24} className="animate-spin" />
+                    ) : (
+                      stat.value
+                    )}
+                  </h3>
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {stat.title}
+                  </p>
                 </div>
-                
-                <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <CheckCircle className="text-green-500" size={24} />
-                    <span className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {stats.activos}
-                    </span>
+              ))}
+            </div>
+
+            {/* ============ TABLA DE CONTRATOS ============ */}
+            <div className={`rounded-xl ${
+              darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-100'
+            } shadow-sm overflow-hidden`}>
+              
+              {/* Encabezado de la tabla */}
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      Listado de Contratos - Manejo Interno
+                    </h3>
+                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {filteredContracts.length} contratos encontrados
+                    </p>
                   </div>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Contratos Activos</p>
-                </div>
-                
-                <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <DollarSign className="text-yellow-500" size={24} />
-                    <span className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {formatCurrency(stats.montoTotalDolares)}
-                    </span>
-                  </div>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Monto Total Otorgado (USD)</p>
-                </div>
-                
-                <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <Percent className="text-purple-500" size={24} />
-                    <span className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {stats.tasaPromedio}%
-                    </span>
-                  </div>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Tasa de Interés Anual</p>
-                </div>
-              </div>
+                  
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    {/* Buscador */}
+                    <div className="relative flex-1 sm:flex-none">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input
+                        type="text"
+                        placeholder="Buscar por ID, emprendedor..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className={`w-full sm:w-80 pl-10 pr-4 py-2.5 rounded-lg border ${
+                          darkMode 
+                            ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                            : 'bg-white border-gray-200 placeholder-gray-500'
+                        } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm`}
+                      />
+                    </div>
 
-              {/* Tabs */}
-              <div className="border-b border-gray-200 dark:border-gray-700">
-                <nav className="flex gap-4">
-                  <button
-                    onClick={() => { setContractsActiveTab("all"); setCurrentPage(1); }}
-                    className={`px-4 py-2 font-medium transition-colors ${
-                      contractsActiveTab === "all"
-                        ? `border-b-2 border-[#2A9D8F] text-[#2A9D8F]`
-                        : darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Todos ({stats.total})
-                  </button>
-                  <button
-                    onClick={() => { setContractsActiveTab("active"); setCurrentPage(1); }}
-                    className={`px-4 py-2 font-medium transition-colors ${
-                      contractsActiveTab === "active"
-                        ? `border-b-2 border-[#2A9D8F] text-[#2A9D8F]`
-                        : darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Activos ({stats.activos})
-                  </button>
-                  <button
-                    onClick={() => { setContractsActiveTab("pending"); setCurrentPage(1); }}
-                    className={`px-4 py-2 font-medium transition-colors ${
-                      contractsActiveTab === "pending"
-                        ? `border-b-2 border-[#2A9D8F] text-[#2A9D8F]`
-                        : darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Pendientes ({stats.pendientes})
-                  </button>
-                  <button
-                    onClick={() => { setContractsActiveTab("expired"); setCurrentPage(1); }}
-                    className={`px-4 py-2 font-medium transition-colors ${
-                      contractsActiveTab === "expired"
-                        ? `border-b-2 border-[#2A9D8F] text-[#2A9D8F]`
-                        : darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Vencidos ({stats.vencidos})
-                  </button>
-                </nav>
-              </div>
-
-              {/* Barra de búsqueda y acciones */}
-              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-                <div className="relative w-full sm:w-96">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="text"
-                    placeholder="Buscar por código, emprendedor, cédula..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className={`w-full pl-10 pr-4 py-2 rounded-lg border ${
-                      darkMode 
-                        ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400' 
-                        : 'bg-white border-gray-200 placeholder-gray-500'
-                    } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                  />
-                </div>
-                
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className={`px-4 py-2 rounded-lg border flex items-center gap-2 ${
-                      darkMode 
-                        ? 'border-gray-700 text-gray-300 hover:bg-gray-800' 
-                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Filter size={20} />
-                    Filtros
-                  </button>
-                  <button
-                    onClick={handleNewContract}
-                    className="px-4 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
-                  >
-                    <Plus size={20} />
-                    Nuevo Contrato
-                  </button>
-                </div>
-              </div>
-
-              {/* Panel de filtros */}
-              {showFilters && (
-                <div className={`p-4 rounded-lg border ${
-                  darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
-                }`}>
-                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    <select
-                      value={filters.estado}
-                      onChange={(e) => setFilters({...filters, estado: e.target.value})}
-                      className={`px-3 py-2 rounded-lg border ${
-                        darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                      }`}
-                    >
-                      <option value="">Todos los estados</option>
-                      {estados.map(estado => (
-                        <option key={estado} value={estado}>{estado}</option>
-                      ))}
-                    </select>
-
-                    <select
-                      value={filters.tipoCredito}
-                      onChange={(e) => setFilters({...filters, tipoCredito: e.target.value})}
-                      className={`px-3 py-2 rounded-lg border ${
-                        darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                      }`}
-                    >
-                      <option value="">Todos los tipos</option>
-                      {tiposCredito.map(tipo => (
-                        <option key={tipo} value={tipo}>{tipo}</option>
-                      ))}
-                    </select>
-
-                    <input
-                      type="date"
-                      value={filters.fechaDesde}
-                      onChange={(e) => setFilters({...filters, fechaDesde: e.target.value})}
-                      className={`px-3 py-2 rounded-lg border ${
-                        darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                      }`}
-                      placeholder="Fecha desde"
-                    />
-
-                    <input
-                      type="date"
-                      value={filters.fechaHasta}
-                      onChange={(e) => setFilters({...filters, fechaHasta: e.target.value})}
-                      className={`px-3 py-2 rounded-lg border ${
-                        darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                      }`}
-                      placeholder="Fecha hasta"
-                    />
-
-                    <input
-                      type="number"
-                      value={filters.montoMin}
-                      onChange={(e) => setFilters({...filters, montoMin: e.target.value})}
-                      className={`px-3 py-2 rounded-lg border ${
-                        darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                      }`}
-                      placeholder="Monto mínimo (USD)"
-                    />
-
-                    <input
-                      type="number"
-                      value={filters.montoMax}
-                      onChange={(e) => setFilters({...filters, montoMax: e.target.value})}
-                      className={`px-3 py-2 rounded-lg border ${
-                        darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                      }`}
-                      placeholder="Monto máximo (USD)"
-                    />
-                  </div>
-                  <div className="flex justify-end mt-4">
+                    {/* Botón Filtros */}
                     <button
-                      onClick={resetFilters}
-                      className="px-4 py-2 text-sm text-[#2A9D8F] hover:text-[#264653]"
+                      onClick={() => setShowFilters(!showFilters)}
+                      className={`p-2.5 rounded-lg border ${
+                        showFilters 
+                          ? 'bg-[#2A9D8F] text-white border-[#2A9D8F]' 
+                          : darkMode 
+                            ? 'border-gray-600 text-gray-400 hover:bg-gray-700' 
+                            : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                      } transition-colors`}
                     >
-                      Limpiar filtros
+                      <Filter size={18} />
                     </button>
                   </div>
                 </div>
-              )}
 
-              {/* Tabla de contratos */}
-              <div className={`rounded-xl border ${
-                darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
-              } overflow-hidden`}>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                            onClick={() => handleSort('codigo')}>
-                          <div className="flex items-center gap-2">
-                            Código
-                            <ArrowUpDown size={14} />
-                          </div>
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Emprendedor
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                            onClick={() => handleSort('montoDolares')}>
-                          <div className="flex items-center gap-2">
-                            Monto (USD)
-                            <ArrowUpDown size={14} />
-                          </div>
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Monto (Bs)
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                            onClick={() => handleSort('cuotaMensual')}>
-                          <div className="flex items-center gap-2">
-                            Cuota
-                            <ArrowUpDown size={14} />
-                          </div>
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                            onClick={() => handleSort('cuotasPagadas')}>
-                          <div className="flex items-center gap-2">
-                            Progreso
-                            <ArrowUpDown size={14} />
-                          </div>
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Estado
-                        </th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Acciones
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
-                      {paginatedContracts.map((contract) => {
-                        const progreso = (contract.cuotasPagadas / contract.totalCuotas) * 100;
-                        return (
-                          <tr key={contract.id} className={`${
-                            darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-                          } transition-colors`}>
-                            <td className="px-4 py-3">
-                              <span className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                {contract.codigo}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div>
-                                <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                  {contract.emprendedor}
-                                </p>
-                                <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                  {contract.emprendimiento}
-                                </p>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                {formatCurrency(contract.montoDolares)}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                {formatCurrencyBs(contract.montoBolivares)}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                {formatCurrency(contract.cuotaMensual)}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <div className="flex-1">
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div
-                                      className="bg-[#2A9D8F] h-2 rounded-full"
-                                      style={{ width: `${progreso}%` }}
-                                    />
-                                  </div>
-                                </div>
-                                <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                  {contract.cuotasPagadas}/{contract.totalCuotas}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(contract.estado)}`}>
-                                {contract.estado}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center justify-center gap-2">
-                                <button
-                                  onClick={() => handleViewDetails(contract)}
-                                  className={`p-1 rounded-lg ${
-                                    darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
-                                  } transition-colors`}
-                                  title="Ver detalles"
-                                >
-                                  <Eye size={18} className="text-[#2A9D8F]" />
-                                </button>
-                                <button
-                                  onClick={() => handleEditContract(contract)}
-                                  className={`p-1 rounded-lg ${
-                                    darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
-                                  } transition-colors`}
-                                  title="Editar"
-                                >
-                                  <Edit size={18} className="text-blue-500" />
-                                </button>
-                                {contract.estado === "Activo" && (
-                                  <button
-                                    onClick={() => handleRegisterPayment(contract)}
-                                    className={`p-1 rounded-lg ${
-                                      darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
-                                    } transition-colors`}
-                                    title="Registrar pago"
-                                  >
-                                    <CreditCard size={18} className="text-green-500" />
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handleDownloadContract(contract)}
-                                  className={`p-1 rounded-lg ${
-                                    darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
-                                  } transition-colors`}
-                                  title="Descargar"
-                                >
-                                  <Download size={18} className="text-purple-500" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteContract(contract.id)}
-                                  className={`p-1 rounded-lg ${
-                                    darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
-                                  } transition-colors`}
-                                  title="Eliminar"
-                                >
-                                  <Trash2 size={18} className="text-red-500" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Paginación */}
-                {sortedContracts.length > 0 && (
-                  <div className={`px-4 py-3 flex items-center justify-between border-t ${
-                    darkMode ? 'border-gray-700' : 'border-gray-200'
+                {/* Filtros expandibles */}
+                {showFilters && (
+                  <div className={`mt-4 p-4 rounded-lg ${
+                    darkMode ? 'bg-gray-700/50' : 'bg-gray-50'
                   }`}>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>
-                        Mostrar
-                      </span>
-                      <select
-                        value={rowsPerPage}
-                        onChange={(e) => {
-                          setRowsPerPage(Number(e.target.value));
-                          setCurrentPage(1);
-                        }}
-                        className={`px-2 py-1 rounded border ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                        }`}
-                      >
-                        <option value={5}>5</option>
-                        <option value={10}>10</option>
-                        <option value={25}>25</option>
-                        <option value={50}>50</option>
-                      </select>
-                      <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>
-                        registros
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>
-                        {startIndex + 1}-{Math.min(startIndex + rowsPerPage, sortedContracts.length)} de {sortedContracts.length}
-                      </span>
-                      
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setCurrentPage(1)}
-                          disabled={currentPage === 1}
-                          className={`p-1 rounded ${
-                            currentPage === 1
-                              ? 'text-gray-400 cursor-not-allowed'
-                              : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
-                          }`}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className={`block text-xs font-medium mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          Estatus
+                        </label>
+                        <select
+                          value={selectedFilter}
+                          onChange={(e) => setSelectedFilter(e.target.value)}
+                          className={`w-full px-3 py-2 rounded-lg border ${
+                            darkMode 
+                              ? 'bg-gray-700 border-gray-600 text-white' 
+                              : 'bg-white border-gray-200'
+                          } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm`}
                         >
-                          <ChevronsLeft size={18} />
-                        </button>
-                        <button
-                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                          disabled={currentPage === 1}
-                          className={`p-1 rounded ${
-                            currentPage === 1
-                              ? 'text-gray-400 cursor-not-allowed'
-                              : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
-                          }`}
+                          <option value="all">Todos los estados</option>
+                          <option value="activo">Activo</option>
+                          <option value="pendiente">Pendiente</option>
+                          <option value="pendiente por desembolso">Pendiente por Desembolso</option>
+                          <option value="esperando contrato">Esperando contrato</option>
+                          <option value="finalizado">Finalizado</option>
+                          <option value="cancelado">Cancelado</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={`block text-xs font-medium mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          Cuotas
+                        </label>
+                        <select
+                          className={`w-full px-3 py-2 rounded-lg border ${
+                            darkMode 
+                              ? 'bg-gray-700 border-gray-600 text-white' 
+                              : 'bg-white border-gray-200'
+                          } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm`}
                         >
-                          <ChevronLeft size={18} />
-                        </button>
-                        
-                        <span className={`px-3 py-1 text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                          Página {currentPage} de {totalPages}
-                        </span>
-                        
+                          <option value="all">Todas</option>
+                          <option value="definido">Definidas</option>
+                          <option value="sin-definir">Sin definir</option>
+                        </select>
+                      </div>
+                      <div className="flex items-end">
                         <button
-                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                          disabled={currentPage === totalPages}
-                          className={`p-1 rounded ${
-                            currentPage === totalPages
-                              ? 'text-gray-400 cursor-not-allowed'
-                              : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
-                          }`}
+                          onClick={() => {
+                            setSelectedFilter("all");
+                            setSearchTerm("");
+                            setShowFilters(false);
+                          }}
+                          className={`w-full px-4 py-2 rounded-lg border ${
+                            darkMode 
+                              ? 'border-gray-600 text-gray-400 hover:bg-gray-700' 
+                              : 'border-gray-200 text-gray-600 hover:bg-gray-100'
+                          } transition-colors text-sm`}
                         >
-                          <ChevronRight size={18} />
-                        </button>
-                        <button
-                          onClick={() => setCurrentPage(totalPages)}
-                          disabled={currentPage === totalPages}
-                          className={`p-1 rounded ${
-                            currentPage === totalPages
-                              ? 'text-gray-400 cursor-not-allowed'
-                              : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
-                          }`}
-                        >
-                          <ChevronsRight size={18} />
+                          Limpiar Filtros
                         </button>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-          <Footer darkMode={darkMode} />
-        </main>
-      </div>
 
-      {/* Modal para crear/editar contrato - Continuación del código */}
-      {showContractModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className={`rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto ${
-            darkMode ? 'bg-gray-800' : 'bg-white'
-          }`}>
-            <div className={`sticky top-0 flex justify-between items-center p-6 border-b ${
-              darkMode ? 'border-gray-700' : 'border-gray-200'
-            }`}>
-              <div className="flex items-center gap-3">
-                <FileSignature size={28} className="text-[#2A9D8F]" />
-                <div>
-                  <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    {selectedContract ? 'Editar Contrato' : 'Nuevo Contrato de Crédito'}
-                  </h2>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Complete la información del contrato de crédito
+              {/* Estado de carga */}
+              {loading && (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <Loader2 size={48} className="animate-spin text-[#2A9D8F] mb-4" />
+                  <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Cargando contratos...
                   </p>
                 </div>
-              </div>
-              <button
-                onClick={() => setShowContractModal(false)}
-                className={`p-2 rounded-lg transition-colors ${
-                  darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                }`}
-              >
-                <X size={24} className={darkMode ? 'text-gray-400' : 'text-gray-500'} />
-              </button>
-            </div>
+              )}
 
-            <div className="p-6">
-              <form onSubmit={(e) => e.preventDefault()}>
-                {/* Información del contrato */}
-                <div className="mb-6">
-                  <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    <FileText size={20} className="text-[#2A9D8F]" />
-                    Información General
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Código de Contrato *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.codigo}
-                        className={`w-full px-3 py-2 rounded-lg border bg-gray-100 ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
-                        }`}
-                        readOnly
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Fecha de Inicio *
-                      </label>
-                      <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                          type="date"
-                          value={formData.fechaInicio}
-                          onChange={(e) => setFormData({...formData, fechaInicio: e.target.value})}
-                          className={`w-full pl-10 pr-3 py-2 rounded-lg border ${
-                            darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                          } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Estado *
-                      </label>
-                      <select
-                        value={formData.estado}
-                        onChange={(e) => setFormData({...formData, estado: e.target.value})}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                        }`}
-                      >
-                        {estados.map(estado => (
-                          <option key={estado} value={estado}>{estado}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+              {/* Estado de error */}
+              {error && !loading && (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <AlertCircle size={48} className="text-red-500 mb-4" />
+                  <p className={`text-lg font-medium ${darkMode ? 'text-red-400' : 'text-red-600'} mb-2`}>
+                    Error al cargar los datos
+                  </p>
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'} mb-4`}>
+                    {error}
+                  </p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg hover:bg-[#238b7e] transition-colors"
+                  >
+                    Reintentar
+                  </button>
                 </div>
+              )}
 
-                {/* Datos del emprendedor */}
-                <div className="mb-6">
-                  <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    <User size={20} className="text-[#2A9D8F]" />
-                    Datos del Emprendedor *
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Emprendedor
-                      </label>
-                      <select
-                        value={formData.emprendedorId}
-                        onChange={(e) => {
-                          const emp = emprendedores.find(emp => emp.id === parseInt(e.target.value));
-                          if (emp) {
-                            setFormData({
-                              ...formData,
-                              emprendedorId: emp.id,
-                              emprendedor: emp.nombre,
-                              cedula: emp.cedula,
-                              telefono: emp.telefono,
-                              email: emp.email,
-                              emprendimiento: emp.emprendimiento
-                            });
-                          }
-                        }}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                        }`}
-                      >
-                        <option value="">Seleccione un emprendedor</option>
-                        {emprendedores.map(emp => (
-                          <option key={emp.id} value={emp.id}>{emp.nombre} - {emp.cedula}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Cédula
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.cedula}
-                        readOnly
-                        className={`w-full px-3 py-2 rounded-lg border bg-gray-100 ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Teléfono
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.telefono}
-                        readOnly
-                        className={`w-full px-3 py-2 rounded-lg border bg-gray-100 ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        value={formData.email}
-                        readOnly
-                        className={`w-full px-3 py-2 rounded-lg border bg-gray-100 ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
-                        }`}
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Emprendimiento
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.emprendimiento}
-                        readOnly
-                        className={`w-full px-3 py-2 rounded-lg border bg-gray-100 ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
-                        }`}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Datos del crédito */}
-                <div className="mb-6">
-                  <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    <DollarSign size={20} className="text-[#2A9D8F]" />
-                    Datos del Crédito
-                  </h3>
-                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-4">
-                    <p className="text-sm text-blue-800 dark:text-blue-200">
-                      <strong>Condiciones del crédito:</strong> Flat del {FLAT_PORCENTAJE}% (se resta al monto en bolívares), 
-                      Interés del {INTERES_PORCENTAJE}% sobre el monto en dólares, {CUOTAS_FIJAS} cuotas fijas.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Monto del Crédito (USD) *
-                      </label>
-                      <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                          type="number"
-                          value={formData.montoDolares}
-                          onChange={(e) => setFormData({...formData, montoDolares: e.target.value})}
-                          className={`w-full pl-10 pr-3 py-2 rounded-lg border ${
-                            darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                          }`}
-                          placeholder="0.00"
-                          step="0.01"
-                        />
-                      </div>
-                      <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Monto que recibe el emprendedor en USD
-                      </p>
-                    </div>
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Monto en Bolívares (Bs)
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">Bs</span>
-                        <input
-                          type="text"
-                          value={formData.montoBolivares}
-                          readOnly
-                          className={`w-full pl-10 pr-3 py-2 rounded-lg border bg-gray-100 ${
-                            darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
-                          }`}
-                        />
-                      </div>
-                      <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Monto en Bs después de aplicar el flat del {FLAT_PORCENTAJE}%
-                      </p>
-                    </div>
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Tasa de Interés
-                      </label>
-                      <div className="relative">
-                        <Percent className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                          type="text"
-                          value={`${INTERES_PORCENTAJE}%`}
-                          readOnly
-                          className={`w-full pl-10 pr-3 py-2 rounded-lg border bg-gray-100 ${
-                            darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
-                          }`}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Plazo
-                      </label>
-                      <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                          type="text"
-                          value={`${CUOTAS_FIJAS} meses`}
-                          readOnly
-                          className={`w-full pl-10 pr-3 py-2 rounded-lg border bg-gray-100 ${
-                            darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
-                          }`}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Cuota Mensual (USD)
-                      </label>
-                      <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                          type="text"
-                          value={formData.cuotaMensual}
-                          readOnly
-                          className={`w-full pl-10 pr-3 py-2 rounded-lg border bg-gray-100 ${
-                            darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
-                          }`}
-                        />
-                      </div>
-                      <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        (Monto USD + {INTERES_PORCENTAJE}% interés) / {CUOTAS_FIJAS} cuotas
-                      </p>
-                    </div>
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Tipo de Crédito *
-                      </label>
-                      <select
-                        value={formData.tipoCredito}
-                        onChange={(e) => setFormData({...formData, tipoCredito: e.target.value})}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                        }`}
-                      >
-                        {tiposCredito.map(tipo => (
-                          <option key={tipo} value={tipo}>{tipo}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Fecha de Vencimiento
-                      </label>
-                      <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                          type="date"
-                          value={formData.fechaVencimiento}
-                          readOnly
-                          className={`w-full pl-10 pr-3 py-2 rounded-lg border bg-gray-100 ${
-                            darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'
-                          }`}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Información adicional */}
-                <div className="mb-6">
-                  <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    <Info size={20} className="text-[#2A9D8F]" />
-                    Información Adicional
-                  </h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Destino del Crédito
-                      </label>
-                      <textarea
-                        value={formData.destino}
-                        onChange={(e) => setFormData({...formData, destino: e.target.value})}
-                        rows={2}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                        }`}
-                        placeholder="Describa el destino del crédito..."
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Garantías
-                      </label>
-                      <textarea
-                        value={formData.garantias}
-                        onChange={(e) => setFormData({...formData, garantias: e.target.value})}
-                        rows={2}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                        }`}
-                        placeholder="Describa las garantías ofrecidas..."
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Observaciones
-                      </label>
-                      <textarea
-                        value={formData.observaciones}
-                        onChange={(e) => setFormData({...formData, observaciones: e.target.value})}
-                        rows={2}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                        }`}
-                        placeholder="Observaciones adicionales..."
-                      />
-                    </div>
-                  </div>
-                </div>
-              </form>
-            </div>
-
-            <div className={`sticky bottom-0 flex justify-end gap-3 p-6 border-t ${
-              darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
-            }`}>
-              <button
-                onClick={() => setShowContractModal(false)}
-                className={`px-4 py-2 rounded-lg border transition-colors ${
-                  darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSaveContract}
-                className="px-6 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
-              >
-                <Save size={18} />
-                {selectedContract ? 'Actualizar' : 'Guardar'} Contrato
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de detalles del contrato */}
-      {showDetailModal && selectedContract && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className={`rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto ${
-            darkMode ? 'bg-gray-800' : 'bg-white'
-          }`}>
-            <div className={`sticky top-0 flex justify-between items-center p-6 border-b ${
-              darkMode ? 'border-gray-700' : 'border-gray-200'
-            }`}>
-              <div className="flex items-center gap-3">
-                <FileSignature size={28} className="text-[#2A9D8F]" />
-                <div>
-                  <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    Detalles del Contrato
-                  </h2>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {selectedContract.codigo}
+              {/* Mensaje sin registros */}
+              {!loading && !error && currentItems.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <FileText size={48} className="text-gray-400 mb-4" />
+                  <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    No se encontraron contratos
                   </p>
                 </div>
-              </div>
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className={`p-2 rounded-lg transition-colors ${
-                  darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                }`}
-              >
-                <X size={24} className={darkMode ? 'text-gray-400' : 'text-gray-500'} />
-              </button>
-            </div>
+              )}
 
-            <div className="p-6">
-              {/* Información del contrato */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                  <h3 className={`font-semibold mb-3 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    <FileText size={18} />
-                    Información General
-                  </h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Código:</span>
-                      <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{selectedContract.codigo}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Fecha Inicio:</span>
-                      <span className={darkMode ? 'text-white' : 'text-gray-800'}>{selectedContract.fechaInicio}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Fecha Vencimiento:</span>
-                      <span className={darkMode ? 'text-white' : 'text-gray-800'}>{selectedContract.fechaVencimiento}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Estado:</span>
-                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(selectedContract.estado)}`}>
-                        {selectedContract.estado}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                  <h3 className={`font-semibold mb-3 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    <User size={18} />
-                    Datos del Emprendedor
-                  </h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Nombre:</span>
-                      <span className={darkMode ? 'text-white' : 'text-gray-800'}>{selectedContract.emprendedor}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Cédula:</span>
-                      <span className={darkMode ? 'text-white' : 'text-gray-800'}>{selectedContract.cedula}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Emprendimiento:</span>
-                      <span className={darkMode ? 'text-white' : 'text-gray-800'}>{selectedContract.emprendimiento}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                  <h3 className={`font-semibold mb-3 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    <DollarSign size={18} />
-                    Datos del Crédito
-                  </h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Monto (USD):</span>
-                      <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{formatCurrency(selectedContract.montoDolares)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Monto (Bs):</span>
-                      <span className={darkMode ? 'text-white' : 'text-gray-800'}>{formatCurrencyBs(selectedContract.montoBolivares)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Tasa Interés:</span>
-                      <span className={darkMode ? 'text-white' : 'text-gray-800'}>{selectedContract.tasaInteres}% anual</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Plazo:</span>
-                      <span className={darkMode ? 'text-white' : 'text-gray-800'}>{selectedContract.plazo} meses</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Cuota Mensual:</span>
-                      <span className={darkMode ? 'text-white' : 'text-gray-800'}>{formatCurrency(selectedContract.cuotaMensual)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Tipo Crédito:</span>
-                      <span className={darkMode ? 'text-white' : 'text-gray-800'}>{selectedContract.tipoCredito}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                  <h3 className={`font-semibold mb-3 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    <TrendingUp size={18} />
-                    Estado de Pagos
-                  </h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Cuotas Pagadas:</span>
-                      <span className={darkMode ? 'text-white' : 'text-gray-800'}>{selectedContract.cuotasPagadas} / {selectedContract.totalCuotas}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Saldo Pendiente:</span>
-                      <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{formatCurrency(selectedContract.saldoPendiente)}</span>
-                    </div>
-                    <div className="mt-2">
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-[#2A9D8F] h-2 rounded-full"
-                          style={{ width: `${(selectedContract.cuotasPagadas / selectedContract.totalCuotas) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Historial de pagos */}
-              <div className="mb-6">
-                <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  <Receipt size={20} className="text-[#2A9D8F]" />
-                  Historial de Pagos
-                </h3>
-                {selectedContract.historialPagos.length > 0 ? (
+              {/* Tabla con datos */}
+              {!loading && !error && currentItems.length > 0 && (
+                <>
                   <div className="overflow-x-auto">
                     <table className="w-full">
-                      <thead className={darkMode ? 'bg-gray-700' : 'bg-gray-50'}>
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Fecha</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Monto</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Referencia</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Estado</th>
+                      <thead>
+                        <tr className={`${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            ID Aprobación
+                          </th>
+                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Emprendedor
+                          </th>
+                          <th className={`px-6 py-3 text-center text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            N° Cuotas
+                          </th>
+                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Inicio
+                          </th>
+                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Cierre
+                          </th>
+                          <th className={`px-6 py-3 text-center text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Estatus
+                          </th>
+                          <th className={`px-6 py-3 text-center text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Acciones
+                          </th>
                         </tr>
                       </thead>
                       <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
-                        {selectedContract.historialPagos.map((pago, index) => (
-                          <tr key={index}>
-                            <td className="px-4 py-2 text-sm">{pago.fecha}</td>
-                            <td className="px-4 py-2 text-sm">{formatCurrency(pago.monto)}</td>
-                            <td className="px-4 py-2 text-sm">{pago.referencia}</td>
-                            <td className="px-4 py-2">
-                              <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                                {pago.estado}
-                              </span>
+                        {currentItems.map((contract) => (
+                          <tr 
+                            key={contract.id_aprobacion}
+                            className={`${darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50'} transition-colors`}
+                          >
+                            {/* ID Aprobación */}
+                            <td className={`px-6 py-4 text-sm font-semibold ${darkMode ? 'text-[#2A9D8F]' : 'text-[#2A9D8F]'}`}>
+                              #{contract.id_aprobacion}
+                            </td>
+
+                            {/* Emprendedor */}
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-blue-50'}`}>
+                                  <User size={16} className={darkMode ? 'text-gray-300' : 'text-blue-600'} />
+                                </div>
+                                <div>
+                                  <span className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                                    {contract.emprendedor}
+                                  </span>
+                                  {contract.numero_contrato && (
+                                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                      Contrato: {contract.numero_contrato}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* N° Cuotas */}
+                            <td className="px-6 py-4 text-center">
+                              {contract.numero_cuotas === "Sin definir" ? (
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                                  darkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500'
+                                }`}>
+                                  Sin definir
+                                </span>
+                              ) : (
+                                <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${
+                                  darkMode ? 'bg-blue-900 text-blue-300' : 'bg-blue-50 text-blue-700'
+                                }`}>
+                                  {contract.numero_cuotas}
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Inicio */}
+                            <td className={`px-6 py-4 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                              <div className="flex items-center gap-2">
+                                <Calendar size={14} className="text-gray-400" />
+                                {contract.inicio === "Sin definir" ? (
+                                  <span className={darkMode ? 'text-gray-500' : 'text-gray-400'}>Sin definir</span>
+                                ) : (
+                                  contract.inicio
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Cierre */}
+                            <td className={`px-6 py-4 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                              <div className="flex items-center gap-2">
+                                <Calendar size={14} className="text-gray-400" />
+                                {contract.cierre === "Sin definir" ? (
+                                  <span className={darkMode ? 'text-gray-500' : 'text-gray-400'}>Sin definir</span>
+                                ) : (
+                                  contract.cierre
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Estatus */}
+                            <td className="px-6 py-4 text-center">
+                              {getStatusComponent(contract)}
+                            </td>
+
+                            {/* Acciones */}
+                            <td className="px-6 py-4">
+                              {getActionButtons(contract)}
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                ) : (
-                  <p className={`text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    No hay pagos registrados para este contrato
-                  </p>
-                )}
-              </div>
 
-              {/* Información adicional */}
-              {(selectedContract.destino || selectedContract.garantias || selectedContract.observaciones) && (
-                <div className="mb-6">
-                  <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    <Info size={20} className="text-[#2A9D8F]" />
-                    Información Adicional
-                  </h3>
-                  <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    {selectedContract.destino && (
-                      <div className="mb-3">
-                        <span className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Destino del Crédito:</span>
-                        <p className={darkMode ? 'text-white' : 'text-gray-800'}>{selectedContract.destino}</p>
+                  {/* Paginación */}
+                  <div className={`px-6 py-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Mostrando {indexOfFirstItem + 1} - {Math.min(indexOfLastItem, filteredContracts.length)} de {filteredContracts.length} contratos
                       </div>
-                    )}
-                    {selectedContract.garantias && (
-                      <div className="mb-3">
-                        <span className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Garantías:</span>
-                        <p className={darkMode ? 'text-white' : 'text-gray-800'}>{selectedContract.garantias}</p>
+                      
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          disabled={currentPage === 1}
+                          className={`p-2 rounded-lg border ${
+                            currentPage === 1
+                              ? darkMode 
+                                ? 'border-gray-600 text-gray-600 cursor-not-allowed' 
+                                : 'border-gray-200 text-gray-300 cursor-not-allowed'
+                              : darkMode
+                                ? 'border-gray-600 text-gray-400 hover:bg-gray-700'
+                                : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                          } transition-colors`}
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                              currentPage === page
+                                ? 'bg-[#2A9D8F] text-white'
+                                : darkMode
+                                  ? 'text-gray-400 hover:bg-gray-700 border border-gray-600'
+                                  : 'text-gray-600 hover:bg-gray-100 border border-gray-200'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ))}
+                        
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                          disabled={currentPage === totalPages}
+                          className={`p-2 rounded-lg border ${
+                            currentPage === totalPages
+                              ? darkMode 
+                                ? 'border-gray-600 text-gray-600 cursor-not-allowed' 
+                                : 'border-gray-200 text-gray-300 cursor-not-allowed'
+                              : darkMode
+                                ? 'border-gray-600 text-gray-400 hover:bg-gray-700'
+                                : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                          } transition-colors`}
+                        >
+                          <ChevronRight size={16} />
+                        </button>
                       </div>
-                    )}
-                    {selectedContract.observaciones && (
-                      <div>
-                        <span className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Observaciones:</span>
-                        <p className={darkMode ? 'text-white' : 'text-gray-800'}>{selectedContract.observaciones}</p>
-                      </div>
-                    )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+          </div>
+
+          <Footer darkMode={darkMode} />
+        </main>
+      </div>
+
+      {/* ============ MODAL DE GESTIÓN DE CONTRATO ============ */}
+      {showGestionModal && selectedContractForGestion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div 
+            className="absolute inset-0 bg-black bg-opacity-50" 
+            onClick={cerrarModalGestion} 
+          />
+          <div className={`relative w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto p-6 rounded-xl shadow-2xl ${
+            darkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            
+            {/* Encabezado del Modal */}
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+              <div>
+                <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  Gestionar Contrato
+                </h3>
+                <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Complete los datos del contrato para el emprendedor
+                </p>
+              </div>
+              <button
+                onClick={cerrarModalGestion}
+                className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
+              >
+                <X size={22} className={darkMode ? 'text-gray-400' : 'text-gray-600'} />
+              </button>
+            </div>
+
+            {/* Información del Emprendedor */}
+            <div className={`p-4 rounded-lg mb-6 ${
+              darkMode ? 'bg-gray-700/50 border border-gray-600' : 'bg-blue-50 border border-blue-100'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`p-3 rounded-full ${darkMode ? 'bg-gray-600' : 'bg-blue-100'}`}>
+                  <User size={24} className={darkMode ? 'text-gray-300' : 'text-blue-600'} />
+                </div>
+                <div>
+                  <p className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    {selectedContractForGestion.emprendedor}
+                  </p>
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    ID Aprobación: <span className="font-semibold text-[#2A9D8F]">#{selectedContractForGestion.id_aprobacion}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Formulario */}
+            <form onSubmit={(e) => { e.preventDefault(); confirmarGestion(); }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                
+                {/* Número de Contrato - AUTOMÁTICO */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Número de Contrato <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <FileSignature className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      type="text"
+                      value={formGestion.numero_contrato}
+                      readOnly
+                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${
+                        darkMode 
+                          ? 'bg-gray-600 border-gray-500 text-gray-300 cursor-not-allowed' 
+                          : 'bg-gray-100 border-gray-200 text-gray-600 cursor-not-allowed'
+                      } focus:outline-none text-sm font-medium`}
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className={`p-1 rounded ${darkMode ? 'bg-blue-900/50' : 'bg-blue-50'}`}>
+                      <FileText size={12} className="text-blue-500" />
+                    </div>
+                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      Formato: <span className="font-semibold">IADEY-AAAA-NNN</span> (generado automáticamente)
+                    </p>
                   </div>
                 </div>
-              )}
 
-              {/* Acciones */}
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => handleDownloadContract(selectedContract)}
-                  className="px-4 py-2 border border-[#2A9D8F] text-[#2A9D8F] rounded-lg hover:bg-[#2A9D8F] hover:text-white transition-colors flex items-center gap-2"
-                >
-                  <Download size={18} />
-                  Descargar Contrato
-                </button>
-                <button
-                  onClick={() => handlePrintContract(selectedContract)}
-                  className="px-4 py-2 border border-[#2A9D8F] text-[#2A9D8F] rounded-lg hover:bg-[#2A9D8F] hover:text-white transition-colors flex items-center gap-2"
-                >
-                  <Printer size={18} />
-                  Imprimir
-                </button>
-                {selectedContract.estado === "Activo" && (
-                  <button
-                    onClick={() => {
-                      setShowDetailModal(false);
-                      handleRegisterPayment(selectedContract);
-                    }}
-                    className="px-4 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
-                  >
-                    <CreditCard size={18} />
-                    Registrar Pago
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal para registrar pago */}
-      {showPaymentModal && selectedContract && selectedPayment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className={`rounded-xl w-full max-w-md ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-            <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-              <div className="flex justify-between items-center">
-                <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  Registrar Pago
-                </h2>
-                <button
-                  onClick={() => setShowPaymentModal(false)}
-                  className={`p-1 rounded-lg transition-colors ${
-                    darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                  }`}
-                >
-                  <X size={20} />
-                </button>
-              </div>
-              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                Contrato: {selectedContract.codigo} - {selectedContract.emprendedor}
-              </p>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
+                {/* Moneda */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Monto a Pagar (USD)
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Moneda <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formGestion.moneda}
+                    onChange={(e) => handleInputChange('moneda', e.target.value)}
+                    className={`w-full px-4 py-2.5 rounded-lg border ${
+                      formErrors.moneda 
+                        ? 'border-red-500 focus:ring-red-500' 
+                        : darkMode 
+                          ? 'border-gray-600 focus:ring-[#2A9D8F]' 
+                          : 'border-gray-200 focus:ring-[#2A9D8F]'
+                    } ${
+                      darkMode ? 'bg-gray-700 text-white' : 'bg-white'
+                    } focus:outline-none focus:ring-2 text-sm`}
+                  >
+                    <option value="Bolívares">Bolívares (VES)</option>
+                    <option value="Dólares">Dólares (USD)</option>
+                    <option value="Euros">Euros (EUR)</option>
+                    <option value="Pesos">Pesos (COP)</option>
+                  </select>
+                  {formErrors.moneda && (
+                    <p className="mt-1 text-xs text-red-500">{formErrors.moneda}</p>
+                  )}
+                </div>
+
+                {/* Monto Moneda */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Monto en Moneda <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                     <input
                       type="number"
-                      value={selectedPayment.monto}
-                      onChange={(e) => setSelectedPayment({...selectedPayment, monto: e.target.value})}
-                      className={`w-full pl-10 pr-3 py-2 rounded-lg border ${
-                        darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                      }`}
                       step="0.01"
+                      value={formGestion.monto_moneda}
+                      onChange={(e) => handleInputChange('monto_moneda', e.target.value)}
+                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${
+                        formErrors.monto_moneda 
+                          ? 'border-red-500 focus:ring-red-500' 
+                          : darkMode 
+                            ? 'border-gray-600 focus:ring-[#2A9D8F]' 
+                            : 'border-gray-200 focus:ring-[#2A9D8F]'
+                      } ${
+                        darkMode ? 'bg-gray-700 text-white placeholder-gray-400' : 'bg-white placeholder-gray-400'
+                      } focus:outline-none focus:ring-2 text-sm`}
+                      placeholder="0.00"
                     />
                   </div>
-                  <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Cuota mensual: {formatCurrency(selectedContract.cuotaMensual)}
-                  </p>
+                  {formErrors.monto_moneda && (
+                    <p className="mt-1 text-xs text-red-500">{formErrors.monto_moneda}</p>
+                  )}
                 </div>
+
+                {/* Cambio */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Fecha de Pago
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Cambio (Tasa) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <TrendingUp className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      type="number"
+                      step="0.0001"
+                      value={formGestion.cambio}
+                      onChange={(e) => handleInputChange('cambio', e.target.value)}
+                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${
+                        formErrors.cambio 
+                          ? 'border-red-500 focus:ring-red-500' 
+                          : darkMode 
+                            ? 'border-gray-600 focus:ring-[#2A9D8F]' 
+                            : 'border-gray-200 focus:ring-[#2A9D8F]'
+                      } ${
+                        darkMode ? 'bg-gray-700 text-white placeholder-gray-400' : 'bg-white placeholder-gray-400'
+                      } focus:outline-none focus:ring-2 text-sm`}
+                      placeholder="0.0000"
+                    />
+                  </div>
+                  {formErrors.cambio && (
+                    <p className="mt-1 text-xs text-red-500">{formErrors.cambio}</p>
+                  )}
+                </div>
+
+                {/* Flat */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Flat (%) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">%</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formGestion.flat}
+                      onChange={(e) => handleInputChange('flat', e.target.value)}
+                      className={`w-full pl-4 pr-10 py-2.5 rounded-lg border ${
+                        formErrors.flat 
+                          ? 'border-red-500 focus:ring-red-500' 
+                          : darkMode 
+                            ? 'border-gray-600 focus:ring-[#2A9D8F]' 
+                            : 'border-gray-200 focus:ring-[#2A9D8F]'
+                      } ${
+                        darkMode ? 'bg-gray-700 text-white placeholder-gray-400' : 'bg-white placeholder-gray-400'
+                      } focus:outline-none focus:ring-2 text-sm`}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  {formErrors.flat && (
+                    <p className="mt-1 text-xs text-red-500">{formErrors.flat}</p>
+                  )}
+                </div>
+
+                {/* Interés */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Interés (%) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">%</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formGestion.interes}
+                      onChange={(e) => handleInputChange('interes', e.target.value)}
+                      className={`w-full pl-4 pr-10 py-2.5 rounded-lg border ${
+                        formErrors.interes 
+                          ? 'border-red-500 focus:ring-red-500' 
+                          : darkMode 
+                            ? 'border-gray-600 focus:ring-[#2A9D8F]' 
+                            : 'border-gray-200 focus:ring-[#2A9D8F]'
+                      } ${
+                        darkMode ? 'bg-gray-700 text-white placeholder-gray-400' : 'bg-white placeholder-gray-400'
+                      } focus:outline-none focus:ring-2 text-sm`}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  {formErrors.interes && (
+                    <p className="mt-1 text-xs text-red-500">{formErrors.interes}</p>
+                  )}
+                </div>
+
+                {/* Devolvimiento */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Devolvimiento <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formGestion.devolvimiento}
+                      onChange={(e) => handleInputChange('devolvimiento', e.target.value)}
+                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${
+                        formErrors.devolvimiento 
+                          ? 'border-red-500 focus:ring-red-500' 
+                          : darkMode 
+                            ? 'border-gray-600 focus:ring-[#2A9D8F]' 
+                            : 'border-gray-200 focus:ring-[#2A9D8F]'
+                      } ${
+                        darkMode ? 'bg-gray-700 text-white placeholder-gray-400' : 'bg-white placeholder-gray-400'
+                      } focus:outline-none focus:ring-2 text-sm`}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  {formErrors.devolvimiento && (
+                    <p className="mt-1 text-xs text-red-500">{formErrors.devolvimiento}</p>
+                  )}
+                </div>
+
+                {/* Número de Cuotas */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Número de Cuotas <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={formGestion.numero_cuotas}
+                    onChange={(e) => handleInputChange('numero_cuotas', e.target.value)}
+                    className={`w-full px-4 py-2.5 rounded-lg border ${
+                      formErrors.numero_cuotas 
+                        ? 'border-red-500 focus:ring-red-500' 
+                        : darkMode 
+                          ? 'border-gray-600 focus:ring-[#2A9D8F]' 
+                          : 'border-gray-200 focus:ring-[#2A9D8F]'
+                    } ${
+                      darkMode ? 'bg-gray-700 text-white placeholder-gray-400' : 'bg-white placeholder-gray-400'
+                    } focus:outline-none focus:ring-2 text-sm`}
+                    placeholder="Ej: 12"
+                  />
+                  {formErrors.numero_cuotas && (
+                    <p className="mt-1 text-xs text-red-500">{formErrors.numero_cuotas}</p>
+                  )}
+                </div>
+
+                {/* Fecha Inicio */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Fecha de Inicio <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                     <input
                       type="date"
-                      value={selectedPayment.fecha}
-                      onChange={(e) => setSelectedPayment({...selectedPayment, fecha: e.target.value})}
-                      className={`w-full pl-10 pr-3 py-2 rounded-lg border ${
-                        darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                      }`}
+                      value={formGestion.inicio}
+                      onChange={(e) => handleInputChange('inicio', e.target.value)}
+                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${
+                        formErrors.inicio 
+                          ? 'border-red-500 focus:ring-red-500' 
+                          : darkMode 
+                            ? 'border-gray-600 focus:ring-[#2A9D8F]' 
+                            : 'border-gray-200 focus:ring-[#2A9D8F]'
+                      } ${
+                        darkMode ? 'bg-gray-700 text-white' : 'bg-white'
+                      } focus:outline-none focus:ring-2 text-sm`}
                     />
                   </div>
+                  {formErrors.inicio && (
+                    <p className="mt-1 text-xs text-red-500">{formErrors.inicio}</p>
+                  )}
                 </div>
+
+                {/* Fecha Cierre */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Número de Referencia *
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Fecha de Cierre <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    value={selectedPayment.referencia}
-                    onChange={(e) => setSelectedPayment({...selectedPayment, referencia: e.target.value})}
-                    className={`w-full px-3 py-2 rounded-lg border ${
-                      darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                    }`}
-                    placeholder="Ingrese el número de referencia"
-                  />
-                </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Observaciones
-                  </label>
-                  <textarea
-                    value={selectedPayment.observaciones}
-                    onChange={(e) => setSelectedPayment({...selectedPayment, observaciones: e.target.value})}
-                    rows={2}
-                    className={`w-full px-3 py-2 rounded-lg border ${
-                      darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
-                    }`}
-                    placeholder="Observaciones del pago..."
-                  />
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      type="date"
+                      value={formGestion.cierre}
+                      onChange={(e) => handleInputChange('cierre', e.target.value)}
+                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${
+                        formErrors.cierre 
+                          ? 'border-red-500 focus:ring-red-500' 
+                          : darkMode 
+                            ? 'border-gray-600 focus:ring-[#2A9D8F]' 
+                            : 'border-gray-200 focus:ring-[#2A9D8F]'
+                      } ${
+                        darkMode ? 'bg-gray-700 text-white' : 'bg-white'
+                      } focus:outline-none focus:ring-2 text-sm`}
+                    />
+                  </div>
+                  {formErrors.cierre && (
+                    <p className="mt-1 text-xs text-red-500">{formErrors.cierre}</p>
+                  )}
                 </div>
               </div>
-            </div>
-            <div className={`p-6 border-t flex justify-end gap-3 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-              <button
-                onClick={() => setShowPaymentModal(false)}
-                className={`px-4 py-2 rounded-lg border ${
-                  darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={savePayment}
-                className="px-4 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
-              >
-                <Check size={18} />
-                Registrar Pago
-              </button>
-            </div>
+
+              {/* Error de submit */}
+              {formErrors.submit && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                  <AlertCircle size={16} className="text-red-500" />
+                  <p className="text-sm text-red-600">{formErrors.submit}</p>
+                </div>
+              )}
+
+              {/* Resumen */}
+              <div className={`p-4 rounded-lg mb-6 ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <h4 className={`text-sm font-semibold mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Resumen del Contrato
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Contrato:</span>
+                    <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      {formGestion.numero_contrato || "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Moneda:</span>
+                    <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      {formGestion.moneda || "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Monto:</span>
+                    <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      {formGestion.monto_moneda || "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cuotas:</span>
+                    <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      {formGestion.numero_cuotas || "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Inicio:</span>
+                    <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      {formGestion.inicio || "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cierre:</span>
+                    <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      {formGestion.cierre || "—"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botones de Acción */}
+              <div className="flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={cerrarModalGestion}
+                  disabled={submitting}
+                  className={`px-6 py-2.5 rounded-lg border ${
+                    darkMode 
+                      ? 'border-gray-600 text-gray-400 hover:bg-gray-700' 
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  } transition-colors text-sm font-medium disabled:opacity-50`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-6 py-2.5 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 text-sm font-medium disabled:opacity-50"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <FileSignature size={16} />
+                      Guardar Contrato
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* Modal de confirmación de eliminación */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className={`rounded-xl w-full max-w-md ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-            <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="text-red-500" size={28} />
-                <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  Confirmar Eliminación
-                </h2>
+      {/* ============ MODAL DE DESEMBOLSO ============ */}
+{showDesembolsoModal && selectedContractForDesembolso && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setShowDesembolsoModal(false)} />
+    <div className={`relative w-full max-w-lg mx-4 p-6 rounded-xl shadow-2xl ${
+      darkMode ? 'bg-gray-800' : 'bg-white'
+    }`}>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+          Registrar Desembolso
+        </h3>
+        <button
+          onClick={() => setShowDesembolsoModal(false)}
+          className={`p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700`}
+        >
+          <X size={20} className={darkMode ? 'text-gray-400' : 'text-gray-600'} />
+        </button>
+      </div>
+
+      <form onSubmit={(e) => { e.preventDefault(); realizarDesembolso(); }}>
+        <div className="space-y-4 mb-6">
+          {/* Información del Contrato */}
+          <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`p-2 rounded-full ${darkMode ? 'bg-gray-600' : 'bg-blue-50'}`}>
+                <User size={20} className={darkMode ? 'text-gray-300' : 'text-blue-600'} />
+              </div>
+              <div>
+                <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  {selectedContractForDesembolso.emprendedor}
+                </p>
+                <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Contrato {selectedContractForDesembolso.numero_contrato || `#${selectedContractForDesembolso.id_aprobacion}`}
+                </p>
               </div>
             </div>
-            <div className="p-6">
-              <p className={darkMode ? 'text-gray-300' : 'text-gray-700'}>
-                ¿Está seguro de que desea eliminar este contrato? Esta acción no se puede deshacer.
-              </p>
-            </div>
-            <div className={`p-6 border-t flex justify-end gap-3 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className={`px-4 py-2 rounded-lg border ${
-                  darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-              >
-                Eliminar
-              </button>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cuotas:</span>
+                <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  {selectedContractForDesembolso.numero_cuotas}
+                </span>
+              </div>
+              <div>
+                <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Inicio:</span>
+                <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  {selectedContractForDesembolso.inicio}
+                </span>
+              </div>
+              <div>
+                <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cierre:</span>
+                <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  {selectedContractForDesembolso.cierre}
+                </span>
+              </div>
+              <div>
+                <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Estatus:</span>
+                <span className="ml-2 inline-flex items-center gap-1 text-sm font-medium text-orange-600">
+                  <DollarSign size={12} />
+                  Pendiente por desembolso
+                </span>
+              </div>
             </div>
           </div>
+
+          {/* Referencia Bancaria */}
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              Referencia Bancaria <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="text"
+                maxLength="6"
+                value={formDesembolso.referencia_bancaria}
+                onChange={(e) => handleDesembolsoChange('referencia_bancaria', e.target.value.toUpperCase())}
+                className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${
+                  desembolsoErrors.referencia_bancaria 
+                    ? 'border-red-500 focus:ring-red-500' 
+                    : darkMode 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-200'
+                } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm uppercase`}
+                placeholder="Ej: ABC123"
+              />
+            </div>
+            <p className={`mt-1 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Máximo 6 caracteres (letras y números)
+            </p>
+            {desembolsoErrors.referencia_bancaria && (
+              <p className="mt-1 text-xs text-red-500">{desembolsoErrors.referencia_bancaria}</p>
+            )}
+          </div>
+
+          {/* Monto Pagado */}
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              Monto Pagado <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="number"
+                step="0.01"
+                value={formDesembolso.monto_pagado}
+                onChange={(e) => handleDesembolsoChange('monto_pagado', e.target.value)}
+                className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${
+                  desembolsoErrors.monto_pagado 
+                    ? 'border-red-500 focus:ring-red-500' 
+                    : darkMode 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-200'
+                } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm`}
+                placeholder="0.00"
+              />
+            </div>
+            {desembolsoErrors.monto_pagado && (
+              <p className="mt-1 text-xs text-red-500">{desembolsoErrors.monto_pagado}</p>
+            )}
+          </div>
+
+          {/* Fecha de Desembolso */}
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              Fecha de Desembolso <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="date"
+                value={formDesembolso.fecha_desembolso}
+                onChange={(e) => handleDesembolsoChange('fecha_desembolso', e.target.value)}
+                className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${
+                  desembolsoErrors.fecha_desembolso 
+                    ? 'border-red-500 focus:ring-red-500' 
+                    : darkMode 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-200'
+                } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm`}
+              />
+            </div>
+            {desembolsoErrors.fecha_desembolso && (
+              <p className="mt-1 text-xs text-red-500">{desembolsoErrors.fecha_desembolso}</p>
+            )}
+          </div>
+
+          {/* Observaciones (opcional) */}
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              Observaciones
+            </label>
+            <textarea
+              rows={3}
+              value={formDesembolso.observaciones}
+              onChange={(e) => handleDesembolsoChange('observaciones', e.target.value)}
+              className={`w-full px-4 py-2.5 rounded-lg border ${
+                darkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                  : 'bg-white border-gray-200 placeholder-gray-400'
+              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm`}
+              placeholder="Observaciones adicionales del desembolso..."
+            />
+          </div>
+
+          {/* Error de submit */}
+          {desembolsoErrors.submit && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+              <AlertCircle size={16} className="text-red-500" />
+              <p className="text-sm text-red-600">{desembolsoErrors.submit}</p>
+            </div>
+          )}
         </div>
-      )}
+
+        <div className="flex gap-3 justify-end">
+          <button
+            type="button"
+            onClick={() => setShowDesembolsoModal(false)}
+            disabled={desembolsoSubmitting}
+            className={`px-4 py-2 rounded-lg border ${
+              darkMode 
+                ? 'border-gray-600 text-gray-400 hover:bg-gray-700' 
+                : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+            } transition-colors text-sm disabled:opacity-50`}
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={desembolsoSubmitting}
+            className="px-6 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 text-sm font-medium disabled:opacity-50"
+          >
+            {desembolsoSubmitting ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Procesando...
+              </>
+            ) : (
+              <>
+                <CreditCard size={16} />
+                Registrar Desembolso
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
     </div>
   );
 };
 
-export default CreditContracts;
+export default Contrato;
