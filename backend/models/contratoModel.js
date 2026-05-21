@@ -1,7 +1,9 @@
 const pool = require('../config/db');
 
 class ContratoModel {
-  // Obtener aprobaciones con seleccion_manejo = 'Interno'
+  // ==================== MÉTODOS DE CONTRATO ====================
+  
+  // Obtener todos los contratos con aprobaciones de manejo interno
   static async getAll() {
     const query = `
       SELECT 
@@ -32,9 +34,7 @@ class ContratoModel {
         d.fecha_desembolso,
         d.referecia_bancaria,
         d.estatus as estatus_desembolso,
-        d.fecha_confirmacion,
-        d.observaciones_pago,
-        d.referencia_pago
+        d.fecha_confirmacion
       FROM aprobacion a
       LEFT JOIN contrato c ON a.id_aprobacion = c.id_aprob
       LEFT JOIN desembolso d ON c.id_contrato = d.id_cont
@@ -141,21 +141,10 @@ class ContratoModel {
         a.id_expediente,
         a.verificacion_requisitos,
         a.estatus_aprobacion,
-        a.seleccion_manejo,
-        d.id_desembolso,
-        d.monto_pagado,
-        d.fecha_desembolso,
-        d.referecia_bancaria,
-        d.estatus as estatus_desembolso,
-        d.fecha_confirmacion,
-        d.observaciones_pago,
-        d.referencia_pago
+        a.seleccion_manejo
       FROM contrato c
       JOIN aprobacion a ON c.id_aprob = a.id_aprobacion
-      LEFT JOIN desembolso d ON c.id_contrato = d.id_cont
       WHERE c.id_aprob = $1
-      ORDER BY d.fecha_desembolso DESC
-      LIMIT 1
     `;
     const result = await pool.query(query, [id]);
     return result.rows[0];
@@ -173,17 +162,29 @@ class ContratoModel {
     return result.rows[0];
   }
 
-  // Crear registro de desembolso
+  // Obtener contrato por ID
+  static async getContratoById(id_contrato) {
+    const query = `
+      SELECT * FROM contrato 
+      WHERE id_contrato = $1
+    `;
+    const result = await pool.query(query, [id_contrato]);
+    return result.rows[0];
+  }
+
+  // ==================== MÉTODOS DE DESEMBOLSO ====================
+
+  // Crear un nuevo desembolso
   static async crearDesembolso(desembolsoData) {
     const {
       id_aprob,
       referencia_bancaria,
       monto_pagado,
       fecha_desembolso,
-      observaciones,
       estatus
     } = desembolsoData;
 
+    // Obtener el contrato asociado
     const contratoQuery = `
       SELECT id_contrato FROM contrato 
       WHERE id_aprob = $1
@@ -202,9 +203,8 @@ class ContratoModel {
         fecha_desembolso,
         referecia_bancaria,
         monto_pagado,
-        estatus,
-        observaciones
-      ) VALUES ($1, $2, $3, $4, $5, $6)
+        estatus
+      ) VALUES ($1, $2, $3, $4, $5)
       RETURNING *
     `;
 
@@ -213,29 +213,59 @@ class ContratoModel {
       fecha_desembolso,
       referencia_bancaria,
       monto_pagado,
-      estatus || 'Pendiente',
-      observaciones || null
+      estatus || 'Pendiente'
     ];
 
     const result = await pool.query(query, values);
     return result.rows[0];
   }
 
-  // Obtener desembolso por ID (NUEVO MÉTODO)
+  // Obtener todos los desembolsos de un contrato
+  static async getDesembolsosByContrato(id_aprob) {
+    const query = `
+      SELECT 
+        d.id_desembolso,
+        d.id_cont,
+        d.fecha_desembolso,
+        d.fecha_confirmacion,
+        d.referecia_bancaria,
+        d.monto_pagado,
+        d.estatus,
+        d.referencia_pago,
+        d.created_at,
+        d.updated_at,
+        c.numero_contrato,
+        c.moneda,
+        c.monto_moneda
+      FROM desembolso d
+      JOIN contrato c ON d.id_cont = c.id_contrato
+      WHERE c.id_aprob = $1
+      ORDER BY d.fecha_desembolso DESC
+    `;
+    const result = await pool.query(query, [id_aprob]);
+    return result.rows;
+  }
+
+  // Obtener un desembolso específico por ID
   static async getDesembolsoById(id_desembolso) {
     const query = `
-      SELECT * FROM desembolso 
-      WHERE id_desembolso = $1
+      SELECT 
+        d.*,
+        c.id_aprob,
+        c.numero_contrato,
+        c.moneda
+      FROM desembolso d
+      JOIN contrato c ON d.id_cont = c.id_contrato
+      WHERE d.id_desembolso = $1
     `;
     const result = await pool.query(query, [id_desembolso]);
     return result.rows[0];
   }
 
-  // Confirmar pago de desembolso (NUEVO MÉTODO)
+  // Confirmar pago de desembolso
   static async confirmarPagoDesembolso(id_desembolso, pagoData) {
     const {
       fecha_confirmacion,
-      observaciones_pago,
       referencia_pago,
       estatus
     } = pagoData;
@@ -244,17 +274,15 @@ class ContratoModel {
       UPDATE desembolso 
       SET 
         fecha_confirmacion = $1,
-        observaciones_pago = $2,
-        referencia_pago = $3,
-        estatus = $4,
+        referencia_pago = $2,
+        estatus = $3,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id_desembolso = $5
+      WHERE id_desembolso = $4
       RETURNING *
     `;
 
     const values = [
       fecha_confirmacion,
-      observaciones_pago,
       referencia_pago,
       estatus,
       id_desembolso
@@ -264,19 +292,84 @@ class ContratoModel {
     return result.rows[0];
   }
 
-  // Obtener desembolsos por contrato (NUEVO MÉTODO)
-  static async getDesembolsosByContrato(id_aprob) {
+  // Actualizar un desembolso existente
+  static async updateDesembolso(id_desembolso, desembolsoData) {
+    const {
+      fecha_desembolso,
+      referecia_bancaria,
+      monto_pagado,
+      estatus
+    } = desembolsoData;
+
+    const query = `
+      UPDATE desembolso 
+      SET 
+        fecha_desembolso = COALESCE($1, fecha_desembolso),
+        referecia_bancaria = COALESCE($2, referecia_bancaria),
+        monto_pagado = COALESCE($3, monto_pagado),
+        estatus = COALESCE($4, estatus),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id_desembolso = $5
+      RETURNING *
+    `;
+
+    const values = [
+      fecha_desembolso,
+      referecia_bancaria,
+      monto_pagado,
+      estatus,
+      id_desembolso
+    ];
+
+    const result = await pool.query(query, values);
+    return result.rows[0];
+  }
+
+  // Eliminar un desembolso
+  static async deleteDesembolso(id_desembolso) {
+    const query = `
+      DELETE FROM desembolso 
+      WHERE id_desembolso = $1 
+      RETURNING *
+    `;
+    const result = await pool.query(query, [id_desembolso]);
+    return result.rows[0];
+  }
+
+  // Obtener todos los desembolsos pendientes
+  static async getDesembolsosPendientes() {
     const query = `
       SELECT 
         d.*,
         c.numero_contrato,
-        c.moneda
+        c.moneda,
+        a.id_expediente,
+        a.id_inspeccion
       FROM desembolso d
       JOIN contrato c ON d.id_cont = c.id_contrato
-      WHERE c.id_aprob = $1
-      ORDER BY d.fecha_desembolso DESC
+      JOIN aprobacion a ON c.id_aprob = a.id_aprobacion
+      WHERE d.estatus = 'Pendiente'
+      ORDER BY d.fecha_desembolso ASC
     `;
-    const result = await pool.query(query, [id_aprob]);
+    const result = await pool.query(query);
+    return result.rows;
+  }
+
+  // Obtener historial completo de desembolsos por contrato
+  static async getHistorialDesembolsos(id_contrato) {
+    const query = `
+      SELECT 
+        d.*,
+        CASE 
+          WHEN d.estatus = 'Confirmado' THEN 'Completado'
+          WHEN d.estatus = 'Pendiente' THEN 'En Proceso'
+          ELSE d.estatus
+        END as estado_descripcion
+      FROM desembolso d
+      WHERE d.id_cont = $1
+      ORDER BY d.created_at DESC
+    `;
+    const result = await pool.query(query, [id_contrato]);
     return result.rows;
   }
 }

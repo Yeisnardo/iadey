@@ -405,6 +405,7 @@ CREATE TABLE desembolso (
     id_desembolso SERIAL PRIMARY KEY,
     id_cont INT NOT NULL,
     fecha_desembolso VARCHAR (15) NOT NULL,
+    fecha_confirmacion VARCHAR (15),
     referecia_bancaria VARCHAR (6) NOT NULL,
     monto_pagado TEXT NOT NULL,
     estatus VARCHAR (20) NOT NULL,

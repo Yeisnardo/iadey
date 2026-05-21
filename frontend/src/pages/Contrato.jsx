@@ -385,7 +385,6 @@ const realizarDesembolso = async () => {
       referencia_bancaria: formDesembolso.referencia_bancaria.toUpperCase(),
       monto_pagado: formDesembolso.monto_pagado,
       fecha_desembolso: formDesembolso.fecha_desembolso,
-      observaciones: formDesembolso.observaciones,
       estatus: "Pendiente" // Estatus inicial del desembolso
     };
     
