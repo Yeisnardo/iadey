@@ -287,31 +287,15 @@ const RegistroEmprendedor = () => {
   };
 
   const validarDireccion = (direccion) => {
-    if (direccion.length < 10) {
-      return "La dirección debe tener al menos 10 caracteres";
+    // SOLO VALIDAR QUE NO ESTÉ VACÍA
+    if (!direccion || direccion.trim() === "") {
+      return "La dirección es obligatoria";
     }
     
-    if (direccion.length > 200) {
-      return "La dirección no debe exceder los 200 caracteres";
-    }
+    // Las siguientes validaciones son OPCIONALES (solo advierten, no bloquean)
+    // pero como el usuario pidió que sean opcionales, simplemente no se aplican
     
-    if (!/\d/.test(direccion)) {
-      return "La dirección debe incluir un número de casa, apartamento o referencia numérica";
-    }
-    
-    const palabrasClave = [
-      "calle", "avenida", "carrera", "transversal", "urbanización",
-      "urb", "barrio", "sector", "casa", "apto", "apartamento", "piso"
-    ];
-    const tienePalabraClave = palabrasClave.some((palabra) =>
-      direccion.toLowerCase().includes(palabra)
-    );
-    
-    if (!tienePalabraClave) {
-      return "La dirección debe ser más específica (incluye calle, avenida, urbanización, etc.)";
-    }
-    
-    return null;
+    return null; // Siempre válido mientras no esté vacío
   };
 
   const validarContrasena = (contrasena) => {
@@ -338,11 +322,6 @@ const RegistroEmprendedor = () => {
     if (!/[!@#$%^&*(),.?":{}|<>]/.test(contrasena)) {
       return "La contraseña debe contener al menos un carácter especial (!@#$%^&* etc.)";
     }
-    
-    // VALIDACIONES ELIMINADAS:
-    // - No contiene nombre/apellido
-    // - No contiene parte del correo
-    // - No son secuencias comunes (123456, abc123, etc.)
     
     return null;
   };
@@ -536,12 +515,11 @@ const RegistroEmprendedor = () => {
       if (correoError) errors.correo = correoError;
     }
     
-    if (!formData.direccion) {
-      errors.direccion = "Por favor ingresa tu dirección de habitación";
-    } else {
-      const direccionError = validarDireccion(formData.direccion);
-      if (direccionError) errors.direccion = direccionError;
+    // VALIDACIÓN DE DIRECCIÓN MODIFICADA: Solo verifica que no esté vacía
+    if (!formData.direccion || formData.direccion.trim() === "") {
+      errors.direccion = "La dirección es obligatoria";
     }
+    // No se aplican validaciones adicionales de formato, longitud, números, palabras clave, etc.
     
     if (!formData.municipio) errors.municipio = "Por favor selecciona tu municipio";
     if (!formData.parroquia) errors.parroquia = "Por favor selecciona tu parroquia";
@@ -1027,14 +1005,14 @@ const RegistroEmprendedor = () => {
             rows="3"
             className={`w-full pl-10 pr-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#264653] focus:border-transparent resize-y
               ${fieldErrors.direccion ? "border-red-500 bg-red-50" : "border-gray-300"}`}
-            placeholder="Calle, avenida, urbanización, casa/apto #, punto de referencia..."
+            placeholder="Ingresa tu dirección (obligatorio)"
           />
         </div>
         {fieldErrors.direccion && (
           <p className="text-xs text-red-500 mt-1">{fieldErrors.direccion}</p>
         )}
         <p className="text-xs text-gray-500 mt-1">
-          Incluye calle, urbanización, número de casa/apto y puntos de referencia
+          Campo obligatorio. Puedes ingresar una dirección básica.
         </p>
       </div>
       

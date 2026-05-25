@@ -139,6 +139,14 @@ CREATE TABLE aprobacion (
     FOREIGN KEY (id_expediente) REFERENCES expediente(id_expediente)
 );
 
+
+
+
+
+
+
+
+
 -- INSPECCION INTUSTRIA Y COMERCIO
 --------------------------------------------------------------------------------------------------------
 -- =============================================
@@ -349,6 +357,379 @@ CREATE TABLE garantia (
 );
 --------------------------------------------------------------------------------------------------------
 
+
+
+
+
+
+
+
+--INSPECCION DE AGRICULTURA
+--------------------------------------------------------------------------------------------------------
+
+-- =====================================================
+-- II. DESCRIPCIÓN DE LA UNIDAD DE PRODUCCIÓN
+-- =====================================================
+
+-- Tabla: unidad_produccion (1:1 con inspeccion)
+CREATE TABLE unidad_produccion (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    ubicacion_practica TEXT,
+    vias_acceso TEXT,
+    tenencia VARCHAR(20) DEFAULT 'propia',
+    otro_tenencia VARCHAR(255),
+    vive_en_unidad_produccion BOOLEAN,
+    CONSTRAINT check_tenencia CHECK (tenencia IN ('propia', 'comunero', 'arrendatario', 'uso_gocce', 'ejidos', 'inti', 'otro')),
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- Tabla: linderos (1:1 con unidad_produccion)
+CREATE TABLE linderos (
+    id SERIAL PRIMARY KEY,
+    unidad_produccion_id INTEGER NOT NULL,
+    norte VARCHAR(255),
+    este VARCHAR(255),
+    sur VARCHAR(255),
+    oeste VARCHAR(255),
+    FOREIGN KEY (unidad_produccion_id) REFERENCES unidad_produccion(id) ON DELETE CASCADE
+);
+
+-- Tabla: topografia_superficie (1:1 con unidad_produccion)
+CREATE TABLE topografia_superficie (
+    id SERIAL PRIMARY KEY,
+    unidad_produccion_id INTEGER NOT NULL,
+    planas_ha DECIMAL(10,2),
+    planas_uso VARCHAR(255),
+    planas_observaciones TEXT,
+    onduladas_ha DECIMAL(10,2),
+    onduladas_uso VARCHAR(255),
+    onduladas_observaciones TEXT,
+    quebradas_ha DECIMAL(10,2),
+    quebradas_uso VARCHAR(255),
+    quebradas_observaciones TEXT,
+    anegadizas_ha DECIMAL(10,2),
+    anegadizas_uso VARCHAR(255),
+    anegadizas_observaciones TEXT,
+    FOREIGN KEY (unidad_produccion_id) REFERENCES unidad_produccion(id) ON DELETE CASCADE
+);
+
+-- =====================================================
+-- III. CONDICIONES DE LA EXPLOTACIÓN
+-- =====================================================
+
+-- Tabla: condiciones_administracion (1:1 con inspeccion)
+CREATE TABLE condiciones_administracion (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    tipo VARCHAR(20) DEFAULT 'directa',
+    nombre_administrador VARCHAR(255),
+    experiencia_anos INTEGER,
+    lleva_registro_fisico BOOLEAN DEFAULT FALSE,
+    lleva_registro_economico BOOLEAN DEFAULT FALSE,
+    especificacion_fisico VARCHAR(255),
+    especificacion_economico VARCHAR(255),
+    observaciones TEXT,
+    CONSTRAINT check_tipo_administracion CHECK (tipo IN ('directa', 'delegada')),
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- Tabla: personal (1:N con inspeccion)
+CREATE TABLE personal (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    cargo VARCHAR(100),
+    fijos INTEGER DEFAULT 0,
+    eventuales INTEGER DEFAULT 0,
+    familiar BOOLEAN DEFAULT FALSE,
+    otro_descripcion VARCHAR(255),
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- =====================================================
+-- IV. USO ACTUAL DE LA TIERRA
+-- =====================================================
+
+-- Tabla: uso_agricultura (1:N con inspeccion)
+CREATE TABLE uso_agricultura (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    cultivo VARCHAR(255),
+    superficie_ha DECIMAL(10,2),
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- Tabla: uso_pecuario (1:N con inspeccion)
+CREATE TABLE uso_pecuario (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    tipo VARCHAR(255),
+    superficie_ha DECIMAL(10,2),
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- Tabla: uso_otros (1:N con inspeccion)
+CREATE TABLE uso_otros (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    descripcion VARCHAR(255),
+    superficie_ha DECIMAL(10,2),
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- =====================================================
+-- V. INFRAESTRUCTURA EXISTENTE
+-- =====================================================
+
+-- Tabla: infraestructura (1:1 con inspeccion)
+CREATE TABLE infraestructura (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    vivienda BOOLEAN DEFAULT FALSE,
+    deposito_insumos BOOLEAN DEFAULT FALSE,
+    galpon BOOLEAN DEFAULT FALSE,
+    establo BOOLEAN DEFAULT FALSE,
+    corral BOOLEAN DEFAULT FALSE,
+    otro BOOLEAN DEFAULT FALSE,
+    otros_especificar VARCHAR(255),
+    electricidad BOOLEAN DEFAULT FALSE,
+    telefonia BOOLEAN DEFAULT FALSE,
+    internet BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- Tabla: fuentes_agua (1:1 con infraestructura)
+CREATE TABLE fuentes_agua (
+    id SERIAL PRIMARY KEY,
+    infraestructura_id INTEGER NOT NULL,
+    pozo BOOLEAN DEFAULT FALSE,
+    riego BOOLEAN DEFAULT FALSE,
+    acueducto BOOLEAN DEFAULT FALSE,
+    rio_quebrada BOOLEAN DEFAULT FALSE,
+    otro VARCHAR(255),
+    FOREIGN KEY (infraestructura_id) REFERENCES infraestructura(id) ON DELETE CASCADE
+);
+
+-- =====================================================
+-- VI. MAQUINARIA Y EQUIPO
+-- =====================================================
+
+-- Tabla: maquinaria_equipo (1:N con inspeccion)
+CREATE TABLE maquinaria_equipo (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    tipo VARCHAR(20), -- 'existente' o 'solicitado'
+    descripcion VARCHAR(255),
+    cantidad INTEGER DEFAULT 0,
+    estado VARCHAR(100), -- Para equipos existentes
+    precio_unitario DECIMAL(12,2), -- Para equipos solicitados
+    CONSTRAINT check_tipo_maquinaria CHECK (tipo IN ('existente', 'solicitado')),
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- =====================================================
+-- VII. PRODUCCIÓN AGRÍCOLA/PECUARIA
+-- =====================================================
+
+-- Tabla: produccion_tipo_explotacion (1:N con inspeccion)
+CREATE TABLE produccion_tipo_explotacion (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    tipo VARCHAR(20),
+    CONSTRAINT check_tipo_explotacion CHECK (tipo IN ('agricola', 'pecuaria', 'mixta', 'forestal', 'agroindustrial')),
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- Tabla: produccion_ultimos_2_anos (1:N con inspeccion)
+CREATE TABLE produccion_ultimos_2_anos (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    rubro VARCHAR(255),
+    ano VARCHAR(4),
+    cantidad VARCHAR(100),
+    valor_bs DECIMAL(12,2),
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- =====================================================
+-- VIII. PRÁCTICAS AGRONÓMICAS
+-- =====================================================
+
+-- Tabla: practicas_agronomicas (1:1 con inspeccion)
+CREATE TABLE practicas_agronomicas (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    preparacion_suelo TEXT,
+    siembra TEXT,
+    fertilizacion TEXT,
+    control_plagas TEXT,
+    control_malezas TEXT,
+    riego TEXT,
+    cosecha TEXT,
+    observaciones TEXT,
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- =====================================================
+-- IX. PASTIZALES
+-- =====================================================
+
+-- Tabla: pastizales (1:1 con inspeccion)
+CREATE TABLE pastizales (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    numero_potreros VARCHAR(50),
+    manejo_pasto TEXT,
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- Tabla: pastizales_pastos (1:N con pastizales)
+CREATE TABLE pastizales_pastos (
+    id SERIAL PRIMARY KEY,
+    pastizales_id INTEGER NOT NULL,
+    nombre VARCHAR(255),
+    forma_uso VARCHAR(255),
+    superficie_ha DECIMAL(10,2),
+    carga_ua_ha DECIMAL(10,2),
+    aprovechamiento DECIMAL(5,2),
+    FOREIGN KEY (pastizales_id) REFERENCES pastizales(id) ON DELETE CASCADE
+);
+
+-- =====================================================
+-- X. SERVICIOS
+-- =====================================================
+
+-- Tabla: servicios (1:1 con inspeccion)
+CREATE TABLE servicios (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    mercadeo_comercializacion TEXT,
+    personal_tecnico TEXT,
+    servicios_produccion TEXT,
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- =====================================================
+-- XI. COSTOS DE PRODUCCIÓN
+-- =====================================================
+
+-- Tabla: costos_produccion (1:1 con inspeccion)
+CREATE TABLE costos_produccion (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    total_bs DECIMAL(12,2),
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- Tabla: costos_produccion_rubros (1:N con costos_produccion)
+CREATE TABLE costos_produccion_rubros (
+    id SERIAL PRIMARY KEY,
+    costos_produccion_id INTEGER NOT NULL,
+    concepto VARCHAR(255),
+    monto_bs DECIMAL(12,2),
+    FOREIGN KEY (costos_produccion_id) REFERENCES costos_produccion(id) ON DELETE CASCADE
+);
+
+-- =====================================================
+-- XII. ASPECTOS FINANCIEROS
+-- =====================================================
+
+-- Tabla: flujo_caja (1:1 con inspeccion)
+CREATE TABLE flujo_caja (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    ano_1 INTEGER,
+    ano_2 INTEGER,
+    ano_3 INTEGER,
+    ano_4 INTEGER,
+    ano_5 INTEGER,
+    ingresos_1 DECIMAL(12,2),
+    ingresos_2 DECIMAL(12,2),
+    ingresos_3 DECIMAL(12,2),
+    ingresos_4 DECIMAL(12,2),
+    ingresos_5 DECIMAL(12,2),
+    costos_directos_1 DECIMAL(12,2),
+    costos_directos_2 DECIMAL(12,2),
+    costos_directos_3 DECIMAL(12,2),
+    costos_directos_4 DECIMAL(12,2),
+    costos_directos_5 DECIMAL(12,2),
+    costos_financieros_1 DECIMAL(12,2),
+    costos_financieros_2 DECIMAL(12,2),
+    costos_financieros_3 DECIMAL(12,2),
+    costos_financieros_4 DECIMAL(12,2),
+    costos_financieros_5 DECIMAL(12,2),
+    otros_costos_1 DECIMAL(12,2),
+    otros_costos_2 DECIMAL(12,2),
+    otros_costos_3 DECIMAL(12,2),
+    otros_costos_4 DECIMAL(12,2),
+    otros_costos_5 DECIMAL(12,2),
+    utilidad_1 DECIMAL(12,2),
+    utilidad_2 DECIMAL(12,2),
+    utilidad_3 DECIMAL(12,2),
+    utilidad_4 DECIMAL(12,2),
+    utilidad_5 DECIMAL(12,2),
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- Tabla: financieros (1:1 con inspeccion)
+CREATE TABLE financieros (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    rentabilidad_estatica VARCHAR(50),
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- =====================================================
+-- XIII. CRÉDITO SOLICITADO
+-- =====================================================
+
+-- Tabla: credito (1:1 con inspeccion)
+CREATE TABLE credito (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    monto_solicitado DECIMAL(12,2),
+    monto_recomendado DECIMAL(12,2),
+    uso_credito TEXT,
+    empleos_generar VARCHAR(255),
+    importancia_economica_social TEXT,
+    recomendaciones TEXT,
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- =====================================================
+-- XIV. ANEXOS
+-- =====================================================
+
+-- Tabla: anexos (1:1 con inspeccion)
+CREATE TABLE anexos (
+    id SERIAL PRIMARY KEY,
+    inspeccion_id INTEGER NOT NULL,
+    croquis_url TEXT,
+    FOREIGN KEY (inspeccion_id) REFERENCES inspeccion(id_inspeccion) ON DELETE CASCADE
+);
+
+-- Tabla: anexos_fotografias (1:N con anexos)
+CREATE TABLE anexos_fotografias (
+    id SERIAL PRIMARY KEY,
+    anexos_id INTEGER NOT NULL,
+    foto_url TEXT,
+    descripcion VARCHAR(255),
+    FOREIGN KEY (anexos_id) REFERENCES anexos(id) ON DELETE CASCADE
+);
+----------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
 -- =============================================
 -- TABLA: configuracion_contrato
 -- =============================================
@@ -368,15 +749,6 @@ CREATE TABLE configuracion_contrato (
     created_by VARCHAR(100),
     updated_by VARCHAR(100)
 );
-
-ID Aprobación
-
-la tabla va a tener ID, emprendedor, numero_cuotas, inicio, cierre, estatus.
-
-en acciones va a estar el: gestionar contrato, realizar desembolso,
-
-ademas en el estar va estar por defecto Pendiente que es un boton que al pulsar cambia a Activo y en la acciones aparece automaticamente un boton el boton de realizar desembolso
-
 
 
 CREATE TABLE contrato (

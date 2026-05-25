@@ -6,6 +6,7 @@ import {
   Plus, 
   Edit,
   Eye,
+  EyeOff,
   Download,
   Filter,
   ArrowUpDown,
@@ -39,7 +40,10 @@ import {
   BarChart,
   Save,
   X,
-  Loader2
+  Loader2,
+  Home,
+  Hash,
+  User
 } from "lucide-react";
 
 // Importamos nuestros componentes personalizados
@@ -68,10 +72,47 @@ const Usuario = () => {
   const [modalMode, setModalMode] = useState("create"); // create, edit, view, resetPassword
   const [selectedUser, setSelectedUser] = useState(null);
   
+  // Estados para validaciones y UI
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  
   // Datos del backend
   const [usuarios, setUsuarios] = useState([]);
   const [personas, setPersonas] = useState([]);
   
+  // Dominios de correo
+  const dominiosCorreo = [
+    "gmail.com", "hotmail.com", "outlook.com", "yahoo.com",
+    "yahoo.es", "outlook.es", "hotmail.es", "gmail.com.ve",
+    "cantv.net", "movistar.com.ve", "digitel.com.ve", "iadey.gob.ve"
+  ];
+
+  // Datos geográficos de Yaracuy
+  const municipiosYaracuy = [
+    "Aristides Bastidas", "Bolívar", "Bruzual", "Cocorote",
+    "Independencia", "José Antonio Páez", "La Trinidad", "Manuel Monge",
+    "Nirgua", "Peña", "San Felipe", "Sucre", "Urachiche", "Veroes",
+  ];
+
+  const parroquiasPorMunicipio = {
+    "Aristides Bastidas": ["San Pablo"],
+    Bolívar: ["Aroa"],
+    Bruzual: ["Chivacoa", "Campo Elías"],
+    Cocorote: ["Cocorote"],
+    Independencia: ["Independencia"],
+    "José Antonio Páez": ["Sabana de Parra"],
+    "La Trinidad": ["Boraure"],
+    "Manuel Monge": ["Yumare"],
+    Nirgua: ["Nirgua", "Salom", "Temerla"],
+    Peña: ["Yaritagua", "San Andrés"],
+    "San Felipe": ["San Felipe", "Albarico", "San Javier"],
+    Sucre: ["Sucre"],
+    Urachiche: ["Urachiche"],
+    Veroes: ["Farriar", "El Farrial"],
+  };
+
   // Formulario de usuario (combinado persona + usuario)
   const [formData, setFormData] = useState({
     // Datos de persona
@@ -81,18 +122,21 @@ const Usuario = () => {
     apellidos: "",
     fecha_nacimiento: "",
     telefono: "",
+    correo_local: "",
+    correo_dominio: "",
     correo: "",
     estado_civil: "",
     direccion: "",
-    estado: "",
+    estado: "Yaracuy",
     municipio: "",
     parroquia: "",
     tipo_persona: "usuario_sistema",
-    email: "",
     // Datos de usuario
     clave: "",
+    confirmPassword: "",
     rol: "",
-    estatus: "Activo"
+    estatus: "activo",
+    aceptaTerminos: false,
   });
 
   // Estados para la DataTable
@@ -108,15 +152,484 @@ const Usuario = () => {
     fechaHasta: ''
   });
 
+  // ============================================================================
+  // UTILIDADES DE FORMATEO
+  // ============================================================================
+  
+  const limpiarErrorCampo = (nombreCampo) => {
+    if (fieldErrors[nombreCampo]) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        [nombreCampo]: null,
+      }));
+    }
+    if (error) {
+      setError("");
+    }
+  };
+  
+  const limpiarErroresPaso = () => {
+    setFieldErrors({});
+    setError("");
+  };
+
+  const capitalizeWhileTyping = (text) => {
+    if (!text) return text;
+    const words = text.split(" ");
+    const processedWords = words.map((word) => {
+      if (word.length === 0) return word;
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    });
+    return processedWords.join(" ");
+  };
+
+  const formatearTelefono = (valor) => {
+    let soloNumeros = valor.replace(/[^\d]/g, "");
+    soloNumeros = soloNumeros.slice(0, 11);
+    
+    if (soloNumeros.length <= 4) {
+      return soloNumeros;
+    } else {
+      return `${soloNumeros.slice(0, 4)}-${soloNumeros.slice(4)}`;
+    }
+  };
+
+  const capitalizeText = (text) => {
+    if (!text) return text;
+    return text.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
+  };
+
+  // ============================================================================
+  // VALIDACIONES AVANZADAS
+  // ============================================================================
+  
+  const validarCedulaVenezolana = (cedula, nacionalidad) => {
+    if (!cedula) return null;
+    
+    if (nacionalidad === "V") {
+      const soloNumeros = cedula.replace(/[^\d]/g, "");
+      
+      if (soloNumeros.length < 6 || soloNumeros.length > 8) {
+        return "La cédula venezolana debe tener entre 6 y 8 dígitos";
+      }
+      
+      if (/^0+$/.test(soloNumeros)) {
+        return "La cédula no puede ser solo ceros";
+      }
+      
+      if (/^(\d)\1{5,}$/.test(soloNumeros)) {
+        return "La cédula no puede tener dígitos repetitivos";
+      }
+    } else if (nacionalidad === "E") {
+      const soloNumeros = cedula.replace(/[^\d]/g, "");
+      
+      if (soloNumeros.length < 4 || soloNumeros.length > 12) {
+        return "La cédula de extranjero debe tener entre 4 y 12 dígitos";
+      }
+    }
+    return null;
+  };
+
+  const validarNombreCompleto = (nombre, tipo) => {
+    if (!nombre) return null;
+    
+    const trimmed = nombre.trim();
+    
+    if (trimmed.length < 2) {
+      return `Los ${tipo} deben tener al menos 2 caracteres`;
+    }
+    
+    if (trimmed.length > 50) {
+      return `Los ${tipo} no deben exceder los 50 caracteres`;
+    }
+    
+    const caracteresInvalidos = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?0-9]/;
+    if (caracteresInvalidos.test(trimmed)) {
+      return `Los ${tipo} solo deben contener letras y espacios`;
+    }
+    
+    if (/\s{2,}/.test(trimmed)) {
+      return `Los ${tipo} no deben tener múltiples espacios consecutivos`;
+    }
+    
+    return null;
+  };
+
+  const validarTelefono = (telefono) => {
+    if (!telefono) return null;
+    
+    const cleaned = telefono.replace(/[\s\-\(\)]/g, "");
+    
+    if (!/^[\d+]+$/.test(cleaned)) {
+      return "El teléfono solo debe contener números y el signo +";
+    }
+    
+    const venezuelanPattern = /^(?:(?:0412|0414|0416|0424|0410|0426|0418|0420)\d{7})$/;
+    const internationalPattern = /^\+58(?:412|414|416|424|410|426|418|420)\d{7}$/;
+    const landlinePattern = /^(?:0212|0234|0235|0236|0237|0238|0239|0240|0241|0242|0243|0244|0245|0246|0247|0248|0249|0251|0252|0253|0254|0255|0256|0257|0258|0259|0261|0262|0263|0264|0265|0266|0267|0268|0269|0271|0272|0273|0274|0275|0276|0277|0278|0279|0281|0282|0283|0284|0285|0286|0287|0288|0289)\d{7}$/;
+    
+    if (!venezuelanPattern.test(cleaned) && !internationalPattern.test(cleaned) && !landlinePattern.test(cleaned)) {
+      return "Ingresa un número de teléfono venezolano válido (Ej: 0412-1234567 o +584121234567)";
+    }
+    
+    return null;
+  };
+
+  const validarCorreo = (correo, correo_local, correo_dominio) => {
+    if (correo_local && correo_local.includes("@")) {
+      return "No incluyas @dominio en el nombre de usuario. Selecciona el dominio en la lista desplegable.";
+    }
+    
+    if (!correo_local && !correo) {
+      return null;
+    }
+    
+    if (correo && !correo_local && !correo_dominio) {
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(correo)) {
+        return "Ingresa un correo electrónico válido";
+      }
+      return null;
+    }
+    
+    if (!correo_local) {
+      return "Ingresa la parte local del correo (antes del @)";
+    }
+    
+    if (!correo_dominio) {
+      return "Selecciona un dominio para tu correo";
+    }
+    
+    if (correo_local.length < 3) {
+      return "El nombre de usuario debe tener al menos 3 caracteres";
+    }
+    
+    if (correo_local.length > 64) {
+      return "El nombre de usuario es muy largo (máximo 64 caracteres)";
+    }
+    
+    if (/^[._]|[._]$/.test(correo_local)) {
+      return "El nombre de usuario no puede empezar o terminar con puntos o guiones";
+    }
+    
+    if (/[._]{2,}/.test(correo_local)) {
+      return "No se permiten puntos o guiones consecutivos";
+    }
+    
+    if (!correo) {
+      return "El correo no se ha generado correctamente";
+    }
+    
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(correo)) {
+      return "El correo generado no es válido";
+    }
+    
+    return null;
+  };
+
+  const validarFechaNacimiento = (fecha) => {
+    if (!fecha) return null;
+    
+    const fechaNac = new Date(fecha);
+    const hoy = new Date();
+    const fechaMinima = new Date("1930-01-01");
+    
+    if (isNaN(fechaNac.getTime())) {
+      return "Fecha de nacimiento inválida";
+    }
+    
+    if (fechaNac > hoy) {
+      return "La fecha de nacimiento no puede ser futura";
+    }
+    
+    if (fechaNac < fechaMinima) {
+      return "Fecha de nacimiento demasiado antigua (anterior a 1930)";
+    }
+    
+    let edad = hoy.getFullYear() - fechaNac.getFullYear();
+    const mes = hoy.getMonth() - fechaNac.getMonth();
+    const dia = hoy.getDate() - fechaNac.getDate();
+    
+    if (mes < 0 || (mes === 0 && dia < 0)) {
+      edad--;
+    }
+    
+    if (edad < 18) {
+      return "Debes ser mayor de 18 años para registrarte";
+    }
+    
+    if (edad > 100) {
+      return "Si eres mayor de 100 años, por favor contacta con soporte";
+    }
+    
+    return null;
+  };
+
+  const validarDireccion = (direccion) => {
+    if (!direccion || direccion.trim() === "") {
+      return null;
+    }
+    
+    if (direccion.trim().length < 5) {
+      return "La dirección es demasiado corta (mínimo 5 caracteres)";
+    }
+    
+    return null;
+  };
+
+  const validarContrasena = (contrasena) => {
+    if (!contrasena) {
+      return "La contraseña es obligatoria";
+    }
+    
+    if (contrasena.length < 8) {
+      return "La contraseña debe tener al menos 8 caracteres";
+    }
+    
+    if (contrasena.length > 50) {
+      return "La contraseña no debe exceder los 50 caracteres";
+    }
+    
+    if (!/[A-Z]/.test(contrasena)) {
+      return "La contraseña debe contener al menos una letra mayúscula";
+    }
+    
+    if (!/[a-z]/.test(contrasena)) {
+      return "La contraseña debe contener al menos una letra minúscula";
+    }
+    
+    if (!/[0-9]/.test(contrasena)) {
+      return "La contraseña debe contener al menos un número";
+    }
+    
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(contrasena)) {
+      return "La contraseña debe contener al menos un carácter especial (!@#$%^&* etc.)";
+    }
+    
+    return null;
+  };
+
+  const validarCampo = (name, value) => {
+    let error = null;
+    
+    switch (name) {
+      case "cedula":
+        error = validarCedulaVenezolana(value, formData.nacionalidad);
+        break;
+      case "nombres":
+        error = validarNombreCompleto(value, "nombres");
+        break;
+      case "apellidos":
+        error = validarNombreCompleto(value, "apellidos");
+        break;
+      case "telefono":
+        error = validarTelefono(value);
+        break;
+      case "correo":
+        error = validarCorreo(value, formData.correo_local, formData.correo_dominio);
+        break;
+      case "fecha_nacimiento":
+        error = validarFechaNacimiento(value);
+        break;
+      case "direccion":
+        error = validarDireccion(value);
+        break;
+      case "clave":
+        error = validarContrasena(value);
+        break;
+      case "confirmPassword":
+        if (value !== formData.clave) {
+          error = "Las contraseñas no coinciden";
+        }
+        break;
+      default:
+        break;
+    }
+    
+    return error;
+  };
+
+  const validarFormularioCompleto = () => {
+    const errors = {};
+    
+    // Validar cédula
+    if (!formData.cedula) {
+      errors.cedula = "La cédula es obligatoria";
+    } else {
+      const cedulaError = validarCedulaVenezolana(formData.cedula, formData.nacionalidad);
+      if (cedulaError) errors.cedula = cedulaError;
+    }
+    
+    // Validar nombres
+    if (!formData.nombres) {
+      errors.nombres = "Los nombres son obligatorios";
+    } else {
+      const nombresError = validarNombreCompleto(formData.nombres, "nombres");
+      if (nombresError) errors.nombres = nombresError;
+    }
+    
+    // Validar apellidos
+    if (!formData.apellidos) {
+      errors.apellidos = "Los apellidos son obligatorios";
+    } else {
+      const apellidosError = validarNombreCompleto(formData.apellidos, "apellidos");
+      if (apellidosError) errors.apellidos = apellidosError;
+    }
+    
+    // Validar correo
+    const correoError = validarCorreo(formData.correo, formData.correo_local, formData.correo_dominio);
+    if (correoError) errors.correo = correoError;
+    
+    // Validar rol
+    if (!formData.rol) {
+      errors.rol = "Debes seleccionar un rol para el usuario";
+    }
+    
+    // Validar contraseña solo en creación
+    if (modalMode === "create") {
+      if (!formData.clave) {
+        errors.clave = "La contraseña es obligatoria";
+      } else {
+        const contrasenaError = validarContrasena(formData.clave);
+        if (contrasenaError) errors.clave = contrasenaError;
+      }
+      
+      if (!formData.confirmPassword) {
+        errors.confirmPassword = "Debes confirmar la contraseña";
+      } else if (formData.clave !== formData.confirmPassword) {
+        errors.confirmPassword = "Las contraseñas no coinciden";
+      }
+    }
+    
+    // Validar municipio y parroquia
+    if (formData.municipio && !formData.parroquia) {
+      errors.parroquia = "Por favor selecciona una parroquia";
+    }
+    
+    // Validaciones opcionales
+    if (formData.telefono) {
+      const telefonoError = validarTelefono(formData.telefono);
+      if (telefonoError) errors.telefono = telefonoError;
+    }
+    
+    if (formData.fecha_nacimiento) {
+      const fechaError = validarFechaNacimiento(formData.fecha_nacimiento);
+      if (fechaError) errors.fecha_nacimiento = fechaError;
+    }
+    
+    if (formData.direccion) {
+      const direccionError = validarDireccion(formData.direccion);
+      if (direccionError) errors.direccion = direccionError;
+    }
+    
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // ============================================================================
+  // HANDLERS DEL FORMULARIO CON FORMATEO
+  // ============================================================================
+  
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    
+    if (type !== "checkbox") {
+      limpiarErrorCampo(name);
+    }
+    
+    if (type === "checkbox") {
+      setFormData((prev) => ({ ...prev, [name]: checked }));
+      return;
+    }
+    
+    let nuevoValor = value;
+    
+    // Aplicar formateo según el campo
+    if (name === "cedula") {
+      nuevoValor = value.replace(/[^\d]/g, "");
+    }
+    
+    if (name === "telefono") {
+      nuevoValor = formatearTelefono(value);
+    }
+    
+    if (name === "nombres" || name === "apellidos") {
+      nuevoValor = capitalizeWhileTyping(value);
+    }
+    
+    if (name === "correo_local") {
+      nuevoValor = value.toLowerCase().replace(/[^a-z0-9._]/g, "");
+      
+      if (nuevoValor.includes("@")) {
+        nuevoValor = nuevoValor.split("@")[0];
+        setFieldErrors(prev => ({
+          ...prev,
+          correo: "No incluyas @dominio aquí. Selecciona el dominio en la lista desplegable."
+        }));
+      } else {
+        if (fieldErrors.correo === "No incluyas @dominio aquí. Selecciona el dominio en la lista desplegable.") {
+          limpiarErrorCampo("correo");
+        }
+      }
+      
+      const correoCompleto = nuevoValor && formData.correo_dominio
+        ? `${nuevoValor}@${formData.correo_dominio}`
+        : "";
+      
+      setFormData((prev) => ({
+        ...prev,
+        correo_local: nuevoValor,
+        correo: correoCompleto,
+      }));
+      return;
+    }
+    
+    if (name === "correo_dominio") {
+      const correoCompleto = formData.correo_local && value
+        ? `${formData.correo_local}@${value}`
+        : "";
+      
+      setFormData((prev) => ({
+        ...prev,
+        correo_dominio: value,
+        correo: correoCompleto,
+      }));
+      return;
+    }
+    
+    setFormData((prev) => ({ ...prev, [name]: nuevoValor }));
+    
+    if (name === "municipio") {
+      setFormData((prev) => ({ ...prev, parroquia: "" }));
+    }
+  };
+  
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    
+    // Capitalizar nombres y apellidos al salir del campo
+    if (name === "nombres" || name === "apellidos") {
+      const capitalized = capitalizeText(value);
+      if (capitalized !== value) {
+        setFormData(prev => ({ ...prev, [name]: capitalized }));
+      }
+    }
+    
+    const error = validarCampo(name, value);
+    
+    if (error && value.trim() !== "") {
+      setFieldErrors((prev) => ({ ...prev, [name]: error }));
+    }
+  };
+
   // Roles disponibles
   const roles = [
-    { value: "Administrador", label: "Administrador", descripcion: "Acceso total al sistema" },
-    { value: "Supervisor", label: "Supervisor", descripcion: "Supervisión y aprobación" },
-    { value: "Inspector", label: "Inspector", descripcion: "Gestión de inspecciones" },
-    { value: "Analista de Crédito", label: "Analista de Crédito", descripcion: "Evaluación de créditos" },
-    { value: "Asistente", label: "Asistente", descripcion: "Gestión documental" },
-    { value: "Consultor", label: "Consultor", descripcion: "Solo consulta" },
-    { value: "emprendedor", label: "Emprendedor", descripcion: "Usuario emprendedor" }
+    { value: "Presidente", label: "Presidente(a)", descripcion: "Máxima autoridad del instituto" },
+    { value: "Secretario", label: "Secretario(a)", descripcion: "Gestión administrativa y documental" },
+    { value: "Inspector", label: "Inspector", descripcion: "Supervisión y fiscalización" },
+    { value: "Analista de Credito", label: "Analista de Crédito", descripcion: "Evaluación y análisis de créditos" },
+    { value: "Credito y Cobranza", label: "Crédito y Cobranza", descripcion: "Gestión de cobranzas y seguimiento de créditos" }
   ];
 
   // Estados civiles
@@ -125,6 +638,7 @@ const Usuario = () => {
   // Cargar datos al montar el componente
   useEffect(() => {
     cargarUsuarios();
+    setIsVisible(true);
   }, []);
 
   // Función para cargar usuarios desde el backend
@@ -132,11 +646,9 @@ const Usuario = () => {
     setLoading(true);
     setError(null);
     try {
-      // Obtener todos los usuarios
       const usuariosResponse = await usuarioAPI.getAllUsuarios();
       
       if (usuariosResponse.success) {
-        // Para cada usuario, obtener los datos de persona
         const usuariosConPersona = await Promise.all(
           usuariosResponse.data.map(async (usuario) => {
             try {
@@ -145,7 +657,6 @@ const Usuario = () => {
                 return {
                   ...usuario,
                   persona: personaResponse.data,
-                  // Campos combinados para facilitar el uso
                   nombre: personaResponse.data.nombres,
                   apellido: personaResponse.data.apellidos,
                   nombre_completo: `${personaResponse.data.nombres} ${personaResponse.data.apellidos}`,
@@ -178,10 +689,12 @@ const Usuario = () => {
     inactivos: usuarios.filter(u => u.estatus === "inactivo").length,
     bloqueados: usuarios.filter(u => u.estatus === "bloqueado").length,
     porRol: {
-      administradores: usuarios.filter(u => u.rol === "Administrador").length,
+      presidentes: usuarios.filter(u => u.rol === "Presidente" || u.rol === "Presidente(a)").length,
+      secretarios: usuarios.filter(u => u.rol === "Secretario" || u.rol === "Secretario(a)").length,
       inspectores: usuarios.filter(u => u.rol === "Inspector").length,
-      analistas: usuarios.filter(u => u.rol === "Analista de Crédito").length,
-      otros: usuarios.filter(u => !["Administrador", "Inspector", "Analista de Crédito"].includes(u.rol)).length
+      analistas: usuarios.filter(u => u.rol === "Analista de Credito" || u.rol === "Analista de Crédito").length,
+      cobranza: usuarios.filter(u => u.rol === "Credito y Cobranza" || u.rol === "Crédito y Cobranza").length,
+      administradores: 0
     },
     accesosRecientes: usuarios.filter(u => {
       if (!u.ultimo_acceso) return false;
@@ -212,7 +725,6 @@ const Usuario = () => {
     pendingTitle: "Usuarios Recientes"
   };
 
-  // Notificaciones no leídas
   const unreadCount = notifications.filter(n => !n.read).length;
 
   // Funciones de filtrado y ordenamiento
@@ -237,7 +749,6 @@ const Usuario = () => {
     return matchesSearch && matchesRol && matchesEstado && matchesFecha;
   });
 
-  // Ordenamiento
   const sortedUsuarios = [...filteredUsuarios].sort((a, b) => {
     if (sortConfig.key) {
       let aVal = a[sortConfig.key];
@@ -266,12 +777,10 @@ const Usuario = () => {
     return 0;
   });
 
-  // Paginación
   const totalPages = Math.ceil(sortedUsuarios.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
   const paginatedUsuarios = sortedUsuarios.slice(startIndex, startIndex + rowsPerPage);
 
-  // Funciones de manejo
   const handleSort = (key) => {
     setSortConfig({
       key,
@@ -303,26 +812,39 @@ const Usuario = () => {
 
   const handleEditUser = (user) => {
     setSelectedUser(user);
+    setFieldErrors({});
+    
+    // Extraer local y dominio del correo si es posible
+    let correo_local = "";
+    let correo_dominio = "";
+    const email = user.persona?.correo || "";
+    if (email && email.includes("@")) {
+      const [local, dominio] = email.split("@");
+      correo_local = local;
+      correo_dominio = dominiosCorreo.includes(dominio) ? dominio : "";
+    }
+    
     setFormData({
-      // Datos de persona
       nacionalidad: user.persona?.nacionalidad || "V",
-      cedula: user.cedula_usuario,
+      cedula: user.cedula_usuario?.replace(/^[VE]-/, "") || "",
       nombres: user.persona?.nombres || "",
       apellidos: user.persona?.apellidos || "",
       fecha_nacimiento: user.persona?.fecha_nacimiento?.split('T')[0] || "",
       telefono: user.persona?.telefono || "",
-      correo: user.persona?.correo || "",
+      correo_local: correo_local,
+      correo_dominio: correo_dominio,
+      correo: email,
       estado_civil: user.persona?.estado_civil || "",
       direccion: user.persona?.direccion || "",
-      estado: user.persona?.estado || "",
+      estado: user.persona?.estado || "Yaracuy",
       municipio: user.persona?.municipio || "",
       parroquia: user.persona?.parroquia || "",
       tipo_persona: user.persona?.tipo_persona || "usuario_sistema",
-      email: user.persona?.email || "",
-      // Datos de usuario
       clave: "",
+      confirmPassword: "",
       rol: user.rol,
-      estatus: user.estatus
+      estatus: user.estatus,
+      aceptaTerminos: false,
     });
     setModalMode("edit");
     setModalOpen(true);
@@ -330,6 +852,7 @@ const Usuario = () => {
 
   const handleCreateUser = () => {
     setSelectedUser(null);
+    setFieldErrors({});
     setFormData({
       nacionalidad: "V",
       cedula: "",
@@ -337,17 +860,20 @@ const Usuario = () => {
       apellidos: "",
       fecha_nacimiento: "",
       telefono: "",
+      correo_local: "",
+      correo_dominio: "",
       correo: "",
       estado_civil: "",
       direccion: "",
-      estado: "",
+      estado: "Yaracuy",
       municipio: "",
       parroquia: "",
       tipo_persona: "usuario_sistema",
-      email: "",
       clave: "",
+      confirmPassword: "",
       rol: "",
-      estatus: "Activo"
+      estatus: "activo", // Siempre activo al crear
+      aceptaTerminos: false,
     });
     setModalMode("create");
     setModalOpen(true);
@@ -366,7 +892,7 @@ const Usuario = () => {
       const response = await usuarioAPI.cambiarEstatus(user.id, newStatus);
       if (response.success) {
         setSuccessMessage(`Usuario ${user.nombre_completo} ${newStatus === "activo" ? "activado" : "desactivado"} correctamente`);
-        await cargarUsuarios(); // Recargar lista
+        await cargarUsuarios();
         setTimeout(() => setSuccessMessage(null), 3000);
       }
     } catch (err) {
@@ -382,7 +908,6 @@ const Usuario = () => {
     if (window.confirm(`¿Está seguro de eliminar al usuario ${user.nombre_completo}?`)) {
       try {
         setLoading(true);
-        // Primero eliminar el usuario (la eliminación en cascada eliminará la persona)
         const response = await usuarioAPI.deleteUsuario(user.id);
         if (response.success) {
           setSuccessMessage(`Usuario ${user.nombre_completo} eliminado correctamente`);
@@ -403,27 +928,34 @@ const Usuario = () => {
   };
 
   const handleSaveUser = async () => {
+    if (!validarFormularioCompleto()) {
+      setError("Por favor corrige los errores marcados en el formulario");
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
+    
     try {
       setLoading(true);
       setError(null);
       
+      const cedulaFormateada = `${formData.nacionalidad.toUpperCase()}-${formData.cedula}`;
+      const correoFinal = formData.correo || (formData.correo_local && formData.correo_dominio ? `${formData.correo_local}@${formData.correo_dominio}` : "");
+      
       if (modalMode === "create") {
-        // Crear persona primero
         const personaData = {
           nacionalidad: formData.nacionalidad,
-          cedula: formData.cedula,
+          cedula: cedulaFormateada,
           nombres: formData.nombres,
           apellidos: formData.apellidos,
-          fecha_nacimiento: formData.fecha_nacimiento,
-          telefono: formData.telefono,
-          correo: formData.correo,
-          estado_civil: formData.estado_civil,
-          direccion: formData.direccion,
-          estado: formData.estado,
-          municipio: formData.municipio,
-          parroquia: formData.parroquia,
+          fecha_nacimiento: formData.fecha_nacimiento || null,
+          telefono: formData.telefono || null,
+          correo: correoFinal,
+          estado_civil: formData.estado_civil || null,
+          direccion: formData.direccion || null,
+          estado: formData.estado || null,
+          municipio: formData.municipio || null,
+          parroquia: formData.parroquia || null,
           tipo_persona: formData.tipo_persona,
-          email: formData.email || formData.correo
         };
         
         const personaResponse = await personaAPI.createPersona(personaData);
@@ -432,12 +964,11 @@ const Usuario = () => {
           throw new Error(personaResponse.error || "Error al crear la persona");
         }
         
-        // Luego crear el usuario
         const usuarioData = {
-          cedula_usuario: formData.cedula,
+          cedula_usuario: cedulaFormateada,
           clave: formData.clave,
           rol: formData.rol,
-          estatus: formData.estatus.toLowerCase()
+          estatus: "activo" // Siempre activo para nuevos usuarios
         };
         
         const usuarioResponse = await usuarioAPI.createUsuario(usuarioData);
@@ -450,26 +981,24 @@ const Usuario = () => {
         await cargarUsuarios();
         
       } else if (modalMode === "edit" && selectedUser) {
-        // Actualizar persona
         const personaData = {
           nacionalidad: formData.nacionalidad,
+          cedula: cedulaFormateada,
           nombres: formData.nombres,
           apellidos: formData.apellidos,
-          fecha_nacimiento: formData.fecha_nacimiento,
-          telefono: formData.telefono,
-          correo: formData.correo,
-          estado_civil: formData.estado_civil,
-          direccion: formData.direccion,
-          estado: formData.estado,
-          municipio: formData.municipio,
-          parroquia: formData.parroquia,
+          fecha_nacimiento: formData.fecha_nacimiento || null,
+          telefono: formData.telefono || null,
+          correo: correoFinal,
+          estado_civil: formData.estado_civil || null,
+          direccion: formData.direccion || null,
+          estado: formData.estado || null,
+          municipio: formData.municipio || null,
+          parroquia: formData.parroquia || null,
           tipo_persona: formData.tipo_persona,
-          email: formData.email || formData.correo
         };
         
         await personaAPI.updatePersona(selectedUser.persona?.id, personaData);
         
-        // Actualizar usuario
         const usuarioData = {
           rol: formData.rol,
           estatus: formData.estatus.toLowerCase()
@@ -497,13 +1026,11 @@ const Usuario = () => {
     if (selectedUser) {
       try {
         setLoading(true);
-        // Generar contraseña temporal
         const tempPassword = Math.random().toString(36).slice(-8);
         const response = await usuarioAPI.updatePassword(selectedUser.id, tempPassword);
         
         if (response.success) {
           setSuccessMessage(`Contraseña restablecida. Nueva contraseña temporal: ${tempPassword}`);
-          // Aquí podrías enviar un email con la nueva contraseña
           setModalOpen(false);
           setTimeout(() => setSuccessMessage(null), 5000);
         }
@@ -527,17 +1054,11 @@ const Usuario = () => {
     setCurrentPage(1);
   };
 
-  // Funciones auxiliares para estilos
   const getEstadoBadge = (estatus) => {
     const styles = {
       'activo': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
       'inactivo': 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
       'bloqueado': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-    };
-    const estadoMap = {
-      'activo': 'Activo',
-      'inactivo': 'Inactivo',
-      'bloqueado': 'Bloqueado'
     };
     return styles[estatus] || 'bg-gray-100 text-gray-800';
   };
@@ -553,13 +1074,16 @@ const Usuario = () => {
 
   const getRolBadge = (rol) => {
     const styles = {
-      'Administrador': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-      'Supervisor': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      'Presidente': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+      'Presidente(a)': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+      'Secretario': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      'Secretario(a)': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
       'Inspector': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+      'Analista de Credito': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
       'Analista de Crédito': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-      'Asistente': 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
-      'Consultor': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
-      'emprendedor': 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200'
+      'Credito y Cobranza': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+      'Crédito y Cobranza': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+      'Emprendedor': 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200'
     };
     return styles[rol] || 'bg-gray-100 text-gray-800';
   };
@@ -584,7 +1108,6 @@ const Usuario = () => {
     });
   };
 
-  // Manejar logout
   const handleLogout = () => {
     localStorage.removeItem('usuario');
     localStorage.removeItem('rememberToken');
@@ -592,14 +1115,12 @@ const Usuario = () => {
     navigate('/login');
   };
 
-  // Marcar notificaciones como leídas
   const markAsRead = (id) => {
     setNotifications(notifications.map(n => 
       n.id === id ? { ...n, read: true } : n
     ));
   };
 
-  // Cerrar menús al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (!e.target.closest('.notifications-menu') && !e.target.closest('.user-menu')) {
@@ -610,6 +1131,556 @@ const Usuario = () => {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
+  const getPasswordValidation = (password) => ({
+    minLength: password.length >= 8,
+    hasUpperCase: /[A-Z]/.test(password),
+    hasLowerCase: /[a-z]/.test(password),
+    hasNumber: /[0-9]/.test(password),
+    hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+  });
+
+  const passwordValidations = getPasswordValidation(formData.clave);
+  const allValidationsPassed = Object.values(passwordValidations).every(v => v === true);
+
+  const hasError = (fieldName) => !!fieldErrors[fieldName];
+  const getErrorMessage = (fieldName) => fieldErrors[fieldName];
+
+  // ============================================================================
+  // RENDERIZADO - MODAL FORMULARIO COMPLETO
+  // ============================================================================
+  
+  const renderFormModal = () => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Nacionalidad y Cédula */}
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Nacionalidad *
+          </label>
+          <select
+            name="nacionalidad"
+            value={formData.nacionalidad}
+            onChange={handleChange}
+            className={`w-full px-4 py-2 rounded-lg border ${
+              darkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-200'
+            } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
+          >
+            <option value="V">Venezolano(a)</option>
+            <option value="E">Extranjero(a)</option>
+          </select>
+        </div>
+        
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Cédula *
+          </label>
+          <div className="relative">
+            <Hash size={18} className="absolute left-3 top-3 text-gray-400" />
+            <input
+              type="text"
+              name="cedula"
+              value={formData.cedula}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className={`w-full pl-10 pr-3 py-2 rounded-lg border ${
+                darkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-200'
+              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${
+                hasError('cedula') ? 'border-red-500' : ''
+              }`}
+              placeholder="12345678"
+            />
+          </div>
+          {hasError('cedula') && (
+            <p className="text-xs text-red-500 mt-1">{getErrorMessage('cedula')}</p>
+          )}
+          <p className="text-xs text-gray-500 mt-1">
+            Formato: {formData.nacionalidad}-{formData.cedula || "12345678"}
+          </p>
+        </div>
+        
+        {/* Nombres y Apellidos */}
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Nombres *
+          </label>
+          <input
+            type="text"
+            name="nombres"
+            value={formData.nombres}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className={`w-full px-4 py-2 rounded-lg border ${
+              darkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-200'
+            } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${
+              hasError('nombres') ? 'border-red-500' : ''
+            }`}
+            placeholder="Tus nombres"
+          />
+          {hasError('nombres') && (
+            <p className="text-xs text-red-500 mt-1">{getErrorMessage('nombres')}</p>
+          )}
+        </div>
+        
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Apellidos *
+          </label>
+          <input
+            type="text"
+            name="apellidos"
+            value={formData.apellidos}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className={`w-full px-4 py-2 rounded-lg border ${
+              darkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-200'
+            } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${
+              hasError('apellidos') ? 'border-red-500' : ''
+            }`}
+            placeholder="Tus apellidos"
+          />
+          {hasError('apellidos') && (
+            <p className="text-xs text-red-500 mt-1">{getErrorMessage('apellidos')}</p>
+          )}
+        </div>
+        
+        {/* Fecha Nacimiento y Teléfono */}
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Fecha Nacimiento
+          </label>
+          <div className="relative">
+            <Calendar size={18} className="absolute left-3 top-3 text-gray-400" />
+            <input
+              type="date"
+              name="fecha_nacimiento"
+              value={formData.fecha_nacimiento}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className={`w-full pl-10 pr-3 py-2 rounded-lg border ${
+                darkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-200'
+              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${
+                hasError('fecha_nacimiento') ? 'border-red-500' : ''
+              }`}
+            />
+          </div>
+          {hasError('fecha_nacimiento') && (
+            <p className="text-xs text-red-500 mt-1">{getErrorMessage('fecha_nacimiento')}</p>
+          )}
+        </div>
+        
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Teléfono
+          </label>
+          <div className="relative">
+            <Phone size={18} className="absolute left-3 top-3 text-gray-400" />
+            <input
+              type="tel"
+              name="telefono"
+              value={formData.telefono}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className={`w-full pl-10 pr-3 py-2 rounded-lg border ${
+                darkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-200'
+              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${
+                hasError('telefono') ? 'border-red-500' : ''
+              }`}
+              placeholder="0412-1234567"
+            />
+          </div>
+          {hasError('telefono') && (
+            <p className="text-xs text-red-500 mt-1">{getErrorMessage('telefono')}</p>
+          )}
+          <p className="text-xs text-gray-500 mt-1">Formato: 0412-1234567</p>
+        </div>
+        
+        {/* Correo Electrónico con dominio desplegable */}
+        <div className="col-span-2">
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Correo Electrónico *
+          </label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Mail size={18} className="absolute left-3 top-3 text-gray-400" />
+              <input
+                type="text"
+                name="correo_local"
+                value={formData.correo_local}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`w-full pl-10 pr-3 py-2 rounded-lg border ${
+                  darkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white' 
+                    : 'bg-white border-gray-200'
+                } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${
+                  hasError('correo') ? 'border-red-500' : ''
+                }`}
+                placeholder="usuario"
+              />
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 font-bold text-lg">@</span>
+              <select
+                name="correo_dominio"
+                value={formData.correo_dominio}
+                onChange={handleChange}
+                className={`flex-1 sm:w-48 px-3 py-2 rounded-lg border ${
+                  darkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white' 
+                    : 'bg-white border-gray-200'
+                } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${
+                  hasError('correo') ? 'border-red-500' : ''
+                }`}
+              >
+                <option value="">Seleccionar dominio</option>
+                {dominiosCorreo.map((dominio) => (
+                  <option key={dominio} value={dominio}>{dominio}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          {hasError('correo') && (
+            <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+              <AlertCircle size={12} />
+              {getErrorMessage('correo')}
+            </p>
+          )}
+          
+          {formData.correo && !hasError('correo') && (
+            <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-xs text-green-600 flex items-center gap-1">
+                <CheckCircle size={14} />
+                Tu correo será: <strong>{formData.correo}</strong>
+              </p>
+            </div>
+          )}
+        </div>
+        
+        {/* Estado Civil */}
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Estado Civil
+          </label>
+          <select
+            name="estado_civil"
+            value={formData.estado_civil}
+            onChange={handleChange}
+            className={`w-full px-4 py-2 rounded-lg border ${
+              darkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-200'
+            } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
+          >
+            <option value="">Seleccionar</option>
+            {estadosCiviles.map(ec => (
+              <option key={ec} value={ec}>{ec}</option>
+            ))}
+          </select>
+        </div>
+        
+        {/* Municipio y Parroquia */}
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Municipio
+          </label>
+          <select
+            name="municipio"
+            value={formData.municipio}
+            onChange={handleChange}
+            className={`w-full px-4 py-2 rounded-lg border ${
+              darkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-200'
+            } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
+          >
+            <option value="">Selecciona un municipio</option>
+            {municipiosYaracuy.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+        
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Parroquia
+          </label>
+          <select
+            name="parroquia"
+            value={formData.parroquia}
+            onChange={handleChange}
+            disabled={!formData.municipio}
+            className={`w-full px-4 py-2 rounded-lg border ${
+              darkMode 
+                ? 'bg-gray-700 border-gray-600 text-white disabled:opacity-50' 
+                : 'bg-white border-gray-200 disabled:bg-gray-100'
+            } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${
+              hasError('parroquia') ? 'border-red-500' : ''
+            }`}
+          >
+            <option value="">Selecciona una parroquia</option>
+            {formData.municipio && parroquiasPorMunicipio[formData.municipio]?.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+          {hasError('parroquia') && (
+            <p className="text-xs text-red-500 mt-1">{getErrorMessage('parroquia')}</p>
+          )}
+        </div>
+        
+        {/* Dirección */}
+        <div className="col-span-2">
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Dirección
+          </label>
+          <div className="relative">
+            <Home size={18} className="absolute left-3 top-3 text-gray-400" />
+            <textarea
+              name="direccion"
+              value={formData.direccion}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              rows="3"
+              className={`w-full pl-10 pr-3 py-2 rounded-lg border ${
+                darkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-200'
+              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] resize-y ${
+                hasError('direccion') ? 'border-red-500' : ''
+              }`}
+              placeholder="Ingresa tu dirección (opcional)"
+            />
+          </div>
+          {hasError('direccion') && (
+            <p className="text-xs text-red-500 mt-1">{getErrorMessage('direccion')}</p>
+          )}
+        </div>
+        
+        {/* Datos de Acceso */}
+        <div className="col-span-2 mt-4">
+          <h3 className={`text-md font-semibold mb-3 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+            Datos de Acceso
+          </h3>
+        </div>
+        
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Rol *
+          </label>
+          <select
+            name="rol"
+            value={formData.rol}
+            onChange={handleChange}
+            className={`w-full px-4 py-2 rounded-lg border ${
+              darkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-200'
+            } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${
+              hasError('rol') ? 'border-red-500' : ''
+            }`}
+          >
+            <option value="">Seleccionar rol</option>
+            {roles.map(rol => (
+              <option key={rol.value} value={rol.value}>{rol.label}</option>
+            ))}
+          </select>
+          {hasError('rol') && (
+            <p className="text-xs text-red-500 mt-1">{getErrorMessage('rol')}</p>
+          )}
+        </div>
+        
+        {/* Estado - Visible solo en edición, informativo en creación */}
+        {modalMode === "edit" && (
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              Estado
+            </label>
+            <select
+              name="estatus"
+              value={formData.estatus}
+              onChange={handleChange}
+              className={`w-full px-4 py-2 rounded-lg border ${
+                darkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-200'
+              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
+            >
+              <option value="activo">Activo</option>
+              <option value="inactivo">Inactivo</option>
+              <option value="bloqueado">Bloqueado</option>
+            </select>
+          </div>
+        )}
+
+        {modalMode === "create" && (
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              Estado
+            </label>
+            <div className={`px-4 py-2 rounded-lg border ${
+              darkMode 
+                ? 'bg-gray-700 border-gray-600 text-green-400' 
+                : 'bg-green-50 border-green-200 text-green-700'
+            }`}>
+              <div className="flex items-center gap-2">
+                <CheckCircle size={18} />
+                <span className="font-medium">Activo</span>
+                <span className="text-xs opacity-75">(Los usuarios nuevos siempre se crean como activos)</span>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Contraseña - Solo en creación */}
+        {modalMode === "create" && (
+          <>
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Contraseña *
+              </label>
+              <div className="relative">
+                <Lock size={18} className="absolute left-3 top-3 text-gray-400" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="clave"
+                  value={formData.clave}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={`w-full pl-10 pr-10 py-2 rounded-lg border ${
+                    darkMode 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-200'
+                  } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${
+                    hasError('clave') && !allValidationsPassed ? 'border-red-500' : ''
+                  }`}
+                  placeholder="Mínimo 8 caracteres"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              
+              {/* Requisitos de contraseña */}
+              {formData.clave && (
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs">
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center ${passwordValidations.minLength ? 'bg-green-500' : 'border-2 border-gray-300'}`}>
+                      {passwordValidations.minLength && <CheckCircle size={10} className="text-white" />}
+                    </div>
+                    <span className={passwordValidations.minLength ? "text-green-600" : "text-gray-500"}>
+                      🔒 Mínimo 8 caracteres
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center ${passwordValidations.hasUpperCase ? 'bg-green-500' : 'border-2 border-gray-300'}`}>
+                      {passwordValidations.hasUpperCase && <CheckCircle size={10} className="text-white" />}
+                    </div>
+                    <span className={passwordValidations.hasUpperCase ? "text-green-600" : "text-gray-500"}>
+                      🔠 Una mayúscula
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center ${passwordValidations.hasLowerCase ? 'bg-green-500' : 'border-2 border-gray-300'}`}>
+                      {passwordValidations.hasLowerCase && <CheckCircle size={10} className="text-white" />}
+                    </div>
+                    <span className={passwordValidations.hasLowerCase ? "text-green-600" : "text-gray-500"}>
+                      🔡 Una minúscula
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center ${passwordValidations.hasNumber ? 'bg-green-500' : 'border-2 border-gray-300'}`}>
+                      {passwordValidations.hasNumber && <CheckCircle size={10} className="text-white" />}
+                    </div>
+                    <span className={passwordValidations.hasNumber ? "text-green-600" : "text-gray-500"}>
+                      🔢 Un número
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center ${passwordValidations.hasSpecialChar ? 'bg-green-500' : 'border-2 border-gray-300'}`}>
+                      {passwordValidations.hasSpecialChar && <CheckCircle size={10} className="text-white" />}
+                    </div>
+                    <span className={passwordValidations.hasSpecialChar ? "text-green-600" : "text-gray-500"}>
+                      🔣 Un carácter especial (!@#$%^&* etc.)
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {hasError('clave') && !allValidationsPassed && (
+                <p className="text-xs text-red-500 mt-2 flex items-center gap-1">
+                  <AlertCircle size={12} />
+                  {getErrorMessage('clave')}
+                </p>
+              )}
+            </div>
+            
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Confirmar Contraseña *
+              </label>
+              <div className="relative">
+                <Lock size={18} className="absolute left-3 top-3 text-gray-400" />
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={`w-full pl-10 pr-10 py-2 rounded-lg border ${
+                    darkMode 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-200'
+                  } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${
+                    hasError('confirmPassword') ? 'border-red-500' : ''
+                  }`}
+                  placeholder="Repite tu contraseña"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                >
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              {hasError('confirmPassword') && (
+                <p className="text-xs text-red-500 mt-1">{getErrorMessage('confirmPassword')}</p>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+      
+      <div className="bg-blue-50 p-4 rounded-lg mt-4">
+        <p className={`text-sm flex items-start gap-2 ${darkMode ? 'text-blue-800' : 'text-blue-800'}`}>
+          <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+          <span>
+            {modalMode === "create" 
+              ? "Los campos marcados con * son obligatorios. La contraseña debe cumplir con todos los requisitos de seguridad. El usuario se creará con estado Activo."
+              : "Los campos marcados con * son obligatorios. Modifica solo los datos que necesites actualizar."}
+          </span>
+        </p>
+      </div>
+    </div>
+  );
 
   return (
     <div className={`min-h-screen flex flex-col ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
@@ -856,7 +1927,6 @@ const Usuario = () => {
                 <div className={`rounded-xl border ${
                   darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
                 } overflow-hidden`}>
-                  {/* Tabla */}
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
@@ -1101,7 +2171,6 @@ const Usuario = () => {
                   </div>
                 </div>
 
-                {/* Si no hay resultados */}
                 {sortedUsuarios.length === 0 && (
                   <div className={`text-center py-12 rounded-xl border ${
                     darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
@@ -1124,7 +2193,7 @@ const Usuario = () => {
               </>
             )}
 
-            {/* Modal de Usuario (Crear/Editar/Ver/Restablecer) */}
+            {/* Modal de Usuario */}
             {modalOpen && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                 <div className={`rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl`}>
@@ -1173,283 +2242,7 @@ const Usuario = () => {
                       </div>
                     )}
 
-                    {(modalMode === "create" || modalMode === "edit") && (
-                      <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {/* Datos Personales */}
-                          <div className="col-span-2">
-                            <h3 className={`text-md font-semibold mb-3 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
-                              Datos Personales
-                            </h3>
-                          </div>
-                          
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Nacionalidad *
-                            </label>
-                            <select
-                              value={formData.nacionalidad}
-                              onChange={(e) => setFormData({...formData, nacionalidad: e.target.value})}
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                            >
-                              <option value="V">Venezolano (V)</option>
-                              <option value="E">Extranjero (E)</option>
-                            </select>
-                          </div>
-                          
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Cédula *
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.cedula}
-                              onChange={(e) => setFormData({...formData, cedula: e.target.value})}
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                              placeholder="12345678"
-                            />
-                          </div>
-                          
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Nombres *
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.nombres}
-                              onChange={(e) => setFormData({...formData, nombres: e.target.value})}
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                            />
-                          </div>
-                          
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Apellidos *
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.apellidos}
-                              onChange={(e) => setFormData({...formData, apellidos: e.target.value})}
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                            />
-                          </div>
-                          
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Fecha de Nacimiento
-                            </label>
-                            <input
-                              type="date"
-                              value={formData.fecha_nacimiento}
-                              onChange={(e) => setFormData({...formData, fecha_nacimiento: e.target.value})}
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                            />
-                          </div>
-                          
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Teléfono
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.telefono}
-                              onChange={(e) => setFormData({...formData, telefono: e.target.value})}
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                              placeholder="0412-1234567"
-                            />
-                          </div>
-                          
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Correo Electrónico *
-                            </label>
-                            <input
-                              type="email"
-                              value={formData.correo}
-                              onChange={(e) => setFormData({...formData, correo: e.target.value})}
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                            />
-                          </div>
-                          
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Estado Civil
-                            </label>
-                            <select
-                              value={formData.estado_civil}
-                              onChange={(e) => setFormData({...formData, estado_civil: e.target.value})}
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                            >
-                              <option value="">Seleccionar</option>
-                              {estadosCiviles.map(ec => (
-                                <option key={ec} value={ec}>{ec}</option>
-                              ))}
-                            </select>
-                          </div>
-                          
-                          <div className="col-span-2">
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Dirección
-                            </label>
-                            <textarea
-                              value={formData.direccion}
-                              onChange={(e) => setFormData({...formData, direccion: e.target.value})}
-                              rows="2"
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                            />
-                          </div>
-                          
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Estado
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.estado}
-                              onChange={(e) => setFormData({...formData, estado: e.target.value})}
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                            />
-                          </div>
-                          
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Municipio
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.municipio}
-                              onChange={(e) => setFormData({...formData, municipio: e.target.value})}
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                            />
-                          </div>
-                          
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Parroquia
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.parroquia}
-                              onChange={(e) => setFormData({...formData, parroquia: e.target.value})}
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                            />
-                          </div>
-                          
-                          {/* Datos de Usuario */}
-                          <div className="col-span-2 mt-4">
-                            <h3 className={`text-md font-semibold mb-3 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
-                              Datos de Acceso
-                            </h3>
-                          </div>
-                          
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Rol *
-                            </label>
-                            <select
-                              value={formData.rol}
-                              onChange={(e) => setFormData({...formData, rol: e.target.value})}
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                            >
-                              <option value="">Seleccionar rol</option>
-                              {roles.map(rol => (
-                                <option key={rol.value} value={rol.value}>{rol.label}</option>
-                              ))}
-                            </select>
-                          </div>
-                          
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Estado
-                            </label>
-                            <select
-                              value={formData.estatus}
-                              onChange={(e) => setFormData({...formData, estatus: e.target.value})}
-                              className={`w-full px-4 py-2 rounded-lg border ${
-                                darkMode 
-                                  ? 'bg-gray-700 border-gray-600 text-white' 
-                                  : 'bg-white border-gray-200'
-                              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                            >
-                              <option value="Activo">Activo</option>
-                              <option value="Inactivo">Inactivo</option>
-                              <option value="Bloqueado">Bloqueado</option>
-                            </select>
-                          </div>
-                          
-                          {modalMode === "create" && (
-                            <div>
-                              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                Contraseña *
-                              </label>
-                              <input
-                                type="password"
-                                value={formData.clave}
-                                onChange={(e) => setFormData({...formData, clave: e.target.value})}
-                                className={`w-full px-4 py-2 rounded-lg border ${
-                                  darkMode 
-                                    ? 'bg-gray-700 border-gray-600 text-white' 
-                                    : 'bg-white border-gray-200'
-                                } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-                                placeholder="Mínimo 6 caracteres"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
+                    {(modalMode === "create" || modalMode === "edit") && renderFormModal()}
 
                     {modalMode === "view" && selectedUser && (
                       <div className="space-y-6">

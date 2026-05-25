@@ -49,6 +49,7 @@ import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
 import InspectionFormCompleto from "../components/InspectionFormCompleto";
+import Inspeccion2 from "../components/inspeccion2";
 
 // Importamos la API de inspección
 import inspeccionAPI from "../services/api_inspeccion";
@@ -111,9 +112,11 @@ const InspeccionRealizada = () => {
 
   // Estados para el formulario de inspección
   const [showInspectionForm, setShowInspectionForm] = useState(false);
+  const [showInspectionFormAgricola, setShowInspectionFormAgricola] = useState(false);
   const [selectedInspeccion, setSelectedInspeccion] = useState(null);
   const [emprendimientoData, setEmprendimientoData] = useState(null);
   const [sector, setSector] = useState(null);
+  const [tipoInspeccionSeleccionada, setTipoInspeccionSeleccionada] = useState(null);
 
   // Cargar inspecciones desde la API
   useEffect(() => {
@@ -126,35 +129,45 @@ const InspeccionRealizada = () => {
     try {
       const response = await inspeccionAPI.getAll();
       if (response.success) {
-        const inspeccionesFormateadas = response.data.map((ins) => ({
-          id: ins.id_inspeccion,
-          codigo: `INSP-2024-${String(ins.id_inspeccion).padStart(3, "0")}`,
-          id_codigo_exp: ins.id_codigo_exp,
-          id_tipo_insp_clas: ins.id_tipo_insp_clas,
-          estatus_inspeccion: ins.estatus_inspeccion,
-          created_at: ins.created_at,
-          updated_at: ins.updated_at,
-          codigo_expediente:
-            ins.codigo_expediente || `EXP-${ins.id_codigo_exp}`,
-          nombre_emprendedor: ins.nombre_emprendedor || "No especificado",
-          cedula: ins.cedula || "No especificada",
-          tipo_inspeccion:
-            ins.tipo_inspeccion ||
-            getTipoInspeccionDefault(ins.id_tipo_insp_clas),
-          fechaInspeccion: ins.created_at
-            ? new Date(ins.created_at).toISOString().split("T")[0]
-            : "-",
-          inspector: ins.inspector || "Por asignar",
-          resultado: ins.estatus_inspeccion || "Pendiente",
-          calificacion: ins.calificacion || 0,
-          observaciones: ins.observaciones || "Sin observaciones",
-          recomendaciones: ins.recomendaciones || "Sin recomendaciones",
-          duracion: ins.duracion || "-",
-          actividad: ins.actividad || "No especificada",
-          direccion: ins.direccion || "No especificada",
-          telefono: ins.telefono || "No especificado",
-        }));
-        setInspecciones(inspeccionesFormateadas);
+        // Usar un Map para garantizar un registro único por id_codigo_exp
+        const inspeccionesUnicas = new Map();
+        
+        response.data.forEach((ins) => {
+          // Solo agregar si no existe ya un registro con ese id_codigo_exp
+          if (!inspeccionesUnicas.has(ins.id_codigo_exp)) {
+            inspeccionesUnicas.set(ins.id_codigo_exp, {
+              id: ins.id_inspeccion,
+              codigo: `INSP-2024-${String(ins.id_inspeccion).padStart(3, "0")}`,
+              id_codigo_exp: ins.id_codigo_exp,
+              id_tipo_insp_clas: ins.id_tipo_insp_clas,
+              estatus_inspeccion: ins.estatus_inspeccion,
+              created_at: ins.created_at,
+              updated_at: ins.updated_at,
+              codigo_expediente:
+                ins.codigo_expediente || `EXP-${ins.id_codigo_exp}`,
+              nombre_emprendedor: ins.nombre_emprendedor || "No especificado",
+              cedula: ins.cedula || "No especificada",
+              tipo_inspeccion:
+                ins.tipo_inspeccion ||
+                getTipoInspeccionDefault(ins.id_tipo_insp_clas),
+              fechaInspeccion: ins.created_at
+                ? new Date(ins.created_at).toISOString().split("T")[0]
+                : "-",
+              inspector: ins.inspector || "Por asignar",
+              resultado: ins.estatus_inspeccion || "Pendiente",
+              calificacion: ins.calificacion || 0,
+              observaciones: ins.observaciones || "Sin observaciones",
+              recomendaciones: ins.recomendaciones || "Sin recomendaciones",
+              duracion: ins.duracion || "-",
+              actividad: ins.actividad || "No especificada",
+              direccion: ins.direccion || "No especificada",
+              telefono: ins.telefono || "No especificado",
+            });
+          }
+        });
+        
+        // Convertir el Map a array
+        setInspecciones(Array.from(inspeccionesUnicas.values()));
       } else {
         setError("Error al cargar las inspecciones");
       }
@@ -186,6 +199,9 @@ const InspeccionRealizada = () => {
       if (response.success && response.data) {
         setSelectedInspeccion(inspeccion);
         setEmprendimientoData(response.data);
+        
+        // Guardar el tipo de inspección
+        setTipoInspeccionSeleccionada(inspeccion.id_tipo_insp_clas);
 
         const sectorDeterminado = response.data.sector
           ?.toLowerCase()
@@ -193,7 +209,14 @@ const InspeccionRealizada = () => {
           ? "agricola"
           : "industria_comercio";
         setSector(sectorDeterminado);
-        setShowInspectionForm(true);
+        
+        // Decidir qué formulario mostrar basado en id_tipo_insp_clas
+        // SI EL ID DE INSPECCIÓN ES 2 O EL TIPO ES 2 (RE-INSPECCIÓN), MOSTRAR FORMULARIO AGRÍCOLA
+        if (inspeccion.id_tipo_insp_clas === 2 || inspeccion.id === 2) {
+          setShowInspectionFormAgricola(true);
+        } else {
+          setShowInspectionForm(true);
+        }
       } else {
         throw new Error("No se pudieron obtener los datos del emprendimiento");
       }
@@ -210,36 +233,68 @@ const InspeccionRealizada = () => {
       setLoading(true);
       setError(null);
 
-      const inspectionData = {
-        id_codigo_exp: emprendimientoData.id_expediente,
-        id_tipo_insp_clas: selectedInspeccion?.id_tipo_insp_clas || 1,
-        estatus_inspeccion: "En Revisión",
-        estudio_mercado: {
-          descripcion_producto: resultados.estudio_mercado?.descripcion_producto || '',
-          descripcion_proceso: resultados.estudio_mercado?.descripcion_proceso || '',
-          usuarios: resultados.estudio_mercado?.usuarios || '',
-          productos: resultados.estudio_mercado?.productos || [],
-          ventas: resultados.estudio_mercado?.ventas || [],
-          materia_prima: resultados.estudio_mercado?.materia_prima || []
-        },
-        aspectos_tecnicos: {
-          descripcion_local: resultados.aspectos_tecnicos?.descripcion_local || '',
-          tenencia_local: resultados.aspectos_tecnicos?.tenencia_local || 'propio',
-          maquinaria_existente: resultados.aspectos_tecnicos?.maquinaria_existente || [],
-          maquinaria_solicitada: resultados.aspectos_tecnicos?.maquinaria_solicitada || [],
-          recurso_humano: resultados.aspectos_tecnicos?.recurso_humano || [],
-          servicios_basicos: resultados.aspectos_tecnicos?.servicios_basicos || {}
-        },
-        gastos_mensuales: resultados.gastos_mensuales || [],
-        plan_inversion: resultados.plan_inversion || [],
-        organizacion_comunidad: {
-          tipo_organizacion: resultados.organizacion_comunidad?.tipo_organizacion || '',
-          necesidades_comunidad: resultados.organizacion_comunidad?.necesidades_comunidad || '',
-          realiza_aporte: resultados.organizacion_comunidad?.realiza_aporte || false,
-          descripcion_aporte: resultados.organizacion_comunidad?.descripcion_aporte || '',
-          tipo_garantia: resultados.organizacion_comunidad?.tipo_garantia || 'FIANZA'
-        }
-      };
+      // Verificar si los resultados vienen del formulario agrícola o estándar
+      const esFormularioAgricola = resultados.hasOwnProperty('solicitante') || 
+                                    resultados.hasOwnProperty('unidad_produccion');
+
+      let inspectionData;
+
+      if (esFormularioAgricola) {
+        // Transformar datos del formulario agrícola al formato esperado por la API
+        inspectionData = {
+          id_codigo_exp: emprendimientoData.id_expediente,
+          id_tipo_insp_clas: selectedInspeccion?.id_tipo_insp_clas || 2,
+          estatus_inspeccion: "En Revisión",
+          // Datos específicos del formulario agrícola
+          datos_solicitante: resultados.solicitante,
+          unidad_produccion: resultados.unidad_produccion,
+          condiciones_explotacion: resultados.condiciones_explotacion,
+          uso_actual_tierra: resultados.uso_actual_tierra,
+          infraestructura: resultados.infraestructura,
+          maquinaria_equipo: resultados.maquinaria_equipo,
+          produccion: resultados.produccion,
+          practicas_agronomicas: resultados.practicas_agronomicas,
+          pastizales: resultados.pastizales,
+          servicios: resultados.servicios,
+          costos_produccion: resultados.costos_produccion,
+          financieros: resultados.financieros,
+          credito: resultados.credito,
+          anexos: resultados.anexos,
+          tipo_formulario: "agricola_reinspeccion"
+        };
+      } else {
+        // Datos del formulario estándar
+        inspectionData = {
+          id_codigo_exp: emprendimientoData.id_expediente,
+          id_tipo_insp_clas: selectedInspeccion?.id_tipo_insp_clas || 1,
+          estatus_inspeccion: "En Revisión",
+          estudio_mercado: {
+            descripcion_producto: resultados.estudio_mercado?.descripcion_producto || '',
+            descripcion_proceso: resultados.estudio_mercado?.descripcion_proceso || '',
+            usuarios: resultados.estudio_mercado?.usuarios || '',
+            productos: resultados.estudio_mercado?.productos || [],
+            ventas: resultados.estudio_mercado?.ventas || [],
+            materia_prima: resultados.estudio_mercado?.materia_prima || []
+          },
+          aspectos_tecnicos: {
+            descripcion_local: resultados.aspectos_tecnicos?.descripcion_local || '',
+            tenencia_local: resultados.aspectos_tecnicos?.tenencia_local || 'propio',
+            maquinaria_existente: resultados.aspectos_tecnicos?.maquinaria_existente || [],
+            maquinaria_solicitada: resultados.aspectos_tecnicos?.maquinaria_solicitada || [],
+            recurso_humano: resultados.aspectos_tecnicos?.recurso_humano || [],
+            servicios_basicos: resultados.aspectos_tecnicos?.servicios_basicos || {}
+          },
+          gastos_mensuales: resultados.gastos_mensuales || [],
+          plan_inversion: resultados.plan_inversion || [],
+          organizacion_comunidad: {
+            tipo_organizacion: resultados.organizacion_comunidad?.tipo_organizacion || '',
+            necesidades_comunidad: resultados.organizacion_comunidad?.necesidades_comunidad || '',
+            realiza_aporte: resultados.organizacion_comunidad?.realiza_aporte || false,
+            descripcion_aporte: resultados.organizacion_comunidad?.descripcion_aporte || '',
+            tipo_garantia: resultados.organizacion_comunidad?.tipo_garantia || 'FIANZA'
+          }
+        };
+      }
 
       if (selectedInspeccion?.id) {
         const response = await inspeccionAPI.updateFullInspection(
@@ -251,11 +306,13 @@ const InspeccionRealizada = () => {
           await cargarInspecciones();
           handleCloseInspectionForm();
           alert(`Inspección #${selectedInspeccion.id} actualizada correctamente\nEstatus: En Revisión`);
+        } else {
+          throw new Error(response.message || "Error al actualizar la inspección");
         }
       } else {
         const createResponse = await inspeccionAPI.create({
           id_codigo_exp: emprendimientoData.id_expediente,
-          id_tipo_insp_clas: 1,
+          id_tipo_insp_clas: selectedInspeccion?.id_tipo_insp_clas || (esFormularioAgricola ? 2 : 1),
           estatus_inspeccion: "Pendiente"
         });
         
@@ -270,7 +327,11 @@ const InspeccionRealizada = () => {
             await cargarInspecciones();
             handleCloseInspectionForm();
             alert(`Nueva inspección creada correctamente\nID: ${newId}\nEstatus: En Revisión`);
+          } else {
+            throw new Error(fullResponse.message || "Error al guardar los datos de la inspección");
           }
+        } else {
+          throw new Error(createResponse.message || "Error al crear la inspección");
         }
       }
     } catch (error) {
@@ -284,9 +345,11 @@ const InspeccionRealizada = () => {
 
   const handleCloseInspectionForm = () => {
     setShowInspectionForm(false);
+    setShowInspectionFormAgricola(false);
     setSelectedInspeccion(null);
     setEmprendimientoData(null);
     setSector(null);
+    setTipoInspeccionSeleccionada(null);
   };
 
   const getTipoInspeccionDefault = (id_tipo_insp_clas) => {
@@ -469,10 +532,12 @@ const InspeccionRealizada = () => {
 
   const handleDownloadInforme = (id) => {
     console.log("Descargar informe de inspección:", id);
+    alert(`Descargando informe de inspección #${id}`);
   };
 
   const handleGenerarCertificado = (id) => {
     console.log("Generar certificado para inspección:", id);
+    alert(`Generando certificado para inspección #${id}`);
   };
 
   const resetFilters = () => {
@@ -684,7 +749,7 @@ const InspeccionRealizada = () => {
                 <p
                   className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}
                 >
-                  Total Inspecciones
+                  Total Expedientes
                 </p>
               </div>
 
@@ -818,7 +883,7 @@ const InspeccionRealizada = () => {
                     }`}
                   >
                     <Database size={16} />
-                    {inspecciones.length} registros
+                    {inspecciones.length} expedientes únicos
                   </div>
                 )}
               </div>
@@ -949,7 +1014,7 @@ const InspeccionRealizada = () => {
                         onClick={() => handleSort("codigo")}
                       >
                         <div className="flex items-center gap-2">
-                          Código
+                          Código Inspección
                           <ArrowUpDown size={14} />
                         </div>
                       </th>
@@ -959,15 +1024,6 @@ const InspeccionRealizada = () => {
                       >
                         <div className="flex items-center gap-2">
                           Expediente
-                          <ArrowUpDown size={14} />
-                        </div>
-                      </th>
-                      <th
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort("id_tipo_insp_clas")}
-                      >
-                        <div className="flex items-center gap-2">
-                          Tipo
                           <ArrowUpDown size={14} />
                         </div>
                       </th>
@@ -998,6 +1054,9 @@ const InspeccionRealizada = () => {
                           <ArrowUpDown size={14} />
                         </div>
                       </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Tipo Inspección
+                      </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
                       </th>
@@ -1008,7 +1067,7 @@ const InspeccionRealizada = () => {
                   >
                     {paginatedInspecciones.map((inspeccion) => (
                       <tr
-                        key={inspeccion.id}
+                        key={inspeccion.id_codigo_exp}
                         className={`${
                           darkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"
                         } transition-colors`}
@@ -1042,13 +1101,7 @@ const InspeccionRealizada = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-1 text-xs rounded-full ${getTipoInspeccionBadge(inspeccion.tipo_inspeccion)}`}
-                          >
-                            {inspeccion.tipo_inspeccion}
-                          </span>
-                        </td>
+                        
                         <td className="px-4 py-3">
                           <div>
                             <div
@@ -1113,6 +1166,13 @@ const InspeccionRealizada = () => {
                                 : ""}
                             </div>
                           </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`px-2 py-1 text-xs rounded-full ${getTipoInspeccionBadge(inspeccion.tipo_inspeccion)}`}
+                          >
+                            {inspeccion.tipo_inspeccion}
+                          </span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-2">
@@ -1366,7 +1426,7 @@ const InspeccionRealizada = () => {
         </main>
       </div>
 
-      {/* MODAL DEL FORMULARIO DE INSPECCIÓN */}
+      {/* MODAL DEL FORMULARIO DE INSPECCIÓN ESTÁNDAR */}
       {showInspectionForm && selectedInspeccion && emprendimientoData && (
         <InspectionFormCompleto
           isOpen={showInspectionForm}
@@ -1375,6 +1435,19 @@ const InspeccionRealizada = () => {
           inspeccionId={selectedInspeccion.id}
           emprendimientoData={emprendimientoData}
           sector={sector || "industria_comercio"}
+          darkMode={darkMode}
+        />
+      )}
+
+      {/* MODAL DEL FORMULARIO DE RE-INSPECCIÓN AGRÍCOLA - SE MUESTRA CUANDO id_tipo_insp_clas ES 2 */}
+      {showInspectionFormAgricola && selectedInspeccion && emprendimientoData && (
+        <Inspeccion2
+          isOpen={showInspectionFormAgricola}
+          onClose={handleCloseInspectionForm}
+          onSave={handleSaveInspectionResults}
+          inspeccionId={selectedInspeccion.id}
+          emprendimientoData={emprendimientoData}
+          sector={sector || "agricola"}
           darkMode={darkMode}
         />
       )}
@@ -2181,12 +2254,31 @@ const InspeccionRealizada = () => {
                   <button
                     onClick={() => {
                       handleCloseViewModal();
-                      handleRealizarInspeccion({
-                        id: selectedViewInspeccion.id_inspeccion,
-                        id_codigo_exp: selectedViewInspeccion.id_codigo_exp,
-                        estatus_inspeccion: selectedViewInspeccion.estatus_inspeccion,
-                        id_tipo_insp_clas: selectedViewInspeccion.id_tipo_insp_clas
-                      });
+                      // Determinar qué formulario abrir basado en id_tipo_insp_clas
+                      if (selectedViewInspeccion.id_tipo_insp_clas === 2) {
+                        setShowInspectionFormAgricola(true);
+                        setSelectedInspeccion({
+                          id: selectedViewInspeccion.id_inspeccion,
+                          id_codigo_exp: selectedViewInspeccion.id_codigo_exp,
+                          estatus_inspeccion: selectedViewInspeccion.estatus_inspeccion,
+                          id_tipo_insp_clas: selectedViewInspeccion.id_tipo_insp_clas
+                        });
+                        setEmprendimientoData({
+                          id_expediente: selectedViewInspeccion.id_codigo_exp,
+                          nombre_emprendedor: selectedViewInspeccion.nombre_emprendedor,
+                          cedula: selectedViewInspeccion.cedula_emprendedor,
+                          nombre_emprendimiento: selectedViewInspeccion.nombre_emprendimiento,
+                          sector: selectedViewInspeccion.sector,
+                          // ... otros datos necesarios
+                        });
+                      } else {
+                        handleRealizarInspeccion({
+                          id: selectedViewInspeccion.id_inspeccion,
+                          id_codigo_exp: selectedViewInspeccion.id_codigo_exp,
+                          estatus_inspeccion: selectedViewInspeccion.estatus_inspeccion,
+                          id_tipo_insp_clas: selectedViewInspeccion.id_tipo_insp_clas
+                        });
+                      }
                     }}
                     className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg hover:bg-[#264653] text-sm flex items-center gap-2"
                   >

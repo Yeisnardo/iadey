@@ -59,9 +59,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
     { id: "approval", icon: Handshake, text: "Aprobación", path: "/aprobacion", section: "operaciones" },
     { id: "banck", icon: Landmark, text: "Crédito a Banco", path: "/Bancarios", section: "financiero" },
     { id: "contract", icon: FileSignature, text: "Contrato", path: "/Contrato", section: "financiero" },
-    { id: "disbursement", icon: DollarSign, text: "Desembolso", path: "/desembolso", section: "financiero" },
-    { id: "payment", icon: CreditCard, text: "Pago de Cuota", path: "/pago", section: "financiero" },
-    { id: "portfolio", icon: FileSearch, text: "Cartera de Créditos", path: "/Cartera", section: "financiero" }
+    { id: "payment", icon: CreditCard, text: "Pago de Cuota", path: "/pago", section: "financiero" }
   ];
 
   const settingsSubItems = [
