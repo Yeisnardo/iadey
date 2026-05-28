@@ -32,7 +32,7 @@ static async getAprobadas() {
     INNER JOIN persona p ON s.cedula_persona = p.cedula
     LEFT JOIN emprendimiento e ON s.id_solicitud = e.id_solicitud
     LEFT JOIN clasificacion_emprendimiento c ON e.id_clasificacion = c.id_clasificacion
-    WHERE s.estatus = 'Aprobado'
+    WHERE s.estatus = 'Pre-Aprobado'
     ORDER BY s.id_solicitud DESC
   `);
   return result.rows;
@@ -216,6 +216,12 @@ static async getAprobadas() {
 
   // Cambiar estatus de solicitud
   static async cambiarEstatus(id_solicitud, estatus, motivo_rechazo = null) {
+    // Validar que el estatus sea válido
+    const estatusPermitidos = ['Pendiente', 'Pre-Aprobado', 'Rechazado'];
+    if (!estatusPermitidos.includes(estatus)) {
+      throw new Error('Estatus no válido. Los valores permitidos son: Pendiente, Pre-Aprobado, Rechazado');
+    }
+    
     const result = await pool.query(
       `UPDATE solicitud SET
         estatus = $1,

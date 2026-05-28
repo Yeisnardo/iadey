@@ -35,6 +35,7 @@ class ConfiguracionContratoModel {
       cuotas_obligatorias,
       cuotas_gracia,
       frecuencia_pago,
+      tipo_moneda,
       cedula_pago,
       banco_pago,
       cuenta_pago,
@@ -49,12 +50,13 @@ class ConfiguracionContratoModel {
         cuotas_obligatorias,
         cuotas_gracia,
         frecuencia_pago,
+        tipo_moneda,
         cedula_pago,
         banco_pago,
         cuenta_pago,
         created_by,
         updated_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *`,
       [
         interes_porcentaje,
@@ -63,6 +65,7 @@ class ConfiguracionContratoModel {
         cuotas_obligatorias,
         cuotas_gracia,
         frecuencia_pago,
+        tipo_moneda,
         cedula_pago,
         banco_pago,
         cuenta_pago,
@@ -73,7 +76,7 @@ class ConfiguracionContratoModel {
     return result.rows[0];
   }
 
-  // Actualizar configuración (crea un nuevo registro en lugar de actualizar)
+  // Actualizar configuración
   static async update(id, data) {
     const {
       interes_porcentaje,
@@ -82,6 +85,7 @@ class ConfiguracionContratoModel {
       cuotas_obligatorias,
       cuotas_gracia,
       frecuencia_pago,
+      tipo_moneda,
       cedula_pago,
       banco_pago,
       cuenta_pago,
@@ -96,12 +100,13 @@ class ConfiguracionContratoModel {
         cuotas_obligatorias = $4,
         cuotas_gracia = $5,
         frecuencia_pago = $6,
-        cedula_pago = $7,
-        banco_pago = $8,
-        cuenta_pago = $9,
-        updated_by = $10,
+        tipo_moneda = $7,
+        cedula_pago = $8,
+        banco_pago = $9,
+        cuenta_pago = $10,
+        updated_by = $11,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id_configuracion = $11 
+      WHERE id_configuracion = $12 
       RETURNING *`,
       [
         interes_porcentaje,
@@ -110,6 +115,7 @@ class ConfiguracionContratoModel {
         cuotas_obligatorias,
         cuotas_gracia,
         frecuencia_pago,
+        tipo_moneda,
         cedula_pago,
         banco_pago,
         cuenta_pago,

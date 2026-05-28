@@ -1,3 +1,5 @@
+// controllers/expedienteController.js
+
 const ExpedienteModel = require('../models/expedienteModel');
 const SolicitudModel = require('../models/solicitudModel');
 const UsuarioModel = require('../models/usuarioModel');
@@ -22,7 +24,6 @@ const expedienteController = {
         });
       }
       
-      // Formatear con información del expediente
       const solicitudesFormateadas = solicitudes.map(sol => ({
         id_solicitud: sol.id_solicitud,
         motivo_solicitud: sol.motivo_solicitud,
@@ -30,7 +31,6 @@ const expedienteController = {
         fecha_solicitud: sol.fecha_solicitud,
         estatus: sol.estatus,
         
-        // Datos del solicitante
         nombres: sol.nombres,
         apellidos: sol.apellidos,
         nombre_completo: `${sol.nombres || ''} ${sol.apellidos || ''}`.trim(),
@@ -39,7 +39,6 @@ const expedienteController = {
         email: sol.email,
         direccion: sol.direccion,
         
-        // Datos del emprendimiento
         id_emprendimiento: sol.id_emprendimiento,
         nombre_emprendimiento: sol.nombre_emprendimiento,
         anos_experiencia: sol.anos_experiencia,
@@ -47,7 +46,6 @@ const expedienteController = {
         sector: sol.sector,
         actividad: sol.actividad,
         
-        // ✅ Información del expediente
         tiene_expediente: sol.id_expediente ? true : false,
         expediente: sol.id_expediente ? {
           id_expediente: sol.id_expediente,
@@ -58,7 +56,9 @@ const expedienteController = {
           inspector_nombre: sol.inspector_nombre,
           inspector_cedula: sol.inspector_cedula,
           observaciones: sol.observaciones,
-          id_requisitos: sol.id_requisitos
+          id_requisitos: sol.id_requisitos,
+          // ✅ Incluir documentos/imágenes si existen
+          documentos: sol.urls_imagenes ? JSON.parse(sol.urls_imagenes) : []
         } : null
       }));
       
@@ -79,7 +79,7 @@ const expedienteController = {
     }
   },
 
-  // POST /api/expediente
+  // POST /api/expediente - ACTUALIZADO para recibir URLs de ImgBB
   create: async (req, res) => {
     try {
       const {
@@ -88,16 +88,17 @@ const expedienteController = {
         id_requisitos,
         codigo_expediente,
         estatus,
-        observaciones
+        observaciones,
+        urls_imagenes  // ✅ NUEVO: URLs de ImgBB
       } = req.body;
 
       console.log("📋 Datos recibidos:", {
         id_solicitud,
         id_usuario,
-        id_requisitos,
         codigo_expediente,
         estatus,
-        observaciones
+        observaciones: observaciones?.substring(0, 50) + '...',
+        urls_imagenes_recibidas: urls_imagenes ? '✅ Sí' : '❌ No'
       });
 
       // Validaciones
@@ -139,10 +140,10 @@ const expedienteController = {
         });
       }
 
-      if (solicitud.estatus !== 'Aprobado') {
+      if (solicitud.estatus !== 'Pre-Aprobado') {
         return res.status(400).json({ 
           success: false, 
-          error: `La solicitud debe estar APROBADA. Estado actual: ${solicitud.estatus}` 
+          error: `La solicitud debe estar PRE-APROBADA. Estado actual: ${solicitud.estatus}` 
         });
       }
 
@@ -165,26 +166,54 @@ const expedienteController = {
         });
       }
 
-      // Construir el objeto de datos para crear el expediente
+      // ✅ Procesar las URLs de imágenes
+      let urlsImagenesJSON = null;
+      if (urls_imagenes) {
+        try {
+          // Si urls_imagenes es string, parsearlo; si ya es objeto, usarlo directamente
+          urlsImagenesJSON = typeof urls_imagenes === 'string' 
+            ? JSON.parse(urls_imagenes) 
+            : urls_imagenes;
+          
+          console.log("📸 URLs de ImgBB procesadas:", 
+            Object.keys(urlsImagenesJSON).map(key => 
+              `${key}: ${urlsImagenesJSON[key].length} imágenes`
+            )
+          );
+        } catch (parseError) {
+          console.error('❌ Error parseando urls_imagenes:', parseError);
+          return res.status(400).json({
+            success: false,
+            error: 'Formato inválido de urls_imagenes'
+          });
+        }
+      }
+
+      // Construir el objeto de datos
       const expedienteData = {
         id_solicitud: parseInt(id_solicitud),
         id_usuario: parseInt(id_usuario),
         ids_requisitos: Array.isArray(id_requisitos) ? id_requisitos : [],
         observaciones: observaciones || 'Sin observaciones iniciales',
         codigo_expediente,
-        estatus: estatus || 'En revisión'
+        estatus: estatus || 'En revisión',
+        urls_imagenes: urlsImagenesJSON  // ✅ Pasar las URLs al modelo
       };
 
-      console.log("📤 Creando expediente con datos:", expedienteData);
+      console.log("📤 Creando expediente...");
 
       // Crear el expediente
       const nuevoExpediente = await ExpedienteModel.create(expedienteData);
 
-      console.log("✅ Expediente creado exitosamente:", nuevoExpediente);
+      console.log("✅ Expediente creado exitosamente:", {
+        id: nuevoExpediente.expediente.id_expediente,
+        codigo: nuevoExpediente.expediente.codigo_expediente,
+        inspecciones: nuevoExpediente.total_inspecciones
+      });
 
       res.status(201).json({
         success: true,
-        message: 'Expediente creado exitosamente',
+        message: 'Expediente creado exitosamente con imágenes en ImgBB',
         data: nuevoExpediente
       });
       

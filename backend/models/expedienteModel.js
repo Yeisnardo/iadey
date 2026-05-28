@@ -32,7 +32,7 @@ class ExpedienteModel {
         e.id_clasificacion,
         c.sector,
         c.actividad,
-        -- Datos del expediente si existe
+        -- Datos del expediente
         exp.id_expediente,
         exp.codigo_expediente,
         exp.estatus as estatus_expediente,
@@ -40,6 +40,7 @@ class ExpedienteModel {
         exp.id_usuario,
         exp.observaciones,
         exp.id_requisitos,
+        exp.urls_imagenes,  -- ✅ NUEVO: URLs de imágenes
         u.cedula_usuario as inspector_cedula,
         u.rol as inspector_rol,
         CONCAT(pi.nombres, ' ', pi.apellidos) as inspector_nombre
@@ -47,18 +48,16 @@ class ExpedienteModel {
       INNER JOIN persona p ON s.cedula_persona = p.cedula
       LEFT JOIN emprendimiento e ON s.id_solicitud = e.id_solicitud
       LEFT JOIN clasificacion_emprendimiento c ON e.id_clasificacion = c.id_clasificacion
-      -- LEFT JOIN con expediente para obtener datos si existe
       LEFT JOIN expediente exp ON s.id_solicitud = exp.id_solicitud
       LEFT JOIN usuario u ON exp.id_usuario = u.id
       LEFT JOIN persona pi ON u.cedula_usuario = pi.cedula
-      WHERE s.estatus = 'Aprobado'
+      WHERE s.estatus = 'Pre-Aprobado'
       ORDER BY s.id_solicitud DESC
     `;
     
     try {
       const result = await pool.query(query);
       console.log(`✅ ${result.rows.length} solicitudes aprobadas encontradas`);
-      console.log(`📊 Solicitudes con expediente: ${result.rows.filter(r => r.id_expediente).length}`);
       return result.rows;
     } catch (error) {
       console.error('❌ Error en getSolAprobadasExp:', error);
@@ -86,16 +85,16 @@ class ExpedienteModel {
       ids_requisitos,
       observaciones,
       codigo_expediente,
-      estatus
+      estatus,
+      urls_imagenes  // ✅ NUEVO
     } = data;
 
-    // Validaciones detalladas
     if (!id_solicitud) throw new Error('id_solicitud es requerido');
     if (!id_usuario) throw new Error('id_usuario (inspector) es requerido');
     if (!codigo_expediente) throw new Error('codigo_expediente es requerido');
     if (!estatus) throw new Error('estatus es requerido');
 
-    // Convertir array de requisitos a string separado por comas
+    // Convertir array de requisitos a string
     let requisitosString = '';
     if (Array.isArray(ids_requisitos) && ids_requisitos.length > 0) {
       requisitosString = ids_requisitos.join(',');
@@ -103,15 +102,19 @@ class ExpedienteModel {
       requisitosString = String(ids_requisitos);
     }
 
-    console.log("📝 Guardando requisitos como string:", requisitosString);
+    // ✅ Convertir URLs de imágenes a JSON string
+    let urlsImagenesString = null;
+    if (urls_imagenes && Object.keys(urls_imagenes).length > 0) {
+      urlsImagenesString = JSON.stringify(urls_imagenes);
+      console.log("📸 URLs guardadas:", urlsImagenesString.substring(0, 100) + '...');
+    }
 
-    // Usar una transacción para asegurar integridad
     const client = await pool.connect();
     
     try {
       await client.query('BEGIN');
 
-      // 1. Insertar el expediente
+      // 1. Insertar el expediente con urls_imagenes
       const queryExpediente = `
         INSERT INTO expediente (
           id_solicitud,
@@ -120,9 +123,10 @@ class ExpedienteModel {
           observaciones,
           codigo_expediente,
           estatus,
+          urls_imagenes,  -- ✅ NUEVO CAMPO
           created_at,
           updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING *
       `;
 
@@ -132,15 +136,16 @@ class ExpedienteModel {
         requisitosString,
         observaciones || 'Pendiente de verificación',
         codigo_expediente,
-        estatus
+        estatus,
+        urlsImagenesString  // ✅ Guardar como JSON string
       ];
 
-      console.log("📤 Ejecutando INSERT expediente con valores:", valuesExpediente);
+      console.log("📤 Insertando expediente...");
       const resultExpediente = await client.query(queryExpediente, valuesExpediente);
       const expedienteCreado = resultExpediente.rows[0];
       console.log("✅ Expediente creado con ID:", expedienteCreado.id_expediente);
 
-      // 2. Obtener el n_ins_asig de la clasificación del emprendimiento
+      // 2. Crear inspecciones (se mantiene igual)
       const queryClasificacion = `
         SELECT c.n_ins_asig, c.id_clasificacion, c.sector, c.actividad
         FROM solicitud s
@@ -153,15 +158,10 @@ class ExpedienteModel {
       const resultClasificacion = await client.query(queryClasificacion, [id_solicitud]);
       
       if (resultClasificacion.rows.length === 0) {
-        throw new Error('No se encontró la clasificación del emprendimiento para esta solicitud');
+        throw new Error('No se encontró la clasificación del emprendimiento');
       }
 
-      const { n_ins_asig, id_clasificacion, sector, actividad } = resultClasificacion.rows[0];
-      console.log(`📊 Clasificación: ${sector} - ${actividad}`);
-      console.log(`📊 n_ins_asig: ${n_ins_asig} (Se crearán ${n_ins_asig} inspecciones)`);
-      console.log(`📊 id_clasificacion: ${id_clasificacion} (usado como id_tipo_insp_clas)`);
-
-      // 3. Crear los registros en la tabla inspección según n_ins_asig
+      const { n_ins_asig, id_clasificacion } = resultClasificacion.rows[0];
       const inspeccionesCreadas = [];
       
       for (let i = 1; i <= n_ins_asig; i++) {
@@ -178,19 +178,17 @@ class ExpedienteModel {
 
         const valuesInspeccion = [
           expedienteCreado.id_expediente,
-          id_clasificacion,  // Usamos id_clasificacion como id_tipo_insp_clas
-          'Pendiente'        // Valor por defecto
+          id_clasificacion,
+          'Pendiente'
         ];
 
-        console.log(`📤 Creando inspección ${i} de ${n_ins_asig}`);
         const resultInspeccion = await client.query(queryInspeccion, valuesInspeccion);
         inspeccionesCreadas.push(resultInspeccion.rows[0]);
-        console.log(`✅ Inspección ${i} creada con ID: ${resultInspeccion.rows[0].id_inspeccion}`);
       }
 
       await client.query('COMMIT');
       
-      console.log(`✅ Proceso completado: 1 expediente y ${inspeccionesCreadas.length} inspecciones creadas`);
+      console.log(`✅ Proceso completado: 1 expediente (con imágenes) y ${inspeccionesCreadas.length} inspecciones`);
       
       return {
         expediente: expedienteCreado,

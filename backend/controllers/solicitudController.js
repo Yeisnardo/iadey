@@ -153,17 +153,17 @@ getAprobadas: async (req, res) => {
   },
 
   // PUT /api/solicitud/:id/estatus
-  updateEstatus: async (req, res) => {
+   updateEstatus: async (req, res) => {
     try {
       const { id } = req.params;
       const { estatus, motivo_rechazo } = req.body;
       
-      // Validar que el estatus sea válido
-      const estatusPermitidos = ['Pendiente', 'Aprobado', 'Rechazado'];
+      // Validar que el estatus sea válido - CAMBIADO a Pre-Aprobado
+      const estatusPermitidos = ['Pendiente', 'Pre-Aprobado', 'Rechazado'];
       if (!estatusPermitidos.includes(estatus)) {
         return res.status(400).json({
           success: false,
-          error: 'Estatus no válido. Los valores permitidos son: Pendiente, Aprobado, Rechazado'
+          error: 'Estatus no válido. Los valores permitidos son: Pendiente, Pre-Aprobado, Rechazado'
         });
       }
       
@@ -184,10 +184,20 @@ getAprobadas: async (req, res) => {
         });
       }
       
+      // Cambiar el mensaje según el estatus
+      let mensaje = '';
+      if (estatus === 'Pre-Aprobado') {
+        mensaje = 'Solicitud pre-aprobada exitosamente';
+      } else if (estatus === 'Rechazado') {
+        mensaje = 'Solicitud rechazada exitosamente';
+      } else {
+        mensaje = 'Estatus actualizado exitosamente';
+      }
+      
       res.json({
         success: true,
         data: solicitud,
-        message: `Solicitud ${estatus === 'Aprobado' ? 'aprobada' : 'rechazada'} exitosamente`
+        message: mensaje
       });
     } catch (error) {
       console.error('Error en updateEstatus:', error);

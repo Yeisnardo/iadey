@@ -735,6 +735,7 @@ CREATE TABLE anexos_fotografias (
 -- =============================================
 CREATE TABLE configuracion_contrato (
     id_configuracion SERIAL PRIMARY KEY,
+    tipo_moneda VARCHAR (50) NOT NULL,
     interes_porcentaje DECIMAL(5,2) NOT NULL DEFAULT 12.50,
     morosidad_porcentaje DECIMAL(5,2) NOT NULL DEFAULT 3.00,
     flat_porcentaje DECIMAL(5,2) NOT NULL DEFAULT 2.50,
@@ -750,6 +751,16 @@ CREATE TABLE configuracion_contrato (
     updated_by VARCHAR(100)
 );
 
+CREATE TABLE IF NOT EXISTS configuracion_contrato_historial (
+    id_historial SERIAL PRIMARY KEY,
+    id_configuracion INTEGER NOT NULL,
+    campo_modificado VARCHAR(50) NOT NULL,
+    valor_anterior TEXT,
+    valor_nuevo TEXT,
+    usuario VARCHAR(100),
+    motivo TEXT,
+    fecha_cambio TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE contrato (
     id_contrato SERIAL PRIMARY KEY,
@@ -763,6 +774,7 @@ CREATE TABLE contrato (
     interes  VARCHAR (50) NOT NULL,
     devolvimiento VARCHAR (50) NOT NULL,
     numero_cuotas VARCHAR (50) NOT NULL,
+    numero_gracias VARCHAR (20) NOT NULL,
     inicio VARCHAR (50) NOT NULL,
     cierre VARCHAR (50) NOT NULL,
     estatus  VARCHAR (50) NOT NULL,
@@ -771,7 +783,6 @@ CREATE TABLE contrato (
     FOREIGN KEY (id_aprob) REFERENCES aprobacion(id_aprobacion),
     FOREIGN KEY (id_config) REFERENCES configuracion_contrato(id_configuracion)
 );
-
 
 CREATE TABLE desembolso (
     id_desembolso SERIAL PRIMARY KEY,

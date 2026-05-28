@@ -187,13 +187,15 @@ const ANOS_OPERANDO = [
 
 const ESTATUS_COLORES = {
   Pendiente: "bg-amber-50 text-amber-700 border-amber-200",
-  Aprobado: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "Pre-Aprobado": "bg-blue-50 text-blue-700 border-blue-200", // Color diferente para Pre-Aprobado
+  Aprobado: "bg-emerald-50 text-emerald-700 border-emerald-200", // Aprobado final
   Rechazado: "bg-red-50 text-red-700 border-red-200",
 };
 
 const ESTATUS_ICONOS = {
   Pendiente: Clock,
-  Aprobado: CheckCircle,
+  "Pre-Aprobado": Clock, // Reloj para Pre-Aprobado
+  Aprobado: CheckCircle, // Check para Aprobado final
   Rechazado: XCircle,
 };
 
@@ -810,54 +812,54 @@ const SolicitudesPersona = () => {
   };
 
   const handleAprobarSolicitud = async (solicitudId) => {
-    const result = await Swal.fire({
-      icon: "question",
-      title: "Confirmar aprobación",
-      text: "¿Estás seguro de aprobar esta solicitud?",
-      showCancelButton: true,
-      confirmButtonColor: "#4F46E5",
-      cancelButtonColor: "#6B7280",
-      confirmButtonText: "Sí, aprobar",
-      cancelButtonText: "Cancelar",
-    });
+  const result = await Swal.fire({
+    icon: "question",
+    title: "Confirmar pre-aprobación",
+    text: "¿Estás seguro de pre-aprobar esta solicitud?",
+    showCancelButton: true,
+    confirmButtonColor: "#4F46E5",
+    cancelButtonColor: "#6B7280",
+    confirmButtonText: "Sí, pre-aprobar",
+    cancelButtonText: "Cancelar",
+  });
 
-    if (!result.isConfirmed) return;
+  if (!result.isConfirmed) return;
 
-    setUpdatingStatus(true);
-    try {
-      const response = await SolicitudAPI.updateEstatus(
-        solicitudId,
-        "Aprobado",
-        null,
+  setUpdatingStatus(true);
+  try {
+    const response = await SolicitudAPI.updateEstatus(
+      solicitudId,
+      "Pre-Aprobado", // Cambiado de "Aprobado" a "Pre-Aprobado"
+      null,
+    );
+    if (response.success) {
+      setSolicitudes((prev) =>
+        prev.map((sol) =>
+          sol.id === solicitudId
+            ? { ...sol, estatus: "Pre-Aprobado", motivo_rechazo: null } // Cambiado a Pre-Aprobado
+            : sol,
+        ),
       );
-      if (response.success) {
-        setSolicitudes((prev) =>
-          prev.map((sol) =>
-            sol.id === solicitudId
-              ? { ...sol, estatus: "Aprobado", motivo_rechazo: null }
-              : sol,
-          ),
-        );
-        Swal.fire({
-          icon: "success",
-          title: "¡Aprobada!",
-          text: "Solicitud aprobada exitosamente",
-          confirmButtonColor: "#4F46E5",
-          timer: 3000,
-          timerProgressBar: true,
-        });
-      }
-    } catch (error) {
       Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: `Error al aprobar: ${error.message}`,
+        icon: "success",
+        title: "¡Pre-aprobada!",
+        text: "Solicitud pre-aprobada exitosamente",
         confirmButtonColor: "#4F46E5",
+        timer: 3000,
+        timerProgressBar: true,
       });
-    } finally {
-      setUpdatingStatus(false);
     }
-  };
+  } catch (error) {
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: `Error al pre-aprobar: ${error.message}`,
+      confirmButtonColor: "#4F46E5",
+    });
+  } finally {
+    setUpdatingStatus(false);
+  }
+};
 
   const handleRechazarSolicitud = (solicitudId) => {
     setSelectedSolicitudId(solicitudId);
@@ -1040,6 +1042,7 @@ const SolicitudesPersona = () => {
               >
                 <option value="todos">Todos los estados</option>
                 <option value="Pendiente">Pendiente</option>
+                <option value="Pre-Aprobado">Pre-Aprobado</option>
                 <option value="Aprobado">Aprobado</option>
                 <option value="Rechazado">Rechazado</option>
               </select>
@@ -1153,15 +1156,16 @@ const SolicitudesPersona = () => {
                                 tooltip="Ver detalles"
                                 darkMode={darkMode}
                               />
-{(solicitud.estatus === "Pendiente" || solicitud.estatus === "Rechazado") && (
-  <ActionButton
-    icon={CheckCircle}
-    onClick={() => handleAprobarSolicitud(solicitud.id)}
-    tooltip="Aprobar"
-    variant="success"
-    darkMode={darkMode}
-  />
-)}
+{/* Botón Pre-Aprobar: solo visible para Pendiente */}
+    {solicitud.estatus === "Pendiente" && (
+      <ActionButton
+        icon={CheckCircle}
+        onClick={() => handleAprobarSolicitud(solicitud.id)}
+        tooltip="Pre-Aprobar"
+        variant="success"
+        darkMode={darkMode}
+      />
+    )}
 
 {/* Botón Rechazar: solo visible para Pendiente */}
 {solicitud.estatus === "Pendiente" && (
