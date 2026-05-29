@@ -114,6 +114,8 @@ const InspeccionRealizada = () => {
   const [showInspectionForm, setShowInspectionForm] = useState(false);
   const [showInspectionFormAgricola, setShowInspectionFormAgricola] = useState(false);
   const [selectedInspeccion, setSelectedInspeccion] = useState(null);
+  const [showInspectionFormCompleto, setShowInspectionFormCompleto] = useState(false);
+  const [showInspeccion2, setShowInspeccion2] = useState(false);
   const [emprendimientoData, setEmprendimientoData] = useState(null);
   const [sector, setSector] = useState(null);
   const [tipoInspeccionSeleccionada, setTipoInspeccionSeleccionada] = useState(null);
@@ -211,11 +213,18 @@ const InspeccionRealizada = () => {
         setSector(sectorDeterminado);
         
         // Decidir qué formulario mostrar basado en id_tipo_insp_clas
-        // SI EL ID DE INSPECCIÓN ES 2 O EL TIPO ES 2 (RE-INSPECCIÓN), MOSTRAR FORMULARIO AGRÍCOLA
-        if (inspeccion.id_tipo_insp_clas === 2 || inspeccion.id === 2) {
-          setShowInspectionFormAgricola(true);
+        // id_tipo_insp_clas === 1: InspectionFormCompleto
+        // id_tipo_insp_clas === 2: Inspeccion2
+        if (inspeccion.n_ins_asig === 2) {
+          setShowInspeccion2(true);
+          setShowInspectionFormCompleto(false);
+          setShowInspectionForm(false);
+          setShowInspectionFormAgricola(false);
         } else {
-          setShowInspectionForm(true);
+          setShowInspectionFormCompleto(true);
+          setShowInspeccion2(false);
+          setShowInspectionForm(false);
+          setShowInspectionFormAgricola(false);
         }
       } else {
         throw new Error("No se pudieron obtener los datos del emprendimiento");
@@ -346,6 +355,8 @@ const InspeccionRealizada = () => {
   const handleCloseInspectionForm = () => {
     setShowInspectionForm(false);
     setShowInspectionFormAgricola(false);
+    setShowInspectionFormCompleto(false);
+    setShowInspeccion2(false);
     setSelectedInspeccion(null);
     setEmprendimientoData(null);
     setSector(null);
@@ -1054,9 +1065,6 @@ const InspeccionRealizada = () => {
                           <ArrowUpDown size={14} />
                         </div>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tipo Inspección
-                      </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
                       </th>
@@ -1166,13 +1174,6 @@ const InspeccionRealizada = () => {
                                 : ""}
                             </div>
                           </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-1 text-xs rounded-full ${getTipoInspeccionBadge(inspeccion.tipo_inspeccion)}`}
-                          >
-                            {inspeccion.tipo_inspeccion}
-                          </span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-2">
@@ -1426,10 +1427,10 @@ const InspeccionRealizada = () => {
         </main>
       </div>
 
-      {/* MODAL DEL FORMULARIO DE INSPECCIÓN ESTÁNDAR */}
-      {showInspectionForm && selectedInspeccion && emprendimientoData && (
+      {/* MODAL DEL FORMULARIO DE INSPECCIÓN COMPLETO (TIPO 1) */}
+      {showInspectionFormCompleto && selectedInspeccion && emprendimientoData && (
         <InspectionFormCompleto
-          isOpen={showInspectionForm}
+          isOpen={showInspectionFormCompleto}
           onClose={handleCloseInspectionForm}
           onSave={handleSaveInspectionResults}
           inspeccionId={selectedInspeccion.id}
@@ -1439,10 +1440,10 @@ const InspeccionRealizada = () => {
         />
       )}
 
-      {/* MODAL DEL FORMULARIO DE RE-INSPECCIÓN AGRÍCOLA - SE MUESTRA CUANDO id_tipo_insp_clas ES 2 */}
-      {showInspectionFormAgricola && selectedInspeccion && emprendimientoData && (
+      {/* MODAL DEL FORMULARIO DE RE-INSPECCIÓN AGRÍCOLA (TIPO 2) */}
+      {showInspeccion2 && selectedInspeccion && emprendimientoData && (
         <Inspeccion2
-          isOpen={showInspectionFormAgricola}
+          isOpen={showInspeccion2}
           onClose={handleCloseInspectionForm}
           onSave={handleSaveInspectionResults}
           inspeccionId={selectedInspeccion.id}
@@ -2256,7 +2257,7 @@ const InspeccionRealizada = () => {
                       handleCloseViewModal();
                       // Determinar qué formulario abrir basado en id_tipo_insp_clas
                       if (selectedViewInspeccion.id_tipo_insp_clas === 2) {
-                        setShowInspectionFormAgricola(true);
+                        setShowInspeccion2(true);
                         setSelectedInspeccion({
                           id: selectedViewInspeccion.id_inspeccion,
                           id_codigo_exp: selectedViewInspeccion.id_codigo_exp,
@@ -2269,7 +2270,6 @@ const InspeccionRealizada = () => {
                           cedula: selectedViewInspeccion.cedula_emprendedor,
                           nombre_emprendimiento: selectedViewInspeccion.nombre_emprendimiento,
                           sector: selectedViewInspeccion.sector,
-                          // ... otros datos necesarios
                         });
                       } else {
                         handleRealizarInspeccion({
