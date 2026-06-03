@@ -115,7 +115,8 @@ const aprobacionAPI = {
   },
 
   // Verificar requisitos del expediente
-  verificarRequisitos: async (idExpediente, datosVerificacion) => {
+  // Verificar requisitos del expediente
+verificarRequisitos: async (idExpediente, datosVerificacion) => {
   try {
     if (!idExpediente) {
       return { 
@@ -138,20 +139,24 @@ const aprobacionAPI = {
       };
     }
     
-    // Preparar datos para enviar - AHORA INCLUYE id_inspeccion
+    // Preparar datos para enviar - INCLUIR TODOS LOS CAMPOS
     const payload = {
       id_expediente: idExpediente,
       requisitos: datosVerificacion.requisitos.map(req => ({
         id_requisito: req.id_requisito,
         nombre: req.nombre,
-        verificado: req.verificado
+        verificado: req.verificado === true,  // Asegurar que sea booleano
+        estado_verificacion: req.estado_verificacion || (req.verificado ? 'verificado' : 'pendiente'),
+        observacion_no_valido: req.observacion_no_valido || null
       })),
       observaciones: datosVerificacion.observaciones || '',
       seleccion_manejo: datosVerificacion.seleccion_manejo || null,
-      id_inspeccion: datosVerificacion.id_inspeccion || null  // NUEVO: Incluir id_inspeccion
+      id_inspeccion: datosVerificacion.id_inspeccion || null,
+      estatus_aprobacion: datosVerificacion.estatus_aprobacion || null,  // ← AÑADIR
+      estatus_inspeccion: datosVerificacion.estatus_inspeccion || null   // ← AÑADIR
     };
     
-    console.log('Enviando verificación:', payload);
+    console.log('Enviando verificación al backend:', payload);
     
     const response = await api.post('/aprobacion/verificar-requisitos', payload);
     
@@ -185,7 +190,7 @@ const aprobacionAPI = {
       error: errorMessage 
     };
   }
-}
+} 
 };
 
 export default aprobacionAPI;

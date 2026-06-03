@@ -51,7 +51,7 @@ class ExpedienteModel {
       LEFT JOIN expediente exp ON s.id_solicitud = exp.id_solicitud
       LEFT JOIN usuario u ON exp.id_usuario = u.id
       LEFT JOIN persona pi ON u.cedula_usuario = pi.cedula
-      WHERE s.estatus = 'Pre-Aprobado'
+      WHERE s.estatus IN ('Pre-Aprobado', 'Aprobado')
       ORDER BY s.id_solicitud DESC
     `;
     

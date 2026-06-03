@@ -61,14 +61,18 @@ const aprobacionController = {
       requisitos, 
       observaciones, 
       seleccion_manejo,
-      id_inspeccion  // NUEVO: Recibir id_inspeccion
+      estatus_aprobacion,
+      estatus_inspeccion,
+      id_inspeccion
     } = req.body;
     
-    console.log('Datos recibidos en el controlador:', {
+    console.log('📥 Datos recibidos en el controlador:', {
       id_expediente,
       requisitos_length: requisitos?.length,
       seleccion_manejo,
-      id_inspeccion  // Log para verificar
+      estatus_aprobacion,
+      estatus_inspeccion,  // ← Verificar que llega
+      id_inspeccion
     });
     
     // Validaciones
@@ -136,14 +140,16 @@ const aprobacionController = {
       });
     }
     
-    // Guardar la verificación - AHORA PASA id_inspeccion
+    // Guardar la verificación
     const resultado = await AprobacionModel.verificarRequisitos({
       id_expediente,
       requisitos,
       estatus,
       seleccion_manejo: todosVerificados ? seleccion_manejo : null,
       observaciones: observaciones || '',
-      id_inspeccion: id_inspeccion || null  // NUEVO: Pasar id_inspeccion
+      id_inspeccion: id_inspeccion || null,
+      estatus_aprobacion: estatus_aprobacion || estatus,
+      estatus_inspeccion: estatus_inspeccion || null  // ← PASAR AL MODELO
     });
     
     res.json({
