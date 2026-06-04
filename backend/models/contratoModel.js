@@ -24,6 +24,7 @@ class ContratoModel {
         c.interes,
         c.devolvimiento,
         c.numero_cuotas,
+        c.numero_gracias,
         c.inicio,
         c.cierre,
         c.estatus,
@@ -58,6 +59,7 @@ class ContratoModel {
       interes,
       devolvimiento,
       numero_cuotas,
+      numero_gracias,
       inicio,
       cierre,
       estatus
@@ -75,10 +77,11 @@ class ContratoModel {
         interes,
         devolvimiento,
         numero_cuotas,
+        numero_gracias,
         inicio,
         cierre,
         estatus
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *
     `;
     
@@ -93,6 +96,7 @@ class ContratoModel {
       interes,
       devolvimiento,
       numero_cuotas,
+      numero_gracias,
       inicio,
       cierre,
       estatus

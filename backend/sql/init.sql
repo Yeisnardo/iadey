@@ -789,8 +789,7 @@ CREATE TABLE desembolso (
     id_cont INT NOT NULL,
     fecha_desembolso VARCHAR (15) NOT NULL,
     fecha_confirmacion VARCHAR (15),
-    referecia_bancaria VARCHAR (6) NOT NULL,
-    monto_pagado TEXT NOT NULL,
-    estatus VARCHAR (20) NOT NULL,
+    capture_desembolso TEXT NOT NULL,
+    estatus_desembolso VARCHAR (20) NOT NULL,
     FOREIGN KEY (id_cont) REFERENCES contrato(id_contrato)
 );

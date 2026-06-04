@@ -21,7 +21,8 @@ import {
   Hourglass,
   Ban,
   RefreshCw,
-  Eye
+  Eye,
+  Gift
 } from "lucide-react";
 
 // Importamos nuestros componentes personalizados
@@ -82,7 +83,8 @@ const Contrato = () => {
     devolvimiento: "",
     numero_cuotas: "",
     inicio: "",
-    cierre: ""
+    cierre: "",
+    numero_gracias: "0"
   });
   const [formErrors, setFormErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -116,57 +118,45 @@ const Contrato = () => {
     }
   };
 
-  // Función para calcular la fecha de cierre
-  const calcularFechaCierre = (fechaInicio, numeroCuotas, frecuenciaPago) => {
+  // Función para calcular la fecha de cierre (MODIFICADA para incluir gracias)
+  const calcularFechaCierre = (fechaInicio, numeroCuotas, frecuenciaPago, numeroGracias = 0) => {
     if (!fechaInicio || !numeroCuotas || !frecuenciaPago) return "";
     
     const fecha = new Date(fechaInicio);
     const cuotas = parseInt(numeroCuotas);
+    const gracias = parseInt(numeroGracias) || 0;
+    const totalPeriodos = cuotas + gracias; // Sumar las gracias
     
     if (isNaN(cuotas) || cuotas <= 0) return "";
     
     switch (frecuenciaPago) {
-      case 'semanal':
-        fecha.setDate(fecha.getDate() + (cuotas * 7));
-        break;
-      case 'quincenal':
-        fecha.setDate(fecha.getDate() + (cuotas * 15));
-        break;
-      case 'mensual':
-        fecha.setMonth(fecha.getMonth() + cuotas);
-        break;
-      case 'bimestral':
-        fecha.setMonth(fecha.getMonth() + (cuotas * 2));
-        break;
-      case 'trimestral':
-        fecha.setMonth(fecha.getMonth() + (cuotas * 3));
-        break;
-      case 'semestral':
-        fecha.setMonth(fecha.getMonth() + (cuotas * 6));
-        break;
-      case 'anual':
-        fecha.setFullYear(fecha.getFullYear() + cuotas);
-        break;
-      default:
-        fecha.setMonth(fecha.getMonth() + cuotas);
+        case 'semanal':
+            fecha.setDate(fecha.getDate() + (totalPeriodos * 7));
+            break;
+        case 'quincenal':
+            fecha.setDate(fecha.getDate() + (totalPeriodos * 15));
+            break;
+        case 'mensual':
+            fecha.setMonth(fecha.getMonth() + totalPeriodos);
+            break;
+        case 'bimestral':
+            fecha.setMonth(fecha.getMonth() + (totalPeriodos * 2));
+            break;
+        case 'trimestral':
+            fecha.setMonth(fecha.getMonth() + (totalPeriodos * 3));
+            break;
+        case 'semestral':
+            fecha.setMonth(fecha.getMonth() + (totalPeriodos * 6));
+            break;
+        case 'anual':
+            fecha.setFullYear(fecha.getFullYear() + totalPeriodos);
+            break;
+        default:
+            fecha.setMonth(fecha.getMonth() + totalPeriodos);
     }
     
     return fecha.toISOString().split('T')[0];
-  };
-
-  // Función para recalcular la fecha de cierre
-  const recalcularFechaCierre = () => {
-    if (formGestion.inicio && formGestion.numero_cuotas && configuracionContrato?.frecuencia_pago) {
-      const fechaCierre = calcularFechaCierre(
-        formGestion.inicio, 
-        formGestion.numero_cuotas, 
-        configuracionContrato.frecuencia_pago
-      );
-      if (fechaCierre) {
-        setFormGestion(prev => ({ ...prev, cierre: fechaCierre }));
-      }
-    }
-  };
+};
 
   // Función para calcular el monto en bolívares
   const calcularMontoBolivares = (monto, cambio, flatPorcentaje) => {
@@ -236,7 +226,7 @@ const Contrato = () => {
       hoverColor: 'hover:bg-yellow-600',
       label: 'Pendiente'
     },
-    'Pendiente por desembolso': {
+    'Pendiente': {
       next: 'Activo',
       color: 'orange',
       icon: DollarSign,
@@ -426,7 +416,8 @@ const Contrato = () => {
             cambio: item.cambio || null,
             flat: item.flat || null,
             interes_porcentaje: item.interes_porcentaje || null,
-            devolvimiento: item.devolvimiento || null
+            devolvimiento: item.devolvimiento || null,
+            numero_gracias: item.numero_gracias || 0
           }));
           setContractsData(dataConDefaults);
         } else {
@@ -500,12 +491,17 @@ const Contrato = () => {
       const cuotasObligatorias = configuracionContrato.cuotas_obligatorias?.toString() || 
         (selectedContractForGestion.numero_cuotas !== "Sin definir" ? selectedContractForGestion.numero_cuotas : "");
       
+      const graciasConfig = configuracionContrato.cuotas_gracia?.toString() || 
+                           selectedContractForGestion.numero_gracias?.toString() || 
+                           "0";
+      
       let fechaCierreDefault = "";
       if (fechaInicioDefault && cuotasObligatorias && configuracionContrato.frecuencia_pago) {
         fechaCierreDefault = calcularFechaCierre(
           fechaInicioDefault, 
           cuotasObligatorias, 
-          configuracionContrato.frecuencia_pago
+          configuracionContrato.frecuencia_pago,
+          graciasConfig
         );
       }
       
@@ -520,6 +516,7 @@ const Contrato = () => {
         numero_cuotas: cuotasObligatorias,
         inicio: fechaInicioDefault,
         cierre: fechaCierreDefault,
+        numero_gracias: graciasConfig  
       };
       
       setFormGestion(newFormGestion);
@@ -708,24 +705,6 @@ const Contrato = () => {
       errors.monto_moneda = "Ingrese un monto válido";
     }
     
-    if (!formGestion.cambio.trim()) {
-      errors.cambio = "El cambio (tasa) es requerido";
-    } else if (isNaN(formGestion.cambio) || Number(formGestion.cambio) <= 0) {
-      errors.cambio = "Ingrese un cambio válido";
-    }
-    
-    if (!formGestion.flat.trim()) {
-      errors.flat = "El flat es requerido";
-    } else if (isNaN(formGestion.flat) || Number(formGestion.flat) < 0) {
-      errors.flat = "Ingrese un valor válido";
-    }
-    
-    if (!formGestion.interes_porcentaje.trim()) {
-      errors.interes_porcentaje = "El porcentaje de interés es requerido";
-    } else if (isNaN(formGestion.interes_porcentaje) || Number(formGestion.interes_porcentaje) < 0) {
-      errors.interes_porcentaje = "Ingrese un porcentaje válido";
-    }
-    
     if (!formGestion.devolvimiento.trim()) {
       errors.devolvimiento = "El devolvimiento es requerido";
     } else if (isNaN(formGestion.devolvimiento) || Number(formGestion.devolvimiento) <= 0) {
@@ -736,6 +715,17 @@ const Contrato = () => {
       errors.numero_cuotas = "El número de cuotas es requerido";
     } else if (isNaN(formGestion.numero_cuotas) || Number(formGestion.numero_cuotas) <= 0) {
       errors.numero_cuotas = "Ingrese un número válido";
+    }
+    
+    if (formGestion.numero_gracias) {
+      const gracias = parseInt(formGestion.numero_gracias);
+      const cuotas = parseInt(formGestion.numero_cuotas);
+      
+      if (isNaN(gracias) || gracias < 0) {
+        errors.numero_gracias = "Ingrese un número válido";
+      } else if (cuotas && gracias >= cuotas) {
+        errors.numero_gracias = "Las gracias deben ser menores al número de cuotas";
+      }
     }
     
     if (!formGestion.inicio) {
@@ -761,6 +751,32 @@ const Contrato = () => {
       handleNumeroCuotasChange(value);
     } else if (field === 'inicio') {
       handleFechaInicioChange(value);
+    } else if (field === 'numero_gracias') {
+      const gracias = parseInt(value) || 0;
+      const cuotas = parseInt(formGestion.numero_cuotas) || 0;
+      
+      if (gracias >= cuotas && cuotas > 0) {
+        setFormErrors(prev => ({
+          ...prev,
+          numero_gracias: "Las gracias deben ser menores al número de cuotas"
+        }));
+      } else {
+        setFormErrors(prev => ({ ...prev, numero_gracias: undefined }));
+      }
+      
+      setFormGestion(prev => ({ ...prev, numero_gracias: value }));
+      
+      if (formGestion.inicio && formGestion.numero_cuotas && configuracionContrato?.frecuencia_pago) {
+        const fechaCierre = calcularFechaCierre(
+          formGestion.inicio,
+          formGestion.numero_cuotas,
+          configuracionContrato.frecuencia_pago,
+          value
+        );
+        if (fechaCierre) {
+          setFormGestion(prev => ({ ...prev, cierre: fechaCierre }));
+        }
+      }
     } else {
       setFormGestion(prev => {
         const updated = { ...prev, [field]: value };
@@ -779,20 +795,19 @@ const Contrato = () => {
     setSubmitting(true);
     
     try {
-      const interesValor = parseFloat(formGestion.monto_moneda) * (parseFloat(formGestion.interes_porcentaje) / 100);
-      
       const contratoData = {
         id_aprob: selectedContractForGestion.id_aprobacion,
         id_config: selectedContractForGestion.id_config || 1,
         numero_contrato: formGestion.numero_contrato,
-        moneda: formGestion.moneda,
+        moneda: getMonedaNombre(formGestion.moneda),
         monto_moneda: parseFloat(formGestion.monto_moneda),
-        cambio: parseFloat(formGestion.cambio),
-        flat: parseFloat(formGestion.flat),
+        cambio: `Bs. ${formatMonto(montoBolivares.neto)}`,
+        flat: `- Bs ${formatMonto(montoBolivares.flatMonto)}`,
         interes_porcentaje: parseFloat(formGestion.interes_porcentaje),
-        interes: interesValor,
+        interes: `${parseFloat(formGestion.monto_moneda) * (parseFloat(formGestion.interes_porcentaje) / 100)} ${getMonedaNombre(formGestion.moneda)}`,
         devolvimiento: parseFloat(formGestion.devolvimiento),
         numero_cuotas: parseInt(formGestion.numero_cuotas),
+        numero_gracias: parseInt(formGestion.numero_gracias) || 0,
         inicio: formGestion.inicio,
         cierre: formGestion.cierre
       };
@@ -805,15 +820,16 @@ const Contrato = () => {
             contract.id_aprobacion === selectedContractForGestion.id_aprobacion 
               ? { 
                   ...contract, 
-                  estatus: "Pendiente",
+                  estatus: "Pendiente por desembolso",
                   numero_cuotas: formGestion.numero_cuotas,
+                  numero_gracias: parseInt(formGestion.numero_gracias) || 0,
                   inicio: formGestion.inicio,
                   cierre: formGestion.cierre,
                   numero_contrato: formGestion.numero_contrato,
                   moneda: formGestion.moneda,
                   monto_moneda: parseFloat(formGestion.monto_moneda),
-                  cambio: parseFloat(formGestion.cambio),
-                  flat: parseFloat(formGestion.flat),
+                  cambio: `Bs. ${formatMonto(montoBolivares.neto)}`,
+                  flat: `- Bs ${formatMonto(montoBolivares.flatMonto)}`,
                   interes_porcentaje: parseFloat(formGestion.interes_porcentaje),
                   devolvimiento: parseFloat(formGestion.devolvimiento)
                 }
@@ -854,7 +870,6 @@ const Contrato = () => {
     setMontoBolivares({ bruto: 0, flatMonto: 0, neto: 0 });
   };
 
-  // Funciones para el modal de gestión
   const handleMontoMonedaChange = (value) => {
     setFormGestion(prev => ({ ...prev, monto_moneda: value }));
     
@@ -929,7 +944,8 @@ const Contrato = () => {
       const fechaCierre = calcularFechaCierre(
         formGestion.inicio, 
         value, 
-        configuracionContrato.frecuencia_pago
+        configuracionContrato.frecuencia_pago,
+        formGestion.numero_gracias
       );
       if (fechaCierre) {
         setFormGestion(prev => ({ ...prev, cierre: fechaCierre }));
@@ -948,7 +964,8 @@ const Contrato = () => {
       const fechaCierre = calcularFechaCierre(
         value, 
         formGestion.numero_cuotas, 
-        configuracionContrato.frecuencia_pago
+        configuracionContrato.frecuencia_pago,
+        formGestion.numero_gracias
       );
       if (fechaCierre) {
         setFormGestion(prev => ({ ...prev, cierre: fechaCierre }));
@@ -1213,6 +1230,7 @@ const Contrato = () => {
                           <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">ID Aprobación</th>
                           <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Emprendedor</th>
                           <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">N° Cuotas</th>
+                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Gracias</th>
                           <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Inicio</th>
                           <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Cierre</th>
                           <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Estatus</th>
@@ -1239,6 +1257,18 @@ const Contrato = () => {
                                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${darkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>Sin definir</span>
                               ) : (
                                 <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${darkMode ? 'bg-blue-900 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>{contract.numero_cuotas}</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              {contract.numero_gracias > 0 ? (
+                                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
+                                  darkMode ? 'bg-purple-900/50 text-purple-300' : 'bg-purple-50 text-purple-700'
+                                }`}>
+                                  <Gift size={14} />
+                                  {contract.numero_gracias}
+                                </span>
+                              ) : (
+                                <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>0</span>
                               )}
                             </td>
                             <td className="px-6 py-4 text-sm">
@@ -1313,7 +1343,6 @@ const Contrato = () => {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Encabezado con estado */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className={`p-3 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
@@ -1339,7 +1368,6 @@ const Contrato = () => {
                 })()}
               </div>
 
-              {/* Información del Emprendedor */}
               <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700/50' : 'bg-blue-50'}`}>
                 <h4 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   <User size={16} />
@@ -1357,7 +1385,6 @@ const Contrato = () => {
                 </div>
               </div>
 
-              {/* Información Financiera */}
               <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
                 <h4 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   <DollarSign size={16} />
@@ -1381,15 +1408,13 @@ const Contrato = () => {
                   <div>
                     <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Tasa de Cambio</p>
                     <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {selectedContractForConsulta.cambio ? 
-                        `${selectedContractForConsulta.cambio} Bs.` : 
-                        'No definido'}
+                      {selectedContractForConsulta.cambio || 'No definido'}
                     </p>
                   </div>
                   <div>
                     <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Flat (%)</p>
                     <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {selectedContractForConsulta.flat ? `${selectedContractForConsulta.flat}%` : 'No definido'}
+                      {selectedContractForConsulta.flat || 'No definido'}
                     </p>
                   </div>
                   <div>
@@ -1409,7 +1434,6 @@ const Contrato = () => {
                 </div>
               </div>
 
-              {/* Información de Plazo */}
               <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
                 <h4 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   <Calendar size={16} />
@@ -1425,9 +1449,24 @@ const Contrato = () => {
                     </p>
                   </div>
                   <div>
+                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Número de Gracias</p>
+                    <p className={`font-medium flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      <Gift size={16} className="text-purple-500" />
+                      {selectedContractForConsulta.numero_gracias || 0} {selectedContractForConsulta.numero_gracias === 1 ? 'gracia' : 'gracias'}
+                    </p>
+                  </div>
+                  <div>
                     <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Frecuencia de Pago</p>
                     <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                       {configuracionContrato ? getFrecuenciaPagoTexto(configuracionContrato.frecuencia_pago) : 'No definida'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cuotas Efectivas</p>
+                    <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      {selectedContractForConsulta.numero_cuotas !== "Sin definir" ? 
+                        `${Math.max(0, parseInt(selectedContractForConsulta.numero_cuotas) - (selectedContractForConsulta.numero_gracias || 0))} pagos` : 
+                        'No definido'}
                     </p>
                   </div>
                   <div>
@@ -1449,7 +1488,6 @@ const Contrato = () => {
                 </div>
               </div>
 
-              {/* Botón de cierre */}
               <div className="flex justify-end pt-4">
                 <button
                   onClick={() => setShowConsultaModal(false)}
@@ -1467,7 +1505,7 @@ const Contrato = () => {
       {/* MODAL DE GESTIÓN DE CONTRATO */}
       {showGestionModal && selectedContractForGestion && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black bg-opacity-50" onClick={cerrarModalGestion} />
+          <div className="absolute inset-0 bg-black/50 bg-opacity-50" onClick={cerrarModalGestion} />
           <div className={`relative w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto p-6 rounded-xl shadow-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
               <div>
@@ -1479,7 +1517,6 @@ const Contrato = () => {
               </button>
             </div>
 
-            {/* Información del Emprendedor y Configuración */}
             <div className={`p-4 rounded-lg mb-6 ${darkMode ? 'bg-gray-700/50 border border-gray-600' : 'bg-blue-50 border border-blue-100'}`}>
               <div className="flex items-center gap-3 mb-3">
                 <div className={`p-3 rounded-full ${darkMode ? 'bg-gray-600' : 'bg-blue-100'}`}>
@@ -1501,6 +1538,15 @@ const Contrato = () => {
                       <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cuotas Obligatorias:</span>
                       <span className={`ml-2 font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{configuracionContrato.cuotas_obligatorias}</span>
                     </div>
+                    {configuracionContrato.cuotas_gracia !== undefined && (
+                      <div>
+                        <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Gracias Config:</span>
+                        <span className={`ml-2 font-semibold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                          <Gift size={12} className="inline mr-1" />
+                          {configuracionContrato.cuotas_gracia}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1508,7 +1554,7 @@ const Contrato = () => {
 
             <form onSubmit={(e) => { e.preventDefault(); confirmarGestion(); }}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                {/* Número de Contrato - AUTOMÁTICO */}
+                {/* Número de Contrato */}
                 <div>
                   <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Número de Contrato <span className="text-red-500">*</span></label>
                   <div className="relative">
@@ -1530,17 +1576,18 @@ const Contrato = () => {
                   </div>
                 </div>
 
+                {/* Moneda */}
                 {/* Información de moneda desde la configuración */}
-                <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700/30 border border-gray-600' : 'bg-gray-50 border border-gray-200'}`}>
-                  <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Moneda (Configuración)</label>
-                  <div className="flex items-center gap-2">
-                    <DollarSign size={18} className="text-[#2A9D8F]" />
-                    <span className={`text-lg font-semibold uppercase ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {getMonedaNombre(formGestion.moneda)}
-                    </span>
-                  </div>
-                  <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Moneda configurada en el sistema</p>
-                </div>
+<div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700/30 border border-gray-600' : 'bg-gray-50 border border-gray-200'}`}>
+  <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Moneda (Configuración)</label>
+  <div className="flex items-center gap-2">
+    <DollarSign size={18} className="text-[#2A9D8F]" />
+    <span className={`text-lg font-semibold uppercase ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+      {formGestion.monto_moneda ? `${formGestion.monto_moneda} ${getMonedaNombre(formGestion.moneda)}` : getMonedaNombre(formGestion.moneda)}
+    </span>
+  </div>
+  <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Moneda configurada en el sistema</p>
+</div>
 
                 {/* Monto en Moneda */}
                 <div>
@@ -1559,7 +1606,7 @@ const Contrato = () => {
                   {formErrors.monto_moneda && <p className="mt-1 text-xs text-red-500">{formErrors.monto_moneda}</p>}
                 </div>
 
-                {/* Cambio (Tasa) */}
+                {/* ========== CAMBIO (TASA) - MUESTRA NETO ========== */}
                 <div>
                   <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     Cambio (Tasa) <span className="text-red-500">*</span>
@@ -1573,35 +1620,12 @@ const Contrato = () => {
                   <div className="relative">
                     <TrendingUp className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                     <input 
-                      type="number" 
-                      step="0.0001" 
-                      value={formGestion.cambio} 
-                      onChange={(e) => handleCambioChange(e.target.value)} 
-                      className={`w-full pl-10 pr-12 py-2.5 rounded-lg border ${formErrors.cambio ? 'border-red-500 focus:ring-red-500' : (darkMode ? 'border-gray-600 focus:ring-[#2A9D8F]' : 'border-gray-200 focus:ring-[#2A9D8F]')} ${darkMode ? 'bg-gray-700 text-white placeholder-gray-400' : 'bg-white placeholder-gray-400'} focus:outline-none focus:ring-2 text-sm`} 
-                      placeholder="0.0000" 
+                      type="text"
+                      value={`Bs. ${formatMonto(montoBolivares.neto)}`}
+                      readOnly
+                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? 'bg-gray-600 border-gray-500 text-green-400 cursor-not-allowed' : 'bg-green-50 border-green-200 text-green-700 cursor-not-allowed'} focus:outline-none text-sm font-semibold`} 
                     />
-                    
-                    {montoBolivares.neto > 0 && formGestion.monto_moneda && (
-                      <div className="absolute right-12 top-1/2 transform -translate-y-1/2 text-xs font-medium text-green-600 dark:text-green-400 whitespace-nowrap">
-                        Neto: Bs. {formatMonto(montoBolivares.neto)}
-                      </div>
-                    )}
-                    
-                    {(tasasCambio.dolares || tasasCambio.euros) && (
-                      <button 
-                        type="button" 
-                        onClick={() => { 
-                          const tasa = formGestion.moneda === 'usd' ? tasasCambio.dolares : formGestion.moneda === 'eur' ? tasasCambio.euros : null; 
-                          if (tasa) handleCambioChange(tasa.toString()); 
-                        }} 
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors" 
-                        title="Usar tasa actualizada"
-                      >
-                        <RefreshCw size={14} className="text-blue-500" />
-                      </button>
-                    )}
                   </div>
-                  {formErrors.cambio && <p className="mt-1 text-xs text-red-500">{formErrors.cambio}</p>}
                   
                   <div className="mt-1 flex gap-4">
                     {tasasCambio.dolares && (
@@ -1620,34 +1644,22 @@ const Contrato = () => {
                   </div>
                 </div>
 
-                {/* Flat */}
+                {/* ========== FLAT (%) - MUESTRA DESCUENTO ========== */}
                 <div>
                   <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Flat (%) <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">%</span>
                     <input 
-                      type="number" 
-                      step="0.01" 
-                      value={formGestion.flat} 
-                      onChange={(e) => handleFlatChange(e.target.value)} 
-                      className={`w-full pl-4 pr-10 py-2.5 rounded-lg border ${formErrors.flat ? 'border-red-500 focus:ring-red-500' : (darkMode ? 'border-gray-600 focus:ring-[#2A9D8F]' : 'border-gray-200 focus:ring-[#2A9D8F]')} ${darkMode ? 'bg-gray-700 text-white' : 'bg-white'} focus:outline-none focus:ring-2 text-sm`} 
-                      placeholder="0.00" 
+                      type="text"
+                      value={`- Bs ${formatMonto(montoBolivares.flatMonto)}`}
+                      readOnly
+                      className={`w-full pl-4 pr-10 py-2.5 rounded-lg border ${darkMode ? 'bg-gray-600 border-gray-500 text-red-400 cursor-not-allowed' : 'bg-red-50 border-red-200 text-red-700 cursor-not-allowed'} focus:outline-none text-sm font-semibold`} 
                     />
                   </div>
                   {formErrors.flat && <p className="mt-1 text-xs text-red-500">{formErrors.flat}</p>}
-                  {montoBolivares.flatMonto > 0 && (
-                    <div className="mt-1 flex items-center gap-2">
-                      <div className={`p-1 rounded ${darkMode ? 'bg-red-900/50' : 'bg-red-50'}`}>
-                        <TrendingUp size={12} className="text-red-500" />
-                      </div>
-                      <p className={`text-xs ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
-                        Descuento Flat: <span className="font-semibold">- Bs. {formatMonto(montoBolivares.flatMonto)}</span>
-                      </p>
-                    </div>
-                  )}
                 </div>
 
-                {/* % Interés */}
+                {/* ========== % INTERÉS - MUESTRA INTERÉS CALCULADO ========== */}
                 <div>
                   <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     % Interés <span className="text-red-500">*</span>
@@ -1655,20 +1667,13 @@ const Contrato = () => {
                   <div className="relative">
                     <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">%</span>
                     <input 
-                      type="number" 
-                      step="0.01" 
-                      value={formGestion.interes_porcentaje} 
-                      onChange={(e) => handleInteresPorcentajeChange(e.target.value)} 
-                      className={`w-full pl-4 pr-10 py-2.5 rounded-lg border ${formErrors.interes_porcentaje ? 'border-red-500 focus:ring-red-500' : (darkMode ? 'border-gray-600 focus:ring-[#2A9D8F]' : 'border-gray-200 focus:ring-[#2A9D8F]')} ${darkMode ? 'bg-gray-700 text-white' : 'bg-white'} focus:outline-none focus:ring-2 text-sm`} 
-                      placeholder="0.00" 
+                      type="text"
+                      value={`${parseFloat(formGestion.monto_moneda || 0) * (parseFloat(formGestion.interes_porcentaje || 0) / 100)} ${getMonedaNombre(formGestion.moneda)}`}
+                      readOnly
+                      className={`w-full pl-4 pr-10 py-2.5 rounded-lg border ${darkMode ? 'bg-gray-600 border-gray-500 text-blue-400 cursor-not-allowed' : 'bg-blue-50 border-blue-200 text-blue-700 cursor-not-allowed'} focus:outline-none text-sm font-semibold`} 
                     />
                   </div>
                   {formErrors.interes_porcentaje && <p className="mt-1 text-xs text-red-500">{formErrors.interes_porcentaje}</p>}
-                  {formGestion.monto_moneda && formGestion.interes_porcentaje && (
-                    <p className={`text-xs mt-1 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-                      Interés calculado: {parseFloat(formGestion.monto_moneda) * (parseFloat(formGestion.interes_porcentaje) / 100)} {getMonedaNombre(formGestion.moneda)}
-                    </p>
-                  )}
                 </div>
 
                 {/* Devolvimiento */}
@@ -1708,7 +1713,37 @@ const Contrato = () => {
                   {formErrors.numero_cuotas && <p className="mt-1 text-xs text-red-500">{formErrors.numero_cuotas}</p>}
                 </div>
 
-                {/* Frecuencia de Pago (solo lectura) */}
+                {/* Número de Gracias */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Número de Gracias
+                    <span className="ml-2 text-xs text-purple-500">(Meses sin pago)</span>
+                    {configuracionContrato?.cuotas_gracia !== undefined && (
+                      <span className="ml-2 text-xs text-gray-500">(Config: {configuracionContrato.cuotas_gracia})</span>
+                    )}
+                  </label>
+                  <div className="relative">
+                    <Gift className="absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-400" size={18} />
+                    <input 
+                      type="number" 
+                      min="0"
+                      max={formGestion.numero_cuotas ? parseInt(formGestion.numero_cuotas) - 1 : 12}
+                      value={formGestion.numero_gracias} 
+                      onChange={(e) => handleInputChange('numero_gracias', e.target.value)} 
+                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${formErrors.numero_gracias ? 'border-red-500 focus:ring-red-500' : (darkMode ? 'border-gray-600 focus:ring-[#2A9D8F]' : 'border-gray-200 focus:ring-[#2A9D8F]')} ${darkMode ? 'bg-gray-700 text-white' : 'bg-white'} focus:outline-none focus:ring-2 text-sm`} 
+                      placeholder="0" 
+                    />
+                  </div>
+                  {formErrors.numero_gracias && <p className="mt-1 text-xs text-red-500">{formErrors.numero_gracias}</p>}
+                  <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Las gracias extienden la duración del contrato. Máximo: {formGestion.numero_cuotas ? parseInt(formGestion.numero_cuotas) - 1 : 0} meses
+                    {configuracionContrato?.cuotas_gracia > 0 && (
+                      <span className="ml-1 text-purple-500">| Valor por defecto: {configuracionContrato.cuotas_gracia}</span>
+                    )}
+                  </p>
+                </div>
+
+                {/* Frecuencia de Pago */}
                 <div>
                   <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Frecuencia de Pago</label>
                   <div className="relative">
@@ -1721,7 +1756,7 @@ const Contrato = () => {
                     />
                   </div>
                   <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    La fecha de cierre se calcula según esta frecuencia
+                    La fecha de cierre incluye el período de gracia + pagos
                   </p>
                 </div>
 
@@ -1744,7 +1779,7 @@ const Contrato = () => {
                 <div>
                   <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     Fecha de Cierre <span className="text-red-500">*</span>
-                    <span className="ml-2 text-xs text-blue-500">(Calculada)</span>
+                    <span className="ml-2 text-xs text-blue-500">(Calculada con gracias)</span>
                   </label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
@@ -1757,7 +1792,8 @@ const Contrato = () => {
                   </div>
                   {formGestion.inicio && formGestion.numero_cuotas && configuracionContrato?.frecuencia_pago && (
                     <p className={`text-xs mt-1 ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
-                      Calculado: {formGestion.numero_cuotas} cuota(s) {getFrecuenciaPagoTexto(configuracionContrato.frecuencia_pago).toLowerCase()} desde {formGestion.inicio}
+                      Calculado: {formGestion.numero_gracias > 0 ? `${formGestion.numero_gracias} gracia(s) + ` : ''}
+                      {Math.max(0, parseInt(formGestion.numero_cuotas) + parseInt(formGestion.numero_gracias || 0))} pago(s) {getFrecuenciaPagoTexto(configuracionContrato.frecuencia_pago).toLowerCase()} desde {formGestion.inicio}
                     </p>
                   )}
                   {formErrors.cierre && <p className="mt-1 text-xs text-red-500">{formErrors.cierre}</p>}
@@ -1783,48 +1819,39 @@ const Contrato = () => {
                     </span>
                   </div>
                   <div>
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Tasa:</span>
-                    <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{formGestion.cambio || "0"} Bs.</span>
+                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cambio (Neto):</span>
+                    <span className={`ml-2 font-medium text-green-600 dark:text-green-400`}>
+                      Bs. {formatMonto(montoBolivares.neto)}
+                    </span>
                   </div>
                   <div>
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>% Interés:</span>
-                    <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{formGestion.interes_porcentaje || "0"}%</span>
+                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Flat:</span>
+                    <span className={`ml-2 font-medium text-red-600 dark:text-red-400`}>
+                      - Bs. {formatMonto(montoBolivares.flatMonto)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Interés:</span>
+                    <span className={`ml-2 font-medium text-blue-600 dark:text-blue-400`}>
+                      {parseFloat(formGestion.monto_moneda || 0) * (parseFloat(formGestion.interes_porcentaje || 0) / 100)} {getMonedaNombre(formGestion.moneda)}
+                    </span>
                   </div>
                   <div>
                     <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Devolvimiento:</span>
-                    <span className={`ml-2 font-semibold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
+                    <span className={`ml-2 font-semibold text-green-600 dark:text-green-400`}>
                       {formGestion.devolvimiento || "0"} {getMonedaNombre(formGestion.moneda)}
                     </span>
                   </div>
-                  {montoBolivares.neto > 0 && (
-                    <div className="col-span-2 md:col-span-3">
-                      <div className="space-y-1 mt-2 p-3 rounded-lg bg-white dark:bg-gray-600">
-                        <div className="flex justify-between">
-                          <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Monto Bruto:</span>
-                          <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                            Bs. {formatMonto(montoBolivares.bruto)}
-                          </span>
-                        </div>
-                        {montoBolivares.flatMonto > 0 && (
-                          <div className="flex justify-between">
-                            <span className={`${darkMode ? 'text-red-400' : 'text-red-600'}`}>Flat ({formGestion.flat}%):</span>
-                            <span className={`font-medium ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
-                              - Bs. {formatMonto(montoBolivares.flatMonto)}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex justify-between border-t border-gray-200 dark:border-gray-500 pt-2 mt-2">
-                          <span className={`font-semibold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>Total Neto:</span>
-                          <span className={`font-bold text-lg ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
-                            Bs. {formatMonto(montoBolivares.neto)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                   <div>
                     <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cuotas:</span>
                     <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{formGestion.numero_cuotas || "—"}</span>
+                  </div>
+                  <div>
+                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Gracias:</span>
+                    <span className={`ml-2 font-medium flex items-center gap-1 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                      <Gift size={14} />
+                      {formGestion.numero_gracias || "0"}
+                    </span>
                   </div>
                   <div>
                     <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Frecuencia:</span>
@@ -1841,7 +1868,6 @@ const Contrato = () => {
                 </div>
               </div>
 
-              {/* Error de submit */}
               {formErrors.submit && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
                   <AlertCircle size={16} className="text-red-500" />
@@ -1849,7 +1875,6 @@ const Contrato = () => {
                 </div>
               )}
 
-              {/* Botones de Acción */}
               <div className="flex gap-3 justify-end">
                 <button 
                   type="button" 
@@ -1885,7 +1910,7 @@ const Contrato = () => {
       {/* MODAL DE DESEMBOLSO */}
       {showDesembolsoModal && selectedContractForDesembolso && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setShowDesembolsoModal(false)} />
+          <div className="absolute inset-0 bg-black/50 bg-opacity-50" onClick={() => setShowDesembolsoModal(false)} />
           <div className={`relative w-full max-w-lg mx-4 p-6 rounded-xl shadow-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <div className="flex items-center justify-between mb-6">
               <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Registrar Desembolso</h3>
@@ -1903,6 +1928,7 @@ const Contrato = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div><span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cuotas:</span><span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{selectedContractForDesembolso.numero_cuotas}</span></div>
+                    <div><span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Gracias:</span><span className={`ml-2 font-medium ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}><Gift size={12} className="inline mr-1" />{selectedContractForDesembolso.numero_gracias || 0}</span></div>
                     <div><span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Inicio:</span><span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{selectedContractForDesembolso.inicio}</span></div>
                     <div><span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cierre:</span><span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{selectedContractForDesembolso.cierre}</span></div>
                   </div>
