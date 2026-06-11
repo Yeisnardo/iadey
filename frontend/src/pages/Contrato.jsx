@@ -1,8 +1,8 @@
-// pages/Contrato.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  Search, 
+import Swal from 'sweetalert2';
+import {
+  Search,
   FileSignature,
   Clock,
   TrendingUp,
@@ -13,66 +13,69 @@ import {
   FileText,
   CheckCircle,
   X,
-  CreditCard,
   DollarSign,
   AlertCircle,
   Loader2,
   User,
   Hourglass,
-  Ban,
-  RefreshCw,
   Eye,
-  Gift
+  Gift,
 } from "lucide-react";
 
-// Importamos nuestros componentes personalizados
+// Componentes personalizados
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
 
-// Importamos la API
+// APIs
 import ContratoAPI from "../services/api_contrato";
 import configuracionContratoAPI from "../services/api_configuracion_contrato";
 
 const Contrato = () => {
   const navigate = useNavigate();
+
+  // ============================================================
+  // ESTADOS - UI y navegación
+  // ============================================================
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [activeTab, setActiveTab] = useState("contracts");
+
+  // ============================================================
+  // ESTADOS - Filtros y paginación
+  // ============================================================
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(8);
   const [showFilters, setShowFilters] = useState(false);
-  const [showDesembolsoModal, setShowDesembolsoModal] = useState(false);
-  const [selectedContractForDesembolso, setSelectedContractForDesembolso] = useState(null);
 
-  // Estados para el modal de consulta de contrato
-  const [showConsultaModal, setShowConsultaModal] = useState(false);
-  const [selectedContractForConsulta, setSelectedContractForConsulta] = useState(null);
+  // ============================================================
+  // ESTADOS - Datos principales
+  // ============================================================
+  const [contractsData, setContractsData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [configuracionContrato, setConfiguracionContrato] = useState(null);
+  const [loadingConfig, setLoadingConfig] = useState(true);
+  const [lastContractNumber, setLastContractNumber] = useState(0);
 
-  // Estados para el modal de desembolso
-  const [formDesembolso, setFormDesembolso] = useState({
-    referencia_bancaria: "",
-    monto_pagado: "",
-    fecha_desembolso: new Date().toISOString().split('T')[0],
-    observaciones: ""
-  });
-  const [desembolsoErrors, setDesembolsoErrors] = useState({});
-  const [desembolsoSubmitting, setDesembolsoSubmitting] = useState(false);
+  // ============================================================
+  // ESTADOS - Tasas de cambio
+  // ============================================================
+  const [tasasCambio, setTasasCambio] = useState({ dolares: null, euros: null });
+  const [loadingTasas, setLoadingTasas] = useState(false);
+  const [errorTasas, setErrorTasas] = useState(null);
 
-  // Estados para el modal de gestión de contrato
+  // ============================================================
+  // ESTADOS - Modal Gestión de Contrato
+  // ============================================================
   const [showGestionModal, setShowGestionModal] = useState(false);
   const [selectedContractForGestion, setSelectedContractForGestion] = useState(null);
-  const [lastContractNumber, setLastContractNumber] = useState(0);
-  const [montoBolivares, setMontoBolivares] = useState({
-    bruto: 0,
-    flatMonto: 0,
-    neto: 0
-  });
+  const [montoBolivares, setMontoBolivares] = useState({ bruto: 0, flatMonto: 0, neto: 0 });
   const [formGestion, setFormGestion] = useState({
     numero_contrato: "",
     moneda: "usd",
@@ -84,183 +87,20 @@ const Contrato = () => {
     numero_cuotas: "",
     inicio: "",
     cierre: "",
-    numero_gracias: "0"
+    numero_gracias: "0",
   });
   const [formErrors, setFormErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
-  // Estados para la configuración del contrato
-  const [configuracionContrato, setConfiguracionContrato] = useState(null);
-  const [loadingConfig, setLoadingConfig] = useState(true);
+  // ============================================================
+  // ESTADOS - Modal Consulta Contrato
+  // ============================================================
+  const [showConsultaModal, setShowConsultaModal] = useState(false);
+  const [selectedContractForConsulta, setSelectedContractForConsulta] = useState(null);
 
-  // Estados para las tasas de cambio de DolarApi
-  const [tasasCambio, setTasasCambio] = useState({
-    dolares: null,
-    euros: null
-  });
-  const [loadingTasas, setLoadingTasas] = useState(false);
-  const [errorTasas, setErrorTasas] = useState(null);
-
-  // Estados para los datos de la API
-  const [contractsData, setContractsData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // Función para obtener el nombre de la moneda
-  const getMonedaNombre = (tipoMoneda) => {
-    switch (tipoMoneda) {
-      case 'usd':
-        return 'USD';
-      case 'eur':
-        return 'EUR';
-      default:
-        return 'VES';
-    }
-  };
-
-  // Función para calcular la fecha de cierre (MODIFICADA para incluir gracias)
-  const calcularFechaCierre = (fechaInicio, numeroCuotas, frecuenciaPago, numeroGracias = 0) => {
-    if (!fechaInicio || !numeroCuotas || !frecuenciaPago) return "";
-    
-    const fecha = new Date(fechaInicio);
-    const cuotas = parseInt(numeroCuotas);
-    const gracias = parseInt(numeroGracias) || 0;
-    const totalPeriodos = cuotas + gracias; // Sumar las gracias
-    
-    if (isNaN(cuotas) || cuotas <= 0) return "";
-    
-    switch (frecuenciaPago) {
-        case 'semanal':
-            fecha.setDate(fecha.getDate() + (totalPeriodos * 7));
-            break;
-        case 'quincenal':
-            fecha.setDate(fecha.getDate() + (totalPeriodos * 15));
-            break;
-        case 'mensual':
-            fecha.setMonth(fecha.getMonth() + totalPeriodos);
-            break;
-        case 'bimestral':
-            fecha.setMonth(fecha.getMonth() + (totalPeriodos * 2));
-            break;
-        case 'trimestral':
-            fecha.setMonth(fecha.getMonth() + (totalPeriodos * 3));
-            break;
-        case 'semestral':
-            fecha.setMonth(fecha.getMonth() + (totalPeriodos * 6));
-            break;
-        case 'anual':
-            fecha.setFullYear(fecha.getFullYear() + totalPeriodos);
-            break;
-        default:
-            fecha.setMonth(fecha.getMonth() + totalPeriodos);
-    }
-    
-    return fecha.toISOString().split('T')[0];
-};
-
-  // Función para calcular el monto en bolívares
-  const calcularMontoBolivares = (monto, cambio, flatPorcentaje) => {
-    if (!monto || !cambio) return { bruto: 0, flatMonto: 0, neto: 0 };
-    const montoNum = parseFloat(monto);
-    const cambioNum = parseFloat(cambio);
-    if (isNaN(montoNum) || isNaN(cambioNum)) return { bruto: 0, flatMonto: 0, neto: 0 };
-    
-    const resultadoBruto = montoNum * cambioNum;
-    
-    if (flatPorcentaje && !isNaN(parseFloat(flatPorcentaje))) {
-      const flatDecimal = parseFloat(flatPorcentaje) / 100;
-      const descuentoFlat = resultadoBruto * flatDecimal;
-      const resultadoNeto = resultadoBruto - descuentoFlat;
-      
-      return {
-        bruto: resultadoBruto,
-        flatMonto: descuentoFlat,
-        neto: resultadoNeto
-      };
-    }
-    
-    return {
-      bruto: resultadoBruto,
-      flatMonto: 0,
-      neto: resultadoBruto
-    };
-  };
-
-  // Función para calcular el devolvimiento
-  const calcularDevolvimiento = (montoMoneda, porcentajeInteres) => {
-    if (!montoMoneda) return 0;
-    const montoNum = parseFloat(montoMoneda);
-    if (isNaN(montoNum)) return 0;
-    
-    if (porcentajeInteres && !isNaN(parseFloat(porcentajeInteres))) {
-      const interesDecimal = parseFloat(porcentajeInteres) / 100;
-      return montoNum + (montoNum * interesDecimal);
-    }
-    
-    return montoNum;
-  };
-
-  // Función para formatear números
-  const formatMonto = (monto) => {
-    return monto.toLocaleString('es-VE', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    });
-  };
-
-  // Definir el flujo de estados
-  const STATUS_FLOW = {
-    'Esperando contrato': {
-      next: 'Pendiente',
-      color: 'gray',
-      icon: Hourglass,
-      bgColor: 'bg-gray-400',
-      hoverColor: 'hover:bg-gray-500',
-      label: 'Esperando contrato'
-    },
-    'Pendiente': {
-      next: 'Pendiente por desembolso',
-      color: 'yellow',
-      icon: Clock,
-      bgColor: 'bg-yellow-500',
-      hoverColor: 'hover:bg-yellow-600',
-      label: 'Pendiente'
-    },
-    'Pendiente': {
-      next: 'Activo',
-      color: 'orange',
-      icon: DollarSign,
-      bgColor: 'bg-orange-500',
-      hoverColor: 'hover:bg-orange-600',
-      label: 'Pendiente por desembolso'
-    },
-    'Activo': {
-      next: 'Finalizado',
-      color: 'green',
-      icon: CheckCircle,
-      bgColor: 'bg-green-500',
-      hoverColor: 'hover:bg-green-600',
-      label: 'Activo'
-    },
-    'Finalizado': {
-      next: 'Cancelado',
-      color: 'blue',
-      icon: CheckCircle,
-      bgColor: 'bg-blue-500',
-      hoverColor: 'hover:bg-blue-600',
-      label: 'Finalizado'
-    },
-    'Cancelado': {
-      next: 'Esperando contrato',
-      color: 'red',
-      icon: Ban,
-      bgColor: 'bg-red-500',
-      hoverColor: 'hover:bg-red-600',
-      label: 'Cancelado'
-    }
-  };
-
-  // Datos del usuario
+  // ============================================================
+  // DATOS DEL USUARIO
+  // ============================================================
   const user = {
     name: "Administrador IADEY",
     email: "admin@iadey.gob.ve",
@@ -270,530 +110,375 @@ const Contrato = () => {
     joinDate: "Enero 2024",
     pendingTasks: 8,
     completedTasks: 45,
-    performance: "98%"
+    performance: "98%",
   };
 
-  // Función para obtener el texto de la frecuencia de pago
-  const getFrecuenciaPagoTexto = (frecuencia) => {
-    switch (frecuencia) {
-      case 'semanal':
-        return 'Semanal';
-      case 'quincenal':
-        return 'Quincenal';
-      case 'mensual':
-        return 'Mensual';
-      case 'bimestral':
-        return 'Bimestral';
-      case 'trimestral':
-        return 'Trimestral';
-      case 'semestral':
-        return 'Semestral';
-      case 'anual':
-        return 'Anual';
-      default:
-        return frecuencia || 'No definida';
-    }
+  // ============================================================
+  // CONFIGURACIÓN DE ESTADOS
+  // ============================================================
+  const STATUS_CONFIG = {
+    "Esperando contrato": {
+      color: "gray",
+      icon: Hourglass,
+      bgColor: "bg-gray-500",
+      label: "Esperando contrato",
+    },
+    "Pendiente por aceptar": {
+      color: "yellow",
+      icon: Clock,
+      bgColor: "bg-yellow-500",
+      label: "Pendiente por aceptar",
+    },
+    "Pendiente por desembolso": {
+      color: "orange",
+      icon: DollarSign,
+      bgColor: "bg-orange-500",
+      label: "Pendiente por desembolso",
+    },
+    Activo: {
+      color: "green",
+      icon: CheckCircle,
+      bgColor: "bg-green-500",
+      label: "Activo",
+    },
+    Finalizado: {
+      color: "blue",
+      icon: CheckCircle,
+      bgColor: "bg-blue-500",
+      label: "Finalizado",
+    },
+    Cancelado: {
+      color: "red",
+      icon: CheckCircle,
+      bgColor: "bg-red-500",
+      label: "Cancelado",
+    },
   };
 
-  // Función para ver detalles del contrato (consulta)
-  const verDetallesContrato = (contract) => {
-    setSelectedContractForConsulta(contract);
-    setShowConsultaModal(true);
+  // ============================================================
+  // TRANSICIONES DE ESTADO VÁLIDAS
+  // ============================================================
+  const VALID_STATUS_TRANSITIONS = {
+    "Esperando contrato": ["Pendiente por aceptar", "Cancelado"],
+    "Pendiente por aceptar": ["Pendiente por desembolso", "Cancelado"],
+    "Pendiente por desembolso": ["Activo", "Cancelado"],
+    Activo: ["Finalizado", "Cancelado"],
+    Finalizado: [],
+    Cancelado: []
   };
 
-  // Cargar configuración del contrato
-  useEffect(() => {
-    const fetchConfiguracion = async () => {
-      try {
-        setLoadingConfig(true);
-        const response = await configuracionContratoAPI.getCurrent();
-        
-        if (response.success && response.data) {
-          setConfiguracionContrato(response.data);
-        } else {
-          console.warn('No se pudo cargar la configuración actual');
-        }
-      } catch (error) {
-        console.error('Error cargando configuración:', error);
-        setNotifications(prev => [
-          { 
-            id: Date.now(), 
-            text: 'Error al cargar la configuración del contrato', 
-            time: "Ahora", 
-            read: false,
-            type: 'error'
-          },
-          ...prev
-        ]);
-      } finally {
-        setLoadingConfig(false);
-      }
-    };
-
-    fetchConfiguracion();
-  }, []);
-
-  // Cargar tasas de cambio
-  useEffect(() => {
-    const fetchTasasCambio = async () => {
-      try {
-        setLoadingTasas(true);
-        setErrorTasas(null);
-        
-        const [dolaresResponse, eurosResponse] = await Promise.all([
-          fetch('https://ve.dolarapi.com/v1/dolares'),
-          fetch('https://ve.dolarapi.com/v1/euros')
-        ]);
-        
-        if (!dolaresResponse.ok || !eurosResponse.ok) {
-          throw new Error('Error al obtener las tasas de cambio');
-        }
-        
-        const dolaresData = await dolaresResponse.json();
-        const eurosData = await eurosResponse.json();
-        
-        let tasaDolar = null;
-        let tasaEuro = null;
-        
-        if (Array.isArray(dolaresData) && dolaresData.length > 0) {
-          const tasaBCV = dolaresData.find(d => d.nombre?.toLowerCase().includes('bcv'));
-          tasaDolar = tasaBCV?.promedio || dolaresData[0]?.promedio || dolaresData[0]?.valor || null;
-        }
-        
-        if (Array.isArray(eurosData) && eurosData.length > 0) {
-          const tasaBCV = eurosData.find(d => d.nombre?.toLowerCase().includes('bcv'));
-          tasaEuro = tasaBCV?.promedio || eurosData[0]?.promedio || eurosData[0]?.valor || null;
-        }
-        
-        setTasasCambio({
-          dolares: tasaDolar,
-          euros: tasaEuro
-        });
-        
-      } catch (error) {
-        console.error('Error al cargar tasas de cambio:', error);
-        setErrorTasas(error.message);
-        
-        setNotifications(prev => [
-          { 
-            id: Date.now(), 
-            text: 'No se pudieron cargar las tasas de cambio actualizadas', 
-            time: "Ahora", 
-            read: false,
-            type: 'warning'
-          },
-          ...prev
-        ]);
-      } finally {
-        setLoadingTasas(false);
-      }
-    };
-
-    fetchTasasCambio();
-    const interval = setInterval(fetchTasasCambio, 30 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Cargar datos de la API
-  useEffect(() => {
-    const fetchContratos = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await ContratoAPI.getAll();
-        
-        if (response.success) {
-          const dataConDefaults = response.data.map(item => ({
-            ...item,
-            numero_cuotas: item.numero_cuotas || "Sin definir",
-            inicio: item.inicio || "Sin definir",
-            cierre: item.cierre || "Sin definir",
-            estatus: item.estatus || "Esperando contrato",
-            emprendedor: item.emprendedor || "Sin definir",
-            numero_contrato: item.numero_contrato || "",
-            moneda: item.moneda || "usd",
-            monto_moneda: item.monto_moneda || null,
-            cambio: item.cambio || null,
-            flat: item.flat || null,
-            interes_porcentaje: item.interes_porcentaje || null,
-            devolvimiento: item.devolvimiento || null,
-            numero_gracias: item.numero_gracias || 0
-          }));
-          setContractsData(dataConDefaults);
-        } else {
-          setError(response.error || "Error al cargar los contratos");
-        }
-      } catch (err) {
-        console.error("Error cargando contratos:", err);
-        setError(err.error || "Error al conectar con el servidor");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchContratos();
-  }, []);
-
-  // Cargar el último número de contrato
-  useEffect(() => {
-    const fetchLastContract = async () => {
-      try {
-        const response = await ContratoAPI.getLastContractNumber();
-        if (response.success && response.data) {
-          const lastNumber = response.data.numero_contrato;
-          if (lastNumber) {
-            const parts = lastNumber.split('-');
-            if (parts.length === 3) {
-              setLastContractNumber(parseInt(parts[2]) || 0);
-            }
-          }
-        }
-      } catch (error) {
-        const contractsWithNumbers = contractsData.filter(c => 
-          c.numero_contrato && c.numero_contrato.startsWith('IADEY-')
-        );
-        if (contractsWithNumbers.length > 0) {
-          const numbers = contractsWithNumbers.map(c => {
-            const parts = c.numero_contrato.split('-');
-            return parseInt(parts[2]) || 0;
-          });
-          setLastContractNumber(Math.max(...numbers));
-        }
-      }
-    };
-
-    if (contractsData.length > 0) {
-      fetchLastContract();
-    }
-  }, [contractsData]);
-
-  // Inicializar formulario cuando se abre el modal de gestión
-  useEffect(() => {
-    if (showGestionModal && selectedContractForGestion && configuracionContrato) {
-      const currentYear = new Date().getFullYear();
-      const nextNumber = lastContractNumber + 1;
-      const formattedNumber = String(nextNumber).padStart(3, '0');
-      const numeroContratoAuto = `IADEY-${currentYear}-${formattedNumber}`;
-      
-      const monedaConfig = configuracionContrato.tipo_moneda || "usd";
-      
-      let tasaCambio = "";
-      if (monedaConfig === 'usd' && tasasCambio.dolares) {
-        tasaCambio = tasasCambio.dolares.toString();
-      } else if (monedaConfig === 'eur' && tasasCambio.euros) {
-        tasaCambio = tasasCambio.euros.toString();
-      } else {
-        tasaCambio = "";
-      }
-      
-      const fechaInicioDefault = new Date().toISOString().split('T')[0];
-      
-      const cuotasObligatorias = configuracionContrato.cuotas_obligatorias?.toString() || 
-        (selectedContractForGestion.numero_cuotas !== "Sin definir" ? selectedContractForGestion.numero_cuotas : "");
-      
-      const graciasConfig = configuracionContrato.cuotas_gracia?.toString() || 
-                           selectedContractForGestion.numero_gracias?.toString() || 
-                           "0";
-      
-      let fechaCierreDefault = "";
-      if (fechaInicioDefault && cuotasObligatorias && configuracionContrato.frecuencia_pago) {
-        fechaCierreDefault = calcularFechaCierre(
-          fechaInicioDefault, 
-          cuotasObligatorias, 
-          configuracionContrato.frecuencia_pago,
-          graciasConfig
-        );
-      }
-      
-      const newFormGestion = {
-        numero_contrato: numeroContratoAuto,
-        moneda: monedaConfig,
-        monto_moneda: "",
-        cambio: tasaCambio,
-        flat: configuracionContrato.flat_porcentaje?.toString() || "",
-        interes_porcentaje: configuracionContrato.interes_porcentaje?.toString() || "",
-        devolvimiento: "",
-        numero_cuotas: cuotasObligatorias,
-        inicio: fechaInicioDefault,
-        cierre: fechaCierreDefault,
-        numero_gracias: graciasConfig  
-      };
-      
-      setFormGestion(newFormGestion);
-      setMontoBolivares({ bruto: 0, flatMonto: 0, neto: 0 });
-      setFormErrors({});
-    }
-  }, [showGestionModal, selectedContractForGestion, lastContractNumber, configuracionContrato, tasasCambio]);
-
-  // Contadores para estadísticas
-  const contratosActivos = contractsData.filter(c => c.estatus === "Activo").length;
-  const contratosPendientes = contractsData.filter(c => c.estatus === "Pendiente").length;
-  const contratosPendientesDesembolso = contractsData.filter(c => c.estatus === "Pendiente por desembolso").length;
-  const contratosEsperando = contractsData.filter(c => c.estatus === "Esperando contrato").length;
-
-  const sectionData = {
-    contracts: {
-      title: "Gestión de Contratos",
-      description: "Administración de contratos con manejo interno",
-      stats: [
-        { id: 1, title: "Contratos Activos", value: contratosActivos, icon: CheckCircle, color: "green", bgColor: "bg-green-50", textColor: "text-green-600" },
-        { id: 2, title: "Pendientes", value: contratosPendientes, icon: Clock, color: "yellow", bgColor: "bg-yellow-50", textColor: "text-yellow-600" },
-        { id: 3, title: "Pend. Desembolso", value: contratosPendientesDesembolso, icon: DollarSign, color: "orange", bgColor: "bg-orange-50", textColor: "text-orange-600" },
-        { id: 4, title: "Esperando Contrato", value: contratosEsperando, icon: Hourglass, color: "gray", bgColor: "bg-gray-50", textColor: "text-gray-600" },
-      ]
-    }
-  };
-
-  const currentData = sectionData.contracts;
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  // Función para avanzar al siguiente estado
-  const avanzarEstado = async (id, currentStatus) => {
-    const statusInfo = STATUS_FLOW[currentStatus];
-    if (!statusInfo) return;
-    
-    const nextStatus = statusInfo.next;
-    
+  // ============================================================
+  // FUNCIÓN CENTRALIZADA PARA ACTUALIZAR ESTADOS
+  // ============================================================
+  const updateContractStatus = async (contractId, newStatus, source = "unknown") => {
     try {
-      const response = await ContratoAPI.updateStatus(id, nextStatus);
+      const currentContract = contractsData.find(c => c.id_aprobacion === contractId);
+      if (!currentContract) {
+        throw new Error("Contrato no encontrado");
+      }
+
+      const validNextStates = VALID_STATUS_TRANSITIONS[currentContract.estatus];
+      if (!validNextStates || !validNextStates.includes(newStatus)) {
+        throw new Error(`Transición inválida: ${currentContract.estatus} → ${newStatus}`);
+      }
+
+      const response = await ContratoAPI.updateStatus(contractId, newStatus);
       
       if (response.success) {
-        setContractsData(prevData => 
-          prevData.map(contract => 
-            contract.id_aprobacion === id 
-              ? { ...contract, estatus: nextStatus }
+        setContractsData((prevData) =>
+          prevData.map((contract) =>
+            contract.id_aprobacion === contractId
+              ? { ...contract, estatus: newStatus }
               : contract
           )
         );
         
-        setNotifications(prev => [
+        console.log(`✅ Estado actualizado: ${contractId} → ${newStatus} (source: ${source})`);
+        
+        setNotifications((prev) => [
           { 
             id: Date.now(), 
-            text: `Contrato #${id} avanzó a estado: ${nextStatus}`, 
+            text: `📄 Contrato #${contractId}: estado actualizado a "${newStatus}"`, 
             time: "Ahora", 
-            read: false
+            read: false,
+            type: "success"
           },
-          ...prev
+          ...prev,
         ]);
+        
+        return true;
       } else {
-        throw new Error(response.error || 'Error al cambiar el estado');
+        throw new Error(response.error || "Error en backend");
       }
     } catch (error) {
-      console.error("Error al cambiar estado:", error);
-      setNotifications(prev => [
+      console.error("Error actualizando estado:", error);
+      setNotifications((prev) => [
         { 
           id: Date.now(), 
-          text: `Error al cambiar estado del contrato #${id}: ${error.message}`, 
+          text: `❌ Error al cambiar estado: ${error.message}`, 
           time: "Ahora", 
           read: false,
-          type: 'error'
+          type: "error"
         },
-        ...prev
+        ...prev,
       ]);
+      return false;
     }
   };
 
-  const gestionarContrato = (contract) => {
-    setSelectedContractForGestion(contract);
-    setShowGestionModal(true);
+  // ============================================================
+  // FUNCIONES AUXILIARES
+  // ============================================================
+  const getMonedaNombre = (tipoMoneda) => {
+    switch (tipoMoneda) {
+      case "usd":
+        return "USD";
+      case "eur":
+        return "EUR";
+      default:
+        return "VES";
+    }
   };
 
-  const abrirDesembolso = (contract) => {
-    setSelectedContractForDesembolso(contract);
-    setFormDesembolso({
-      referencia_bancaria: "",
-      monto_pagado: "",
-      fecha_desembolso: new Date().toISOString().split('T')[0],
-      observaciones: ""
+  const getFrecuenciaPagoTexto = (frecuencia) => {
+    const map = {
+      semanal: "Semanal",
+      quincenal: "Quincenal",
+      mensual: "Mensual",
+      bimestral: "Bimestral",
+      trimestral: "Trimestral",
+      semestral: "Semestral",
+      anual: "Anual",
+    };
+    return map[frecuencia] || frecuencia || "No definida";
+  };
+
+  const formatMonto = (monto) => {
+    return monto.toLocaleString("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     });
-    setDesembolsoErrors({});
-    setShowDesembolsoModal(true);
   };
 
-  const handleDesembolsoChange = (field, value) => {
-    setFormDesembolso(prev => ({ ...prev, [field]: value }));
-    if (desembolsoErrors[field]) {
-      setDesembolsoErrors(prev => ({ ...prev, [field]: undefined }));
+  const calcularFechaCierre = (fechaInicio, numeroCuotas, frecuenciaPago, numeroGracias = 0) => {
+    if (!fechaInicio || !numeroCuotas || !frecuenciaPago) return "";
+
+    const fecha = new Date(fechaInicio);
+    const cuotas = parseInt(numeroCuotas);
+    const gracias = parseInt(numeroGracias) || 0;
+    const totalPeriodos = cuotas + gracias;
+
+    if (isNaN(cuotas) || cuotas <= 0) return "";
+
+    switch (frecuenciaPago) {
+      case "semanal":
+        fecha.setDate(fecha.getDate() + totalPeriodos * 7);
+        break;
+      case "quincenal":
+        fecha.setDate(fecha.getDate() + totalPeriodos * 15);
+        break;
+      case "mensual":
+        fecha.setMonth(fecha.getMonth() + totalPeriodos);
+        break;
+      case "bimestral":
+        fecha.setMonth(fecha.getMonth() + totalPeriodos * 2);
+        break;
+      case "trimestral":
+        fecha.setMonth(fecha.getMonth() + totalPeriodos * 3);
+        break;
+      case "semestral":
+        fecha.setMonth(fecha.getMonth() + totalPeriodos * 6);
+        break;
+      case "anual":
+        fecha.setFullYear(fecha.getFullYear() + totalPeriodos);
+        break;
+      default:
+        fecha.setMonth(fecha.getMonth() + totalPeriodos);
     }
+    return fecha.toISOString().split("T")[0];
   };
 
-  const validateDesembolsoForm = () => {
-    const errors = {};
-    
-    if (!formDesembolso.referencia_bancaria.trim()) {
-      errors.referencia_bancaria = "La referencia bancaria es requerida";
-    } else if (formDesembolso.referencia_bancaria.length > 6) {
-      errors.referencia_bancaria = "La referencia bancaria debe tener máximo 6 caracteres";
-    } else if (!/^[A-Z0-9]+$/i.test(formDesembolso.referencia_bancaria)) {
-      errors.referencia_bancaria = "Solo letras y números permitidos";
+  const calcularMontoBolivares = (monto, cambio, flatPorcentaje) => {
+    if (!monto || !cambio) return { bruto: 0, flatMonto: 0, neto: 0 };
+    const montoNum = parseFloat(monto);
+    const cambioNum = parseFloat(cambio);
+    if (isNaN(montoNum) || isNaN(cambioNum)) return { bruto: 0, flatMonto: 0, neto: 0 };
+
+    const resultadoBruto = montoNum * cambioNum;
+
+    if (flatPorcentaje && !isNaN(parseFloat(flatPorcentaje))) {
+      const flatDecimal = parseFloat(flatPorcentaje) / 100;
+      const descuentoFlat = resultadoBruto * flatDecimal;
+      const resultadoNeto = resultadoBruto - descuentoFlat;
+      return { bruto: resultadoBruto, flatMonto: descuentoFlat, neto: resultadoNeto };
     }
-    
-    if (!formDesembolso.monto_pagado.trim()) {
-      errors.monto_pagado = "El monto pagado es requerido";
-    } else if (isNaN(formDesembolso.monto_pagado) || Number(formDesembolso.monto_pagado) <= 0) {
-      errors.monto_pagado = "Ingrese un monto válido";
-    }
-    
-    if (!formDesembolso.fecha_desembolso) {
-      errors.fecha_desembolso = "La fecha es requerida";
-    }
-    
-    setDesembolsoErrors(errors);
-    return Object.keys(errors).length === 0;
+
+    return { bruto: resultadoBruto, flatMonto: 0, neto: resultadoBruto };
   };
 
-  const realizarDesembolso = async () => {
-    if (!validateDesembolsoForm()) return;
-    
-    setDesembolsoSubmitting(true);
-    
-    try {
-      const desembolsoData = {
-        referencia_bancaria: formDesembolso.referencia_bancaria.toUpperCase(),
-        monto_pagado: formDesembolso.monto_pagado,
-        fecha_desembolso: formDesembolso.fecha_desembolso,
-        estatus: "Pendiente"
-      };
-      
-      const response = await ContratoAPI.realizarDesembolso(
-        selectedContractForDesembolso.id_aprobacion, 
-        desembolsoData
-      );
-      
-      if (response.success) {
-        setContractsData(prevData => 
-          prevData.map(contract => 
-            contract.id_aprobacion === selectedContractForDesembolso.id_aprobacion 
-              ? { ...contract, estatus: "Activo" }
-              : contract
-          )
-        );
-        
-        setNotifications(prev => [
-          { 
-            id: Date.now(), 
-            text: `Desembolso registrado exitosamente para contrato #${selectedContractForDesembolso.id_aprobacion}`, 
-            time: "Ahora", 
-            read: false 
-          },
-          ...prev
-        ]);
-        
-        setShowDesembolsoModal(false);
-        setSelectedContractForDesembolso(null);
-      } else {
-        throw new Error(response.error || 'Error al registrar el desembolso');
+  const calcularDevolvimiento = (montoMoneda, porcentajeInteres) => {
+    if (!montoMoneda) return 0;
+    const montoNum = parseFloat(montoMoneda);
+    if (isNaN(montoNum)) return 0;
+    if (porcentajeInteres && !isNaN(parseFloat(porcentajeInteres))) {
+      const interesDecimal = parseFloat(porcentajeInteres) / 100;
+      return montoNum + montoNum * interesDecimal;
+    }
+    return montoNum;
+  };
+
+  // ============================================================
+  // HANDLERS - Aceptar Contrato (Pendiente por aceptar → Pendiente por desembolso)
+  // ============================================================
+  const aceptarContratoDirecto = async (contract) => {
+    const result = await Swal.fire({
+      title: '¿Aceptar contrato?',
+      html: `
+        <div style="text-align: left;">
+          <div style="background: ${darkMode ? '#374151' : '#f8f9fa'}; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+            <p style="margin: 5px 0;"><strong>📄 Contrato:</strong> ${contract.numero_contrato || `#${contract.id_aprobacion}`}</p>
+            <p style="margin: 5px 0;"><strong>👤 Emprendedor:</strong> ${contract.emprendedor}</p>
+            <p style="margin: 5px 0;"><strong>💰 Monto:</strong> ${contract.monto_moneda} ${contract.moneda?.toUpperCase() || "USD"}</p>
+            <p style="margin: 5px 0;"><strong>📊 Cuotas:</strong> ${contract.numero_cuotas}</p>
+            <p style="margin: 5px 0;"><strong>📅 Período:</strong> ${contract.inicio} al ${contract.cierre}</p>
+          </div>
+          <p style="color: #e67e22; font-size: 13px; text-align: center;">⚠️ Esta acción confirmará la aceptación del contrato por parte del emprendedor.</p>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#2A9D8F',
+      cancelButtonColor: '#d33',
+      confirmButtonText: '✅ Sí, aceptar contrato',
+      cancelButtonText: '❌ Cancelar',
+      reverseButtons: true,
+      background: darkMode ? '#1f2937' : '#ffffff',
+      color: darkMode ? '#f3f4f6' : '#1f2937'
+    });
+
+    if (!result.isConfirmed) return;
+
+    Swal.fire({
+      title: 'Procesando...',
+      text: 'Estamos registrando la aceptación del contrato',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
       }
-    } catch (error) {
-      console.error("Error al realizar desembolso:", error);
-      setDesembolsoErrors({ submit: error.message || "Error al procesar el desembolso" });
-    } finally {
-      setDesembolsoSubmitting(false);
+    });
+
+    const updated = await updateContractStatus(
+      contract.id_aprobacion,
+      "Pendiente por desembolso",
+      "aceptacion"
+    );
+    
+    if (updated) {
+      Swal.fire({
+        title: '¡Contrato aceptado! 🎉',
+        html: `
+          <div style="text-align: center;">
+            <p>El contrato ha sido aceptado exitosamente.</p>
+            <p style="margin-top: 10px;">Estado actual: <strong style="color: #f39c12;">Pendiente por desembolso</strong></p>
+            <p style="margin-top: 10px; font-size: 13px;">Ahora puedes proceder con el desembolso.</p>
+          </div>
+        `,
+        icon: 'success',
+        confirmButtonColor: '#2A9D8F',
+        confirmButtonText: 'Continuar',
+        timer: 3000,
+        timerProgressBar: true
+      });
+
+      setNotifications((prev) => [
+        { 
+          id: Date.now(), 
+          text: `✅ Contrato aceptado exitosamente por ${contract.emprendedor}`, 
+          time: "Ahora", 
+          read: false, 
+          type: "success" 
+        },
+        ...prev,
+      ]);
+    } else {
+      Swal.fire({
+        title: 'Error al aceptar contrato',
+        text: 'No se pudo procesar la aceptación. Por favor, intenta nuevamente.',
+        icon: 'error',
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Entendido'
+      });
     }
   };
 
+  // ============================================================
+  // HANDLERS - Gestión de Contrato (Esperando contrato → Pendiente por aceptar)
+  // ============================================================
   const validateForm = () => {
     const errors = {};
-    
-    if (!formGestion.numero_contrato.trim()) {
-      errors.numero_contrato = "El número de contrato es requerido";
-    }
-    
-    if (!formGestion.monto_moneda.trim()) {
-      errors.monto_moneda = "El monto en moneda es requerido";
-    } else if (isNaN(formGestion.monto_moneda) || Number(formGestion.monto_moneda) <= 0) {
+    if (!formGestion.numero_contrato.trim()) errors.numero_contrato = "El número de contrato es requerido";
+    if (!formGestion.monto_moneda.trim()) errors.monto_moneda = "El monto en moneda es requerido";
+    else if (isNaN(formGestion.monto_moneda) || Number(formGestion.monto_moneda) <= 0)
       errors.monto_moneda = "Ingrese un monto válido";
-    }
-    
-    if (!formGestion.devolvimiento.trim()) {
-      errors.devolvimiento = "El devolvimiento es requerido";
-    } else if (isNaN(formGestion.devolvimiento) || Number(formGestion.devolvimiento) <= 0) {
+    if (!formGestion.devolvimiento.trim()) errors.devolvimiento = "El devolvimiento es requerido";
+    else if (isNaN(formGestion.devolvimiento) || Number(formGestion.devolvimiento) <= 0)
       errors.devolvimiento = "Ingrese un devolvimiento válido";
-    }
-    
-    if (!formGestion.numero_cuotas.trim()) {
-      errors.numero_cuotas = "El número de cuotas es requerido";
-    } else if (isNaN(formGestion.numero_cuotas) || Number(formGestion.numero_cuotas) <= 0) {
+    if (!formGestion.numero_cuotas.trim()) errors.numero_cuotas = "El número de cuotas es requerido";
+    else if (isNaN(formGestion.numero_cuotas) || Number(formGestion.numero_cuotas) <= 0)
       errors.numero_cuotas = "Ingrese un número válido";
-    }
-    
+
     if (formGestion.numero_gracias) {
       const gracias = parseInt(formGestion.numero_gracias);
       const cuotas = parseInt(formGestion.numero_cuotas);
-      
-      if (isNaN(gracias) || gracias < 0) {
-        errors.numero_gracias = "Ingrese un número válido";
-      } else if (cuotas && gracias >= cuotas) {
-        errors.numero_gracias = "Las gracias deben ser menores al número de cuotas";
-      }
+      if (isNaN(gracias) || gracias < 0) errors.numero_gracias = "Ingrese un número válido";
+      else if (cuotas && gracias >= cuotas) errors.numero_gracias = "Las gracias deben ser menores al número de cuotas";
     }
-    
-    if (!formGestion.inicio) {
-      errors.inicio = "La fecha de inicio es requerida";
-    }
-    
-    if (!formGestion.cierre) {
-      errors.cierre = "La fecha de cierre es requerida";
-    } else if (formGestion.inicio && formGestion.cierre < formGestion.inicio) {
+
+    if (!formGestion.inicio) errors.inicio = "La fecha de inicio es requerida";
+    if (!formGestion.cierre) errors.cierre = "La fecha de cierre es requerida";
+    else if (formGestion.inicio && formGestion.cierre < formGestion.inicio)
       errors.cierre = "La fecha de cierre debe ser posterior al inicio";
-    }
-    
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
-  };
-
-  const handleInputChange = (field, value) => {
-    if (field === 'flat') {
-      handleFlatChange(value);
-    } else if (field === 'interes_porcentaje') {
-      handleInteresPorcentajeChange(value);
-    } else if (field === 'numero_cuotas') {
-      handleNumeroCuotasChange(value);
-    } else if (field === 'inicio') {
-      handleFechaInicioChange(value);
-    } else if (field === 'numero_gracias') {
-      const gracias = parseInt(value) || 0;
-      const cuotas = parseInt(formGestion.numero_cuotas) || 0;
-      
-      if (gracias >= cuotas && cuotas > 0) {
-        setFormErrors(prev => ({
-          ...prev,
-          numero_gracias: "Las gracias deben ser menores al número de cuotas"
-        }));
-      } else {
-        setFormErrors(prev => ({ ...prev, numero_gracias: undefined }));
-      }
-      
-      setFormGestion(prev => ({ ...prev, numero_gracias: value }));
-      
-      if (formGestion.inicio && formGestion.numero_cuotas && configuracionContrato?.frecuencia_pago) {
-        const fechaCierre = calcularFechaCierre(
-          formGestion.inicio,
-          formGestion.numero_cuotas,
-          configuracionContrato.frecuencia_pago,
-          value
-        );
-        if (fechaCierre) {
-          setFormGestion(prev => ({ ...prev, cierre: fechaCierre }));
-        }
-      }
-    } else {
-      setFormGestion(prev => {
-        const updated = { ...prev, [field]: value };
-        return updated;
-      });
-    }
-    
-    if (formErrors[field]) {
-      setFormErrors(prev => ({ ...prev, [field]: undefined }));
-    }
   };
 
   const confirmarGestion = async () => {
     if (!validateForm()) return;
     
+    const result = await Swal.fire({
+      title: '¿Registrar contrato?',
+      html: `
+        <div style="text-align: left;">
+          <p><strong>Número:</strong> ${formGestion.numero_contrato}</p>
+          <p><strong>Emprendedor:</strong> ${selectedContractForGestion.emprendedor}</p>
+          <p><strong>Monto:</strong> ${formGestion.monto_moneda} ${getMonedaNombre(formGestion.moneda)}</p>
+          <p><strong>Cuotas:</strong> ${formGestion.numero_cuotas}</p>
+          <p><strong>Valor en Bs:</strong> Bs. ${formatMonto(montoBolivares.neto)}</p>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#2A9D8F',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sí, registrar contrato',
+      cancelButtonText: 'Cancelar',
+      background: darkMode ? '#1f2937' : '#ffffff',
+      color: darkMode ? '#f3f4f6' : '#1f2937'
+    });
+
+    if (!result.isConfirmed) return;
+
     setSubmitting(true);
     
+    Swal.fire({
+      title: 'Registrando contrato...',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
     try {
       const contratoData = {
         id_aprob: selectedContractForGestion.id_aprobacion,
@@ -809,54 +494,70 @@ const Contrato = () => {
         numero_cuotas: parseInt(formGestion.numero_cuotas),
         numero_gracias: parseInt(formGestion.numero_gracias) || 0,
         inicio: formGestion.inicio,
-        cierre: formGestion.cierre
+        cierre: formGestion.cierre,
       };
 
       const response = await ContratoAPI.create(contratoData);
-      
       if (response.success) {
-        setContractsData(prevData => 
-          prevData.map(contract => 
-            contract.id_aprobacion === selectedContractForGestion.id_aprobacion 
-              ? { 
-                  ...contract, 
-                  estatus: "Pendiente por desembolso",
-                  numero_cuotas: formGestion.numero_cuotas,
-                  numero_gracias: parseInt(formGestion.numero_gracias) || 0,
-                  inicio: formGestion.inicio,
-                  cierre: formGestion.cierre,
-                  numero_contrato: formGestion.numero_contrato,
-                  moneda: formGestion.moneda,
-                  monto_moneda: parseFloat(formGestion.monto_moneda),
-                  cambio: `Bs. ${formatMonto(montoBolivares.neto)}`,
-                  flat: `- Bs ${formatMonto(montoBolivares.flatMonto)}`,
-                  interes_porcentaje: parseFloat(formGestion.interes_porcentaje),
-                  devolvimiento: parseFloat(formGestion.devolvimiento)
-                }
-              : contract
-          )
+        const statusUpdated = await updateContractStatus(
+          selectedContractForGestion.id_aprobacion,
+          "Pendiente por aceptar",
+          "gestion"
         );
         
-        setLastContractNumber(prev => prev + 1);
-        
-        setNotifications(prev => [
-          { 
-            id: Date.now(), 
-            text: `Contrato ${formGestion.numero_contrato} registrado exitosamente`, 
-            time: "Ahora", 
-            read: false 
-          },
-          ...prev
-        ]);
-        
-        setShowGestionModal(false);
-        setSelectedContractForGestion(null);
-        setMontoBolivares({ bruto: 0, flatMonto: 0, neto: 0 });
+        if (statusUpdated) {
+          Swal.fire({
+            title: '¡Contrato registrado!',
+            html: `
+              El contrato <strong>${formGestion.numero_contrato}</strong> ha sido registrado exitosamente.<br/>
+              Estado actual: <strong>Pendiente por aceptar</strong>
+            `,
+            icon: 'success',
+            confirmButtonColor: '#2A9D8F',
+            confirmButtonText: 'Continuar',
+            timer: 3000,
+            timerProgressBar: true
+          });
+
+          setContractsData((prevData) =>
+            prevData.map((contract) =>
+              contract.id_aprobacion === selectedContractForGestion.id_aprobacion
+                ? {
+                    ...contract,
+                    numero_cuotas: formGestion.numero_cuotas,
+                    numero_gracias: parseInt(formGestion.numero_gracias) || 0,
+                    inicio: formGestion.inicio,
+                    cierre: formGestion.cierre,
+                    numero_contrato: formGestion.numero_contrato,
+                    moneda: formGestion.moneda,
+                    monto_moneda: parseFloat(formGestion.monto_moneda),
+                    cambio: `Bs. ${formatMonto(montoBolivares.neto)}`,
+                    flat: `- Bs ${formatMonto(montoBolivares.flatMonto)}`,
+                    interes_porcentaje: parseFloat(formGestion.interes_porcentaje),
+                    devolvimiento: parseFloat(formGestion.devolvimiento),
+                  }
+                : contract
+            )
+          );
+          
+          setLastContractNumber((prev) => prev + 1);
+          setNotifications((prev) => [
+            { id: Date.now(), text: `Contrato ${formGestion.numero_contrato} registrado exitosamente`, time: "Ahora", read: false },
+            ...prev,
+          ]);
+          setShowGestionModal(false);
+          setSelectedContractForGestion(null);
+        }
       } else {
-        throw new Error(response.error || 'Error al registrar el contrato');
+        throw new Error(response.error || "Error al registrar el contrato");
       }
     } catch (error) {
-      console.error("Error al gestionar contrato:", error);
+      Swal.fire({
+        title: 'Error al registrar contrato',
+        text: error.message || 'Ocurrió un error inesperado',
+        icon: 'error',
+        confirmButtonColor: '#d33'
+      });
       setFormErrors({ submit: error.message || "Error al guardar el contrato" });
     } finally {
       setSubmitting(false);
@@ -870,127 +571,284 @@ const Contrato = () => {
     setMontoBolivares({ bruto: 0, flatMonto: 0, neto: 0 });
   };
 
+  // ============================================================
+  // HANDLERS - Inputs del formulario de gestión
+  // ============================================================
   const handleMontoMonedaChange = (value) => {
-    setFormGestion(prev => ({ ...prev, monto_moneda: value }));
-    
+    setFormGestion((prev) => ({ ...prev, monto_moneda: value }));
     if (value && formGestion.cambio) {
       const montoCalculado = calcularMontoBolivares(value, formGestion.cambio, formGestion.flat);
       setMontoBolivares(montoCalculado);
     } else {
       setMontoBolivares({ bruto: 0, flatMonto: 0, neto: 0 });
     }
-    
     if (value && formGestion.interes_porcentaje) {
       const devolvimientoCalculado = calcularDevolvimiento(value, formGestion.interes_porcentaje);
-      setFormGestion(prev => ({ ...prev, devolvimiento: devolvimientoCalculado.toString() }));
+      setFormGestion((prev) => ({ ...prev, devolvimiento: devolvimientoCalculado.toString() }));
     } else if (value && !formGestion.interes_porcentaje) {
-      setFormGestion(prev => ({ ...prev, devolvimiento: value }));
-    } else if (!value) {
-      setFormGestion(prev => ({ ...prev, devolvimiento: "" }));
-    }
-    
-    if (formErrors.monto_moneda) {
-      setFormErrors(prev => ({ ...prev, monto_moneda: undefined }));
-    }
-  };
-
-  const handleCambioChange = (value) => {
-    setFormGestion(prev => ({ ...prev, cambio: value }));
-    
-    if (formGestion.monto_moneda && value) {
-      const montoCalculado = calcularMontoBolivares(formGestion.monto_moneda, value, formGestion.flat);
-      setMontoBolivares(montoCalculado);
-    } else {
-      setMontoBolivares({ bruto: 0, flatMonto: 0, neto: 0 });
-    }
-    
-    if (formErrors.cambio) {
-      setFormErrors(prev => ({ ...prev, cambio: undefined }));
-    }
-  };
-
-  const handleFlatChange = (value) => {
-    setFormGestion(prev => ({ ...prev, flat: value }));
-    
-    if (formGestion.monto_moneda && formGestion.cambio) {
-      const montoCalculado = calcularMontoBolivares(formGestion.monto_moneda, formGestion.cambio, value);
-      setMontoBolivares(montoCalculado);
-    }
-    
-    if (formErrors.flat) {
-      setFormErrors(prev => ({ ...prev, flat: undefined }));
+      setFormGestion((prev) => ({ ...prev, devolvimiento: value }));
     }
   };
 
   const handleInteresPorcentajeChange = (value) => {
-    setFormGestion(prev => ({ ...prev, interes_porcentaje: value }));
-    
+    setFormGestion((prev) => ({ ...prev, interes_porcentaje: value }));
     if (formGestion.monto_moneda && value) {
       const devolvimientoCalculado = calcularDevolvimiento(formGestion.monto_moneda, value);
-      setFormGestion(prev => ({ ...prev, devolvimiento: devolvimientoCalculado.toString() }));
+      setFormGestion((prev) => ({ ...prev, devolvimiento: devolvimientoCalculado.toString() }));
     } else if (formGestion.monto_moneda && !value) {
-      setFormGestion(prev => ({ ...prev, devolvimiento: formGestion.monto_moneda }));
-    }
-    
-    if (formErrors.interes_porcentaje) {
-      setFormErrors(prev => ({ ...prev, interes_porcentaje: undefined }));
+      setFormGestion((prev) => ({ ...prev, devolvimiento: formGestion.monto_moneda }));
     }
   };
 
   const handleNumeroCuotasChange = (value) => {
-    setFormGestion(prev => ({ ...prev, numero_cuotas: value }));
-    
+    setFormGestion((prev) => ({ ...prev, numero_cuotas: value }));
     if (formGestion.inicio && value && configuracionContrato?.frecuencia_pago) {
       const fechaCierre = calcularFechaCierre(
-        formGestion.inicio, 
-        value, 
+        formGestion.inicio,
+        value,
         configuracionContrato.frecuencia_pago,
         formGestion.numero_gracias
       );
-      if (fechaCierre) {
-        setFormGestion(prev => ({ ...prev, cierre: fechaCierre }));
-      }
-    }
-    
-    if (formErrors.numero_cuotas) {
-      setFormErrors(prev => ({ ...prev, numero_cuotas: undefined }));
+      if (fechaCierre) setFormGestion((prev) => ({ ...prev, cierre: fechaCierre }));
     }
   };
 
   const handleFechaInicioChange = (value) => {
-    setFormGestion(prev => ({ ...prev, inicio: value }));
-    
+    setFormGestion((prev) => ({ ...prev, inicio: value }));
     if (value && formGestion.numero_cuotas && configuracionContrato?.frecuencia_pago) {
       const fechaCierre = calcularFechaCierre(
-        value, 
-        formGestion.numero_cuotas, 
+        value,
+        formGestion.numero_cuotas,
         configuracionContrato.frecuencia_pago,
         formGestion.numero_gracias
       );
-      if (fechaCierre) {
-        setFormGestion(prev => ({ ...prev, cierre: fechaCierre }));
-      }
-    } else if (!value) {
-      setFormGestion(prev => ({ ...prev, cierre: "" }));
-    }
-    
-    if (formErrors.inicio) {
-      setFormErrors(prev => ({ ...prev, inicio: undefined }));
+      if (fechaCierre) setFormGestion((prev) => ({ ...prev, cierre: fechaCierre }));
     }
   };
 
-  const filteredContracts = contractsData.filter(contract => {
-    const searchFields = [
-      contract.id_aprobacion?.toString(),
-      contract.emprendedor,
-      contract.estatus,
-      contract.numero_contrato
-    ].join(" ").toLowerCase();
-    
+  const handleInputChange = (field, value) => {
+    if (field === "interes_porcentaje") {
+      handleInteresPorcentajeChange(value);
+    } else if (field === "numero_cuotas") {
+      handleNumeroCuotasChange(value);
+    } else if (field === "inicio") {
+      handleFechaInicioChange(value);
+    } else if (field === "numero_gracias") {
+      setFormGestion((prev) => ({ ...prev, numero_gracias: value }));
+      if (formGestion.inicio && formGestion.numero_cuotas && configuracionContrato?.frecuencia_pago) {
+        const fechaCierre = calcularFechaCierre(
+          formGestion.inicio,
+          formGestion.numero_cuotas,
+          configuracionContrato.frecuencia_pago,
+          value
+        );
+        if (fechaCierre) setFormGestion((prev) => ({ ...prev, cierre: fechaCierre }));
+      }
+    } else {
+      setFormGestion((prev) => ({ ...prev, [field]: value }));
+    }
+    if (formErrors[field]) setFormErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
+
+  // ============================================================
+  // EFECTOS - Carga de datos iniciales
+  // ============================================================
+  useEffect(() => {
+    const fetchConfiguracion = async () => {
+      try {
+        setLoadingConfig(true);
+        const response = await configuracionContratoAPI.getCurrent();
+        if (response.success && response.data) setConfiguracionContrato(response.data);
+      } catch (error) {
+        console.error("Error cargando configuración:", error);
+      } finally {
+        setLoadingConfig(false);
+      }
+    };
+    fetchConfiguracion();
+  }, []);
+
+  useEffect(() => {
+    const fetchTasasCambio = async () => {
+      try {
+        setLoadingTasas(true);
+        setErrorTasas(null);
+        const [dolaresResponse, eurosResponse] = await Promise.all([
+          fetch("https://ve.dolarapi.com/v1/dolares"),
+          fetch("https://ve.dolarapi.com/v1/euros"),
+        ]);
+
+        const dolaresData = await dolaresResponse.json();
+        const eurosData = await eurosResponse.json();
+
+        let tasaDolar = null;
+        let tasaEuro = null;
+
+        if (Array.isArray(dolaresData) && dolaresData.length > 0) {
+          const tasaBCV = dolaresData.find((d) => d.nombre?.toLowerCase().includes("bcv"));
+          tasaDolar = tasaBCV?.promedio || dolaresData[0]?.promedio || dolaresData[0]?.valor || null;
+        }
+        if (Array.isArray(eurosData) && eurosData.length > 0) {
+          const tasaBCV = eurosData.find((d) => d.nombre?.toLowerCase().includes("bcv"));
+          tasaEuro = tasaBCV?.promedio || eurosData[0]?.promedio || eurosData[0]?.valor || null;
+        }
+
+        setTasasCambio({ dolares: tasaDolar, euros: tasaEuro });
+      } catch (error) {
+        console.error("Error cargando tasas:", error);
+        setErrorTasas(error.message);
+      } finally {
+        setLoadingTasas(false);
+      }
+    };
+
+    fetchTasasCambio();
+    const interval = setInterval(fetchTasasCambio, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const fetchContratos = async () => {
+      try {
+        setLoading(true);
+        const response = await ContratoAPI.getAll();
+        if (response.success) {
+          const dataConDefaults = response.data.map((item) => ({
+            ...item,
+            numero_cuotas: item.numero_cuotas || "Sin definir",
+            inicio: item.inicio || "Sin definir",
+            cierre: item.cierre || "Sin definir",
+            estatus: item.estatus || "Esperando contrato",
+            emprendedor: item.emprendedor || "Sin definir",
+            numero_contrato: item.numero_contrato || "",
+            moneda: item.moneda || "usd",
+            monto_moneda: item.monto_moneda || null,
+            cambio: item.cambio || null,
+            flat: item.flat || null,
+            interes_porcentaje: item.interes_porcentaje || null,
+            devolvimiento: item.devolvimiento || null,
+            numero_gracias: item.numero_gracias || 0,
+          }));
+          setContractsData(dataConDefaults);
+        } else {
+          setError(response.error || "Error al cargar los contratos");
+        }
+      } catch (err) {
+        setError(err.error || "Error al conectar con el servidor");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchContratos();
+  }, []);
+
+  useEffect(() => {
+    const fetchLastContract = async () => {
+      try {
+        const response = await ContratoAPI.getLastContractNumber();
+        if (response.success && response.data) {
+          const lastNumber = response.data.numero_contrato;
+          if (lastNumber) {
+            const parts = lastNumber.split("-");
+            if (parts.length === 3) setLastContractNumber(parseInt(parts[2]) || 0);
+          }
+        }
+      } catch (error) {
+        const contractsWithNumbers = contractsData.filter(
+          (c) => c.numero_contrato && c.numero_contrato.startsWith("IADEY-")
+        );
+        if (contractsWithNumbers.length > 0) {
+          const numbers = contractsWithNumbers.map((c) => {
+            const parts = c.numero_contrato.split("-");
+            return parseInt(parts[2]) || 0;
+          });
+          setLastContractNumber(Math.max(...numbers));
+        }
+      }
+    };
+    if (contractsData.length > 0) fetchLastContract();
+  }, [contractsData]);
+
+  useEffect(() => {
+    if (showGestionModal && selectedContractForGestion && configuracionContrato) {
+      const currentYear = new Date().getFullYear();
+      const nextNumber = lastContractNumber + 1;
+      const formattedNumber = String(nextNumber).padStart(3, "0");
+      const numeroContratoAuto = `IADEY-${currentYear}-${formattedNumber}`;
+
+      const monedaConfig = configuracionContrato.tipo_moneda || "usd";
+      let tasaCambio = "";
+      if (monedaConfig === "usd" && tasasCambio.dolares) tasaCambio = tasasCambio.dolares.toString();
+      else if (monedaConfig === "eur" && tasasCambio.euros) tasaCambio = tasasCambio.euros.toString();
+
+      const fechaInicioDefault = new Date().toISOString().split("T")[0];
+      const cuotasObligatorias =
+        configuracionContrato.cuotas_obligatorias?.toString() ||
+        (selectedContractForGestion.numero_cuotas !== "Sin definir" ? selectedContractForGestion.numero_cuotas : "");
+      const graciasConfig =
+        configuracionContrato.cuotas_gracia?.toString() ||
+        selectedContractForGestion.numero_gracias?.toString() ||
+        "0";
+
+      let fechaCierreDefault = "";
+      if (fechaInicioDefault && cuotasObligatorias && configuracionContrato.frecuencia_pago) {
+        fechaCierreDefault = calcularFechaCierre(
+          fechaInicioDefault,
+          cuotasObligatorias,
+          configuracionContrato.frecuencia_pago,
+          graciasConfig
+        );
+      }
+
+      setFormGestion({
+        numero_contrato: numeroContratoAuto,
+        moneda: monedaConfig,
+        monto_moneda: "",
+        cambio: tasaCambio,
+        flat: configuracionContrato.flat_porcentaje?.toString() || "",
+        interes_porcentaje: configuracionContrato.interes_porcentaje?.toString() || "",
+        devolvimiento: "",
+        numero_cuotas: cuotasObligatorias,
+        inicio: fechaInicioDefault,
+        cierre: fechaCierreDefault,
+        numero_gracias: graciasConfig,
+      });
+      setMontoBolivares({ bruto: 0, flatMonto: 0, neto: 0 });
+      setFormErrors({});
+    }
+  }, [showGestionModal, selectedContractForGestion, lastContractNumber, configuracionContrato, tasasCambio]);
+
+  // ============================================================
+  // RENDER - Datos de sección y estadísticas
+  // ============================================================
+  const contratosActivos = contractsData.filter((c) => c.estatus === "Activo").length;
+  const contratosPendientesAceptar = contractsData.filter((c) => c.estatus === "Pendiente por aceptar").length;
+  const contratosPendientesDesembolso = contractsData.filter((c) => c.estatus === "Pendiente por desembolso").length;
+  const contratosEsperando = contractsData.filter((c) => c.estatus === "Esperando contrato").length;
+
+  const sectionData = {
+    contracts: {
+      title: "Gestión de Contratos",
+      description: "Administración de contratos con manejo interno",
+      stats: [
+        { id: 1, title: "Contratos Activos", value: contratosActivos, icon: CheckCircle, color: "green", bgColor: "bg-green-50", textColor: "text-green-600" },
+        { id: 2, title: "Pendientes por Aceptar", value: contratosPendientesAceptar, icon: Clock, color: "yellow", bgColor: "bg-yellow-50", textColor: "text-yellow-600" },
+        { id: 3, title: "Pend. Desembolso", value: contratosPendientesDesembolso, icon: DollarSign, color: "orange", bgColor: "bg-orange-50", textColor: "text-orange-600" },
+        { id: 4, title: "Esperando Contrato", value: contratosEsperando, icon: Hourglass, color: "gray", bgColor: "bg-gray-50", textColor: "text-gray-600" },
+      ],
+    },
+  };
+
+  const currentData = sectionData.contracts;
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Filtrado y paginación
+  const filteredContracts = contractsData.filter((contract) => {
+    const searchFields = [contract.id_aprobacion?.toString(), contract.emprendedor, contract.estatus, contract.numero_contrato]
+      .join(" ")
+      .toLowerCase();
     const matchesSearch = searchFields.includes(searchTerm.toLowerCase());
-    const matchesFilter = selectedFilter === "all" || 
-                         contract.estatus?.toLowerCase() === selectedFilter.toLowerCase();
-    
+    const matchesFilter = selectedFilter === "all" || contract.estatus?.toLowerCase() === selectedFilter.toLowerCase();
     return matchesSearch && matchesFilter;
   });
 
@@ -999,40 +857,26 @@ const Contrato = () => {
   const currentItems = filteredContracts.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredContracts.length / itemsPerPage);
 
-  const handleLogout = () => {
-    localStorage.removeItem('usuario');
-    localStorage.removeItem('rememberToken');
-    window.dispatchEvent(new Event('authChange'));
-    navigate('/login');
-  };
-
-  const markAsRead = (id) => {
-    setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (!e.target.closest('.notifications-menu') && !e.target.closest('.user-menu')) {
-        setShowNotifications(false);
-        setShowUserMenu(false);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, selectedFilter]);
-
+  // ============================================================
+  // RENDER - Componentes de UI
+  // ============================================================
   const getStatusComponent = (contract) => {
-    const statusInfo = STATUS_FLOW[contract.estatus];
-    if (!statusInfo) return null;
-    const IconComponent = statusInfo.icon;
+    const statusConfig = STATUS_CONFIG[contract.estatus];
+    if (!statusConfig) {
+      return (
+        <span className="inline-flex items-center gap-2 px-4 py-2 bg-gray-400 text-white rounded-lg text-sm font-medium">
+          <AlertCircle size={14} />
+          {contract.estatus || "Desconocido"}
+        </span>
+      );
+    }
+    const IconComponent = statusConfig.icon;
     return (
-      <span className={`inline-flex items-center gap-2 px-4 py-2 ${statusInfo.bgColor} text-white rounded-lg text-sm font-medium`}>
+      <span 
+        className={`inline-flex items-center gap-2 px-4 py-2 ${statusConfig.bgColor} text-white rounded-lg text-sm font-medium`}
+      >
         <IconComponent size={14} />
-        {statusInfo.label}
+        {statusConfig.label}
       </span>
     );
   };
@@ -1043,57 +887,105 @@ const Contrato = () => {
     actions.push(
       <button
         key="ver"
-        onClick={() => verDetallesContrato(contract)}
+        onClick={() => {
+          setSelectedContractForConsulta(contract);
+          setShowConsultaModal(true);
+        }}
         className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-          darkMode ? 'bg-gray-600 hover:bg-gray-700 text-white' : 'bg-gray-500 hover:bg-gray-600 text-white'
+          darkMode ? "bg-gray-600 hover:bg-gray-700 text-white" : "bg-gray-500 hover:bg-gray-600 text-white"
         }`}
-        title="Ver detalles del contrato"
+        title="Ver detalles"
       >
-        <Eye size={14} />
-        Ver
+        <Eye size={14} /> Ver
       </button>
     );
+
+    if (contract.estatus === "En espera de cuotas") {
+      actions.push(
+        <button
+          key="gestionar"
+          onClick={() => {
+            setSelectedContractForGestion(contract);
+            setShowGestionModal(true);
+          }}
+          className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            darkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
+          }`}
+        >
+          <FileText size={14} /> Gestionar cuotas
+        </button>
+      );
+    }
 
     if (contract.estatus === "Esperando contrato") {
       actions.push(
         <button
           key="gestionar"
-          onClick={() => gestionarContrato(contract)}
+          onClick={() => {
+            setSelectedContractForGestion(contract);
+            setShowGestionModal(true);
+          }}
           className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-            darkMode ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'
+            darkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
           }`}
         >
-          <FileText size={14} />
-          Gestionar
+          <FileText size={14} /> Gestionar
         </button>
       );
     }
 
-    if (contract.estatus === "Pendiente") {
+    if (contract.estatus === "Pendiente por aceptar") {
       actions.push(
         <button
-          key="desembolsar"
-          onClick={() => abrirDesembolso(contract)}
+          key="aceptar"
+          onClick={() => aceptarContratoDirecto(contract)}
           className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-            darkMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+            darkMode ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-emerald-500 hover:bg-emerald-600 text-white"
           }`}
         >
-          <CreditCard size={14} />
-          Desembolsar
+          <CheckCircle size={14} /> Aceptar
         </button>
       );
     }
 
     if (actions.length === 0) {
-      return <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>Sin acciones</span>;
+      return <span className={`text-xs ${darkMode ? "text-gray-500" : "text-gray-400"}`}>Sin acciones</span>;
     }
-
     return <div className="flex items-center justify-center gap-2 flex-wrap">{actions}</div>;
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("usuario");
+    localStorage.removeItem("rememberToken");
+    window.dispatchEvent(new Event("authChange"));
+    navigate("/login");
+  };
+
+  const markAsRead = (id) => {
+    setNotifications(notifications.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest(".notifications-menu") && !e.target.closest(".user-menu")) {
+        setShowNotifications(false);
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedFilter]);
+
+  // ============================================================
+  // RENDER PRINCIPAL
+  // ============================================================
   return (
-    <div className={`min-h-screen flex flex-col ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
-      <Header 
+    <div className={`min-h-screen flex flex-col ${darkMode ? "dark bg-gray-900" : "bg-gray-50"}`}>
+      <Header
         darkMode={darkMode}
         setDarkMode={setDarkMode}
         sidebarOpen={sidebarOpen}
@@ -1110,51 +1002,42 @@ const Contrato = () => {
       />
 
       <div className="flex flex-1">
-        <Sidebar 
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          darkMode={darkMode}
-        />
+        <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={setActiveTab} darkMode={darkMode} />
 
-        <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'}`}>
+        <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? "lg:ml-64" : "lg:ml-20"}`}>
           <div className="p-4 md:p-6 mt-16">
-            {/* Encabezado */}
             <div className="mb-6">
               <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
                 <span>Inicio</span>
                 <ChevronRight size={14} />
-                <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Gestión de Contratos</span>
+                <span className={darkMode ? "text-gray-300" : "text-gray-700"}>Gestión de Contratos</span>
               </div>
-              <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Gestión de Contratos</h1>
-              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Administración de contratos con manejo interno</p>
+              <h1 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>Gestión de Contratos</h1>
+              <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Administración de contratos con manejo interno</p>
             </div>
 
-            {/* Tarjetas de estadísticas */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
               {currentData?.stats?.map((stat) => (
-                <div key={stat.id} className={`p-6 rounded-xl ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-100'} shadow-sm hover:shadow-md transition-all`}>
+                <div key={stat.id} className={`p-6 rounded-xl ${darkMode ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-100"} shadow-sm hover:shadow-md transition-all`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className={`p-3 rounded-lg ${stat.bgColor}`}>
                       <stat.icon className={stat.textColor} size={22} />
                     </div>
                   </div>
-                  <h3 className={`text-2xl font-bold mb-1 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  <h3 className={`text-2xl font-bold mb-1 ${darkMode ? "text-white" : "text-gray-800"}`}>
                     {loading ? <Loader2 size={24} className="animate-spin" /> : stat.value}
                   </h3>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{stat.title}</p>
+                  <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>{stat.title}</p>
                 </div>
               ))}
             </div>
 
-            {/* Tabla de contratos */}
-            <div className={`rounded-xl ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-100'} shadow-sm overflow-hidden`}>
+            <div className={`rounded-xl ${darkMode ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-100"} shadow-sm overflow-hidden`}>
               <div className="p-6 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
-                    <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Listado de Contratos</h3>
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{filteredContracts.length} contratos encontrados</p>
+                    <h3 className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>Listado de Contratos</h3>
+                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>{filteredContracts.length} contratos encontrados</p>
                   </div>
                   <div className="flex items-center gap-3 w-full sm:w-auto">
                     <div className="relative flex-1 sm:flex-none">
@@ -1164,24 +1047,28 @@ const Contrato = () => {
                         placeholder="Buscar por ID, emprendedor..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className={`w-full sm:w-80 pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm`}
+                        className={`w-full sm:w-80 pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-200"} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm`}
                       />
                     </div>
-                    <button onClick={() => setShowFilters(!showFilters)} className={`p-2.5 rounded-lg border ${showFilters ? 'bg-[#2A9D8F] text-white' : darkMode ? 'border-gray-600 text-gray-400 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                    <button onClick={() => setShowFilters(!showFilters)} className={`p-2.5 rounded-lg border ${showFilters ? "bg-[#2A9D8F] text-white" : darkMode ? "border-gray-600 text-gray-400 hover:bg-gray-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
                       <Filter size={18} />
                     </button>
                   </div>
                 </div>
 
                 {showFilters && (
-                  <div className={`mt-4 p-4 rounded-lg ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                  <div className={`mt-4 p-4 rounded-lg ${darkMode ? "bg-gray-700/50" : "bg-gray-50"}`}>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
-                        <label className={`block text-xs font-medium mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Estatus</label>
-                        <select value={selectedFilter} onChange={(e) => setSelectedFilter(e.target.value)} className={`w-full px-3 py-2 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm`}>
+                        <label className={`block text-xs font-medium mb-2 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Estatus</label>
+                        <select
+                          value={selectedFilter}
+                          onChange={(e) => setSelectedFilter(e.target.value)}
+                          className={`w-full px-3 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-200"} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm`}
+                        >
                           <option value="all">Todos los estados</option>
                           <option value="activo">Activo</option>
-                          <option value="pendiente">Pendiente</option>
+                          <option value="pendiente por aceptar">Pendiente por aceptar</option>
                           <option value="pendiente por desembolso">Pendiente por Desembolso</option>
                           <option value="esperando contrato">Esperando contrato</option>
                           <option value="finalizado">Finalizado</option>
@@ -1189,7 +1076,14 @@ const Contrato = () => {
                         </select>
                       </div>
                       <div className="flex items-end">
-                        <button onClick={() => { setSelectedFilter("all"); setSearchTerm(""); setShowFilters(false); }} className={`w-full px-4 py-2 rounded-lg border ${darkMode ? 'border-gray-600 text-gray-400 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:bg-gray-100'} transition-colors text-sm`}>
+                        <button
+                          onClick={() => {
+                            setSelectedFilter("all");
+                            setSearchTerm("");
+                            setShowFilters(false);
+                          }}
+                          className={`w-full px-4 py-2 rounded-lg border ${darkMode ? "border-gray-600 text-gray-400 hover:bg-gray-700" : "border-gray-200 text-gray-600 hover:bg-gray-100"} transition-colors text-sm`}
+                        >
                           Limpiar Filtros
                         </button>
                       </div>
@@ -1201,23 +1095,25 @@ const Contrato = () => {
               {loading && (
                 <div className="flex flex-col items-center justify-center py-20">
                   <Loader2 size={48} className="animate-spin text-[#2A9D8F] mb-4" />
-                  <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Cargando contratos...</p>
+                  <p className={`text-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Cargando contratos...</p>
                 </div>
               )}
 
               {error && !loading && (
                 <div className="flex flex-col items-center justify-center py-20">
                   <AlertCircle size={48} className="text-red-500 mb-4" />
-                  <p className={`text-lg font-medium ${darkMode ? 'text-red-400' : 'text-red-600'} mb-2`}>Error al cargar los datos</p>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'} mb-4`}>{error}</p>
-                  <button onClick={() => window.location.reload()} className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg hover:bg-[#238b7e] transition-colors">Reintentar</button>
+                  <p className={`text-lg font-medium ${darkMode ? "text-red-400" : "text-red-600"} mb-2`}>Error al cargar los datos</p>
+                  <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"} mb-4`}>{error}</p>
+                  <button onClick={() => window.location.reload()} className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg hover:bg-[#238b7e] transition-colors">
+                    Reintentar
+                  </button>
                 </div>
               )}
 
               {!loading && !error && currentItems.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20">
                   <FileText size={48} className="text-gray-400 mb-4" />
-                  <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No se encontraron contratos</p>
+                  <p className={`text-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}>No se encontraron contratos</p>
                 </div>
               )}
 
@@ -1226,64 +1122,65 @@ const Contrato = () => {
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-                        <tr className={`${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">ID Aprobación</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Emprendedor</th>
-                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">N° Cuotas</th>
-                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Gracias</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Inicio</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Cierre</th>
-                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Estatus</th>
-                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
+  <tr className={`${darkMode ? "bg-gray-700/50" : "bg-gray-50"}`}>
+    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">ID Aprobación</th>
+    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Emprendedor</th>
+    <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">N° Cuotas</th>
+    <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Gracias</th>
+    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Inicio</th>
+    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Cierre</th>
+    <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Estatus</th>
+    <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Acciones</th>
+  </tr>
+</thead>
+                      <tbody className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-200"}`}>
                         {currentItems.map((contract) => (
-                          <tr key={contract.id_aprobacion} className={`${darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50'} transition-colors`}>
+                          <tr key={contract.id_aprobacion} className={`${darkMode ? "hover:bg-gray-700/50" : "hover:bg-gray-50"} transition-colors`}>
                             <td className="px-6 py-4 text-sm font-semibold text-[#2A9D8F]">#{contract.id_aprobacion}</td>
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-blue-50'}`}>
-                                  <User size={16} className={darkMode ? 'text-gray-300' : 'text-blue-600'} />
+                                <div className={`p-2 rounded-full ${darkMode ? "bg-gray-700" : "bg-blue-50"}`}>
+                                  <User size={16} className={darkMode ? "text-gray-300" : "text-blue-600"} />
                                 </div>
                                 <div>
-                                  <span className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{contract.emprendedor}</span>
-                                  {contract.numero_contrato && <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Contrato: {contract.numero_contrato}</p>}
+                                  <span className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>{contract.emprendedor}</span>
+                                  {contract.numero_contrato && <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Contrato: {contract.numero_contrato}</p>}
                                 </div>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">
                               {contract.numero_cuotas === "Sin definir" ? (
-                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${darkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>Sin definir</span>
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${darkMode ? "bg-gray-700 text-gray-400" : "bg-gray-100 text-gray-500"}`}>Sin definir</span>
                               ) : (
-                                <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${darkMode ? 'bg-blue-900 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>{contract.numero_cuotas}</span>
+                                <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${darkMode ? "bg-blue-900 text-blue-300" : "bg-blue-50 text-blue-700"}`}>{contract.numero_cuotas}</span>
                               )}
                             </td>
                             <td className="px-6 py-4 text-center">
                               {contract.numero_gracias > 0 ? (
                                 <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
-                                  darkMode ? 'bg-purple-900/50 text-purple-300' : 'bg-purple-50 text-purple-700'
+                                  darkMode ? "bg-purple-900/50 text-purple-300" : "bg-purple-50 text-purple-700"
                                 }`}>
-                                  <Gift size={14} />
-                                  {contract.numero_gracias}
+                                  <Gift size={14} /> {contract.numero_gracias}
                                 </span>
                               ) : (
-                                <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>0</span>
+                                <span className={`text-xs ${darkMode ? "text-gray-500" : "text-gray-400"}`}>0</span>
                               )}
                             </td>
                             <td className="px-6 py-4 text-sm">
                               <div className="flex items-center gap-2">
                                 <Calendar size={14} className="text-gray-400" />
-                                {contract.inicio === "Sin definir" ? <span className={darkMode ? 'text-gray-500' : 'text-gray-400'}>Sin definir</span> : contract.inicio}
+                                {contract.inicio === "Sin definir" ? <span className={darkMode ? "text-gray-500" : "text-gray-400"}>Sin definir</span> : contract.inicio}
                               </div>
                             </td>
                             <td className="px-6 py-4 text-sm">
                               <div className="flex items-center gap-2">
                                 <Calendar size={14} className="text-gray-400" />
-                                {contract.cierre === "Sin definir" ? <span className={darkMode ? 'text-gray-500' : 'text-gray-400'}>Sin definir</span> : contract.cierre}
+                                {contract.cierre === "Sin definir" ? <span className={darkMode ? "text-gray-500" : "text-gray-400"}>Sin definir</span> : contract.cierre}
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-center">{getStatusComponent(contract)}</td>
+                            <td className="px-6 py-4 text-center">
+                              {getStatusComponent(contract)}
+                            </td>
                             <td className="px-6 py-4">{getActionButtons(contract)}</td>
                           </tr>
                         ))}
@@ -1291,21 +1188,21 @@ const Contrato = () => {
                     </table>
                   </div>
 
-                  <div className={`px-6 py-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <div className={`px-6 py-4 border-t ${darkMode ? "border-gray-700" : "border-gray-200"}`}>
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <div className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
                         Mostrando {indexOfFirstItem + 1} - {Math.min(indexOfLastItem, filteredContracts.length)} de {filteredContracts.length} contratos
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className={`p-2 rounded-lg border ${currentPage === 1 ? (darkMode ? 'border-gray-600 text-gray-600 cursor-not-allowed' : 'border-gray-200 text-gray-300 cursor-not-allowed') : (darkMode ? 'border-gray-600 text-gray-400 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50')}`}>
+                        <button onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))} disabled={currentPage === 1} className={`p-2 rounded-lg border ${currentPage === 1 ? (darkMode ? "border-gray-600 text-gray-600 cursor-not-allowed" : "border-gray-200 text-gray-300 cursor-not-allowed") : (darkMode ? "border-gray-600 text-gray-400 hover:bg-gray-700" : "border-gray-200 text-gray-600 hover:bg-gray-50")}`}>
                           <ChevronLeft size={16} />
                         </button>
                         {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                          <button key={page} onClick={() => setCurrentPage(page)} className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-[#2A9D8F] text-white' : (darkMode ? 'text-gray-400 hover:bg-gray-700 border border-gray-600' : 'text-gray-600 hover:bg-gray-100 border border-gray-200')}`}>
+                          <button key={page} onClick={() => setCurrentPage(page)} className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? "bg-[#2A9D8F] text-white" : (darkMode ? "text-gray-400 hover:bg-gray-700 border border-gray-600" : "text-gray-600 hover:bg-gray-100 border border-gray-200")}`}>
                             {page}
                           </button>
                         ))}
-                        <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className={`p-2 rounded-lg border ${currentPage === totalPages ? (darkMode ? 'border-gray-600 text-gray-600 cursor-not-allowed' : 'border-gray-200 text-gray-300 cursor-not-allowed') : (darkMode ? 'border-gray-600 text-gray-400 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50')}`}>
+                        <button onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className={`p-2 rounded-lg border ${currentPage === totalPages ? (darkMode ? "border-gray-600 text-gray-600 cursor-not-allowed" : "border-gray-200 text-gray-300 cursor-not-allowed") : (darkMode ? "border-gray-600 text-gray-400 hover:bg-gray-700" : "border-gray-200 text-gray-600 hover:bg-gray-50")}`}>
                           <ChevronRight size={16} />
                         </button>
                       </div>
@@ -1319,182 +1216,151 @@ const Contrato = () => {
         </main>
       </div>
 
-      {/* MODAL DE CONSULTA DE CONTRATO */}
+      {/* MODAL CONSULTA CONTRATO */}
       {showConsultaModal && selectedContractForConsulta && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black bg-opacity-60" onClick={() => setShowConsultaModal(false)} />
-          <div className={`relative w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto rounded-xl shadow-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-            <div className={`sticky top-0 z-10 flex items-center justify-between p-6 border-b ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
+          <div className={`relative w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto rounded-xl shadow-2xl ${darkMode ? "bg-gray-800" : "bg-white"}`}>
+            <div className={`sticky top-0 z-10 flex items-center justify-between p-6 border-b ${darkMode ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}`}>
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${darkMode ? 'bg-blue-900/50' : 'bg-blue-50'}`}>
+                <div className={`p-2 rounded-lg ${darkMode ? "bg-blue-900/50" : "bg-blue-50"}`}>
                   <FileText size={24} className="text-[#2A9D8F]" />
                 </div>
                 <div>
-                  <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Detalles del Contrato</h3>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Información completa del contrato</p>
+                  <h3 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>Detalles del Contrato</h3>
+                  <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Información completa del contrato</p>
                 </div>
               </div>
-              <button 
-                onClick={() => setShowConsultaModal(false)} 
-                className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}
-              >
+              <button onClick={() => setShowConsultaModal(false)} className={`p-2 rounded-lg transition-colors ${darkMode ? "hover:bg-gray-700 text-gray-400" : "hover:bg-gray-100 text-gray-600"}`}>
                 <X size={22} />
               </button>
             </div>
-
             <div className="p-6 space-y-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                  <div className={`p-3 rounded-full ${darkMode ? "bg-gray-700" : "bg-gray-100"}`}>
                     <FileSignature size={32} className="text-[#2A9D8F]" />
                   </div>
                   <div>
-                    <p className={`text-xs uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Número de Contrato</p>
-                    <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {selectedContractForConsulta.numero_contrato || 'No asignado'}
+                    <p className={`text-xs uppercase tracking-wider ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Número de Contrato</p>
+                    <p className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                      {selectedContractForConsulta.numero_contrato || "No asignado"}
                     </p>
                   </div>
                 </div>
-                {(() => {
-                  const statusInfo = STATUS_FLOW[selectedContractForConsulta.estatus];
-                  if (!statusInfo) return null;
-                  const IconComponent = statusInfo.icon;
-                  return (
-                    <span className={`inline-flex items-center gap-2 px-4 py-2 ${statusInfo.bgColor} text-white rounded-lg text-sm font-medium`}>
-                      <IconComponent size={14} />
-                      {statusInfo.label}
-                    </span>
-                  );
-                })()}
+                {getStatusComponent(selectedContractForConsulta)}
               </div>
 
-              <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700/50' : 'bg-blue-50'}`}>
-                <h4 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  <User size={16} />
-                  Información del Emprendedor
+              <div className={`p-4 rounded-lg ${darkMode ? "bg-gray-700/50" : "bg-blue-50"}`}>
+                <h4 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                  <User size={16} /> Información del Emprendedor
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Nombre</p>
-                    <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{selectedContractForConsulta.emprendedor}</p>
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Nombre</p>
+                    <p className={`font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>{selectedContractForConsulta.emprendedor}</p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>ID Aprobación</p>
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>ID Aprobación</p>
                     <p className={`font-medium text-[#2A9D8F]`}>#{selectedContractForConsulta.id_aprobacion}</p>
                   </div>
                 </div>
               </div>
 
-              <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-                <h4 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  <DollarSign size={16} />
-                  Información Financiera
+              <div className={`p-4 rounded-lg ${darkMode ? "bg-gray-700/50" : "bg-gray-50"}`}>
+                <h4 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                  <DollarSign size={16} /> Información Financiera
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Moneda</p>
-                    <p className={`font-medium uppercase ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {selectedContractForConsulta.moneda ? getMonedaNombre(selectedContractForConsulta.moneda) : getMonedaNombre('usd')}
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Moneda</p>
+                    <p className={`font-medium uppercase ${darkMode ? "text-white" : "text-gray-800"}`}>
+                      {selectedContractForConsulta.moneda ? getMonedaNombre(selectedContractForConsulta.moneda) : getMonedaNombre("usd")}
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Monto en Moneda</p>
-                    <p className={`font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {selectedContractForConsulta.monto_moneda ? 
-                        `${selectedContractForConsulta.monto_moneda} ${selectedContractForConsulta.moneda?.toUpperCase() || 'USD'}` : 
-                        'No definido'}
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Monto en Moneda</p>
+                    <p className={`font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                      {selectedContractForConsulta.monto_moneda
+                        ? `${selectedContractForConsulta.monto_moneda} ${selectedContractForConsulta.moneda?.toUpperCase() || "USD"}`
+                        : "No definido"}
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Tasa de Cambio</p>
-                    <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {selectedContractForConsulta.cambio || 'No definido'}
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Tasa de Cambio</p>
+                    <p className={`font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>{selectedContractForConsulta.cambio || "No definido"}</p>
+                  </div>
+                  <div>
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Flat</p>
+                    <p className={`font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>{selectedContractForConsulta.flat || "No definido"}</p>
+                  </div>
+                  <div>
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>% Interés</p>
+                    <p className={`font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>
+                      {selectedContractForConsulta.interes_porcentaje ? `${selectedContractForConsulta.interes_porcentaje}%` : "No definido"}
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Flat (%)</p>
-                    <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {selectedContractForConsulta.flat || 'No definido'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>% Interés</p>
-                    <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {selectedContractForConsulta.interes_porcentaje ? `${selectedContractForConsulta.interes_porcentaje}%` : 'No definido'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Devolvimiento</p>
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Devolvimiento</p>
                     <p className={`font-bold text-green-600 dark:text-green-400`}>
-                      {selectedContractForConsulta.devolvimiento ? 
-                        `${selectedContractForConsulta.devolvimiento} ${selectedContractForConsulta.moneda?.toUpperCase() || 'USD'}` : 
-                        'No definido'}
+                      {selectedContractForConsulta.devolvimiento
+                        ? `${selectedContractForConsulta.devolvimiento} ${selectedContractForConsulta.moneda?.toUpperCase() || "USD"}`
+                        : "No definido"}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-                <h4 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  <Calendar size={16} />
-                  Información de Plazo
+              <div className={`p-4 rounded-lg ${darkMode ? "bg-gray-700/50" : "bg-gray-50"}`}>
+                <h4 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                  <Calendar size={16} /> Información de Plazo
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Número de Cuotas</p>
-                    <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {selectedContractForConsulta.numero_cuotas !== "Sin definir" ? 
-                        `${selectedContractForConsulta.numero_cuotas} cuotas` : 
-                        'No definido'}
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Número de Cuotas</p>
+                    <p className={`font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>
+                      {selectedContractForConsulta.numero_cuotas !== "Sin definir" ? `${selectedContractForConsulta.numero_cuotas} cuotas` : "No definido"}
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Número de Gracias</p>
-                    <p className={`font-medium flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Número de Gracias</p>
+                    <p className={`font-medium flex items-center gap-2 ${darkMode ? "text-white" : "text-gray-800"}`}>
                       <Gift size={16} className="text-purple-500" />
-                      {selectedContractForConsulta.numero_gracias || 0} {selectedContractForConsulta.numero_gracias === 1 ? 'gracia' : 'gracias'}
+                      {selectedContractForConsulta.numero_gracias || 0} {selectedContractForConsulta.numero_gracias === 1 ? "gracia" : "gracias"}
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Frecuencia de Pago</p>
-                    <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {configuracionContrato ? getFrecuenciaPagoTexto(configuracionContrato.frecuencia_pago) : 'No definida'}
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Frecuencia de Pago</p>
+                    <p className={`font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>
+                      {configuracionContrato ? getFrecuenciaPagoTexto(configuracionContrato.frecuencia_pago) : "No definida"}
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cuotas Efectivas</p>
-                    <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {selectedContractForConsulta.numero_cuotas !== "Sin definir" ? 
-                        `${Math.max(0, parseInt(selectedContractForConsulta.numero_cuotas) - (selectedContractForConsulta.numero_gracias || 0))} pagos` : 
-                        'No definido'}
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Cuotas Efectivas</p>
+                    <p className={`font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>
+                      {selectedContractForConsulta.numero_cuotas !== "Sin definir"
+                        ? `${Math.max(0, parseInt(selectedContractForConsulta.numero_cuotas) - (selectedContractForConsulta.numero_gracias || 0))} pagos`
+                        : "No definido"}
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Fecha de Inicio</p>
-                    <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {selectedContractForConsulta.inicio !== "Sin definir" ? 
-                        selectedContractForConsulta.inicio : 
-                        'No definido'}
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Fecha de Inicio</p>
+                    <p className={`font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>
+                      {selectedContractForConsulta.inicio !== "Sin definir" ? selectedContractForConsulta.inicio : "No definido"}
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Fecha de Cierre</p>
-                    <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {selectedContractForConsulta.cierre !== "Sin definir" ? 
-                        selectedContractForConsulta.cierre : 
-                        'No definido'}
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Fecha de Cierre</p>
+                    <p className={`font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>
+                      {selectedContractForConsulta.cierre !== "Sin definir" ? selectedContractForConsulta.cierre : "No definido"}
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="flex justify-end pt-4">
-                <button
-                  onClick={() => setShowConsultaModal(false)}
-                  className="px-6 py-2.5 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 text-sm font-medium"
-                >
-                  <X size={16} />
-                  Cerrar
+                <button onClick={() => setShowConsultaModal(false)} className="px-6 py-2.5 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 text-sm font-medium">
+                  <X size={16} /> Cerrar
                 </button>
               </div>
             </div>
@@ -1502,48 +1368,49 @@ const Contrato = () => {
         </div>
       )}
 
-      {/* MODAL DE GESTIÓN DE CONTRATO */}
+      {/* MODAL GESTIÓN DE CONTRATO */}
       {showGestionModal && selectedContractForGestion && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50 bg-opacity-50" onClick={cerrarModalGestion} />
-          <div className={`relative w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto p-6 rounded-xl shadow-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className={`relative w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto p-6 rounded-xl shadow-2xl ${darkMode ? "bg-gray-800" : "bg-white"}`}>
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
               <div>
-                <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Gestionar Contrato</h3>
-                <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Complete los datos del contrato para el emprendedor</p>
+                <h3 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>Gestionar Contrato</h3>
+                <p className={`text-sm mt-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Complete los datos del contrato para el emprendedor</p>
               </div>
               <button onClick={cerrarModalGestion} className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}>
-                <X size={22} className={darkMode ? 'text-gray-400' : 'text-gray-600'} />
+                <X size={22} className={darkMode ? "text-gray-400" : "text-gray-600"} />
               </button>
             </div>
 
-            <div className={`p-4 rounded-lg mb-6 ${darkMode ? 'bg-gray-700/50 border border-gray-600' : 'bg-blue-50 border border-blue-100'}`}>
+            <div className={`p-4 rounded-lg mb-6 ${darkMode ? "bg-gray-700/50 border border-gray-600" : "bg-blue-50 border border-blue-100"}`}>
               <div className="flex items-center gap-3 mb-3">
-                <div className={`p-3 rounded-full ${darkMode ? 'bg-gray-600' : 'bg-blue-100'}`}>
-                  <User size={24} className={darkMode ? 'text-gray-300' : 'text-blue-600'} />
+                <div className={`p-3 rounded-full ${darkMode ? "bg-gray-600" : "bg-blue-100"}`}>
+                  <User size={24} className={darkMode ? "text-gray-300" : "text-blue-600"} />
                 </div>
                 <div>
-                  <p className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{selectedContractForGestion.emprendedor}</p>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>ID Aprobación: <span className="font-semibold text-[#2A9D8F]">#{selectedContractForGestion.id_aprobacion}</span></p>
+                  <p className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>{selectedContractForGestion.emprendedor}</p>
+                  <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                    ID Aprobación: <span className="font-semibold text-[#2A9D8F]">#{selectedContractForGestion.id_aprobacion}</span>
+                  </p>
                 </div>
               </div>
               {configuracionContrato && (
-                <div className={`mt-3 pt-3 border-t ${darkMode ? 'border-gray-600' : 'border-blue-200'} text-sm`}>
+                <div className={`mt-3 pt-3 border-t ${darkMode ? "border-gray-600" : "border-blue-200"} text-sm`}>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Frecuencia de Pago:</span>
-                      <span className={`ml-2 font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{getFrecuenciaPagoTexto(configuracionContrato.frecuencia_pago)}</span>
+                      <span className={`${darkMode ? "text-gray-400" : "text-gray-500"}`}>Frecuencia de Pago:</span>
+                      <span className={`ml-2 font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>{getFrecuenciaPagoTexto(configuracionContrato.frecuencia_pago)}</span>
                     </div>
                     <div>
-                      <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cuotas Obligatorias:</span>
-                      <span className={`ml-2 font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{configuracionContrato.cuotas_obligatorias}</span>
+                      <span className={`${darkMode ? "text-gray-400" : "text-gray-500"}`}>Cuotas Obligatorias:</span>
+                      <span className={`ml-2 font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>{configuracionContrato.cuotas_obligatorias}</span>
                     </div>
                     {configuracionContrato.cuotas_gracia !== undefined && (
                       <div>
-                        <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Gracias Config:</span>
-                        <span className={`ml-2 font-semibold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
-                          <Gift size={12} className="inline mr-1" />
-                          {configuracionContrato.cuotas_gracia}
+                        <span className={`${darkMode ? "text-gray-400" : "text-gray-500"}`}>Gracias Config:</span>
+                        <span className={`ml-2 font-semibold ${darkMode ? "text-purple-400" : "text-purple-600"}`}>
+                          <Gift size={12} className="inline mr-1" /> {configuracionContrato.cuotas_gracia}
                         </span>
                       </div>
                     )}
@@ -1554,317 +1421,110 @@ const Contrato = () => {
 
             <form onSubmit={(e) => { e.preventDefault(); confirmarGestion(); }}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                {/* Número de Contrato */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Número de Contrato <span className="text-red-500">*</span></label>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Número de Contrato <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <FileSignature className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                    <input 
-                      type="text" 
-                      value={formGestion.numero_contrato} 
-                      readOnly 
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? 'bg-gray-600 border-gray-500 text-gray-300 cursor-not-allowed' : 'bg-gray-100 border-gray-200 text-gray-600 cursor-not-allowed'} focus:outline-none text-sm font-medium`} 
-                    />
+                    <input type="text" value={formGestion.numero_contrato} readOnly className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? "bg-gray-600 border-gray-500 text-gray-300 cursor-not-allowed" : "bg-gray-100 border-gray-200 text-gray-600 cursor-not-allowed"} focus:outline-none text-sm font-medium`} />
                   </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className={`p-1 rounded ${darkMode ? 'bg-blue-900/50' : 'bg-blue-50'}`}>
-                      <FileText size={12} className="text-blue-500" />
-                    </div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      Formato: <span className="font-semibold">IADEY-AAAA-NNN</span> (generado automáticamente)
-                    </p>
-                  </div>
+                  <p className={`text-xs mt-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Formato: <span className="font-semibold">IADEY-AAAA-NNN</span> (generado automáticamente)</p>
                 </div>
 
-                {/* Moneda */}
-                {/* Información de moneda desde la configuración */}
-<div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700/30 border border-gray-600' : 'bg-gray-50 border border-gray-200'}`}>
-  <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Moneda (Configuración)</label>
-  <div className="flex items-center gap-2">
-    <DollarSign size={18} className="text-[#2A9D8F]" />
-    <span className={`text-lg font-semibold uppercase ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-      {formGestion.monto_moneda ? `${formGestion.monto_moneda} ${getMonedaNombre(formGestion.moneda)}` : getMonedaNombre(formGestion.moneda)}
-    </span>
-  </div>
-  <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Moneda configurada en el sistema</p>
-</div>
+                <div className={`p-3 rounded-lg ${darkMode ? "bg-gray-700/30 border border-gray-600" : "bg-gray-50 border border-gray-200"}`}>
+                  <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Moneda (Configuración)</label>
+                  <div className="flex items-center gap-2">
+                    <DollarSign size={18} className="text-[#2A9D8F]" />
+                    <span className={`text-lg font-semibold uppercase ${darkMode ? "text-white" : "text-gray-800"}`}>
+                      {formGestion.monto_moneda ? `${formGestion.monto_moneda} ${getMonedaNombre(formGestion.moneda)}` : getMonedaNombre(formGestion.moneda)}
+                    </span>
+                  </div>
+                  <p className={`text-xs mt-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Moneda configurada en el sistema</p>
+                </div>
 
-                {/* Monto en Moneda */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Monto en Moneda <span className="text-red-500">*</span></label>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Monto en Moneda <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                    <input 
-                      type="number" 
-                      step="0.01" 
-                      value={formGestion.monto_moneda} 
-                      onChange={(e) => handleMontoMonedaChange(e.target.value)} 
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${formErrors.monto_moneda ? 'border-red-500 focus:ring-red-500' : (darkMode ? 'border-gray-600 focus:ring-[#2A9D8F]' : 'border-gray-200 focus:ring-[#2A9D8F]')} ${darkMode ? 'bg-gray-700 text-white placeholder-gray-400' : 'bg-white placeholder-gray-400'} focus:outline-none focus:ring-2 text-sm`} 
-                      placeholder="0.00" 
-                    />
+                    <input type="number" step="0.01" value={formGestion.monto_moneda} onChange={(e) => handleMontoMonedaChange(e.target.value)} className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${formErrors.monto_moneda ? "border-red-500 focus:ring-red-500" : (darkMode ? "border-gray-600 focus:ring-[#2A9D8F]" : "border-gray-200 focus:ring-[#2A9D8F]")} ${darkMode ? "bg-gray-700 text-white placeholder-gray-400" : "bg-white placeholder-gray-400"} focus:outline-none focus:ring-2 text-sm`} placeholder="0.00" />
                   </div>
                   {formErrors.monto_moneda && <p className="mt-1 text-xs text-red-500">{formErrors.monto_moneda}</p>}
                 </div>
 
-                {/* ========== CAMBIO (TASA) - MUESTRA NETO ========== */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Cambio (Tasa) <span className="text-red-500">*</span>
-                    {loadingTasas && (
-                      <span className="ml-2 inline-flex items-center text-xs text-blue-500">
-                        <Loader2 size={12} className="animate-spin mr-1" />
-                        Actualizando...
-                      </span>
-                    )}
-                  </label>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Cambio (Tasa) <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <TrendingUp className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                    <input 
-                      type="text"
-                      value={`Bs. ${formatMonto(montoBolivares.neto)}`}
-                      readOnly
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? 'bg-gray-600 border-gray-500 text-green-400 cursor-not-allowed' : 'bg-green-50 border-green-200 text-green-700 cursor-not-allowed'} focus:outline-none text-sm font-semibold`} 
-                    />
+                    <input type="text" value={`Bs. ${formatMonto(montoBolivares.neto)}`} readOnly className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? "bg-gray-600 border-gray-500 text-green-400 cursor-not-allowed" : "bg-green-50 border-green-200 text-green-700 cursor-not-allowed"} focus:outline-none text-sm font-semibold`} />
                   </div>
-                  
-                  <div className="mt-1 flex gap-4">
-                    {tasasCambio.dolares && (
-                      <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        USD: {Number(tasasCambio.dolares).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Bs.
-                      </span>
-                    )}
-                    {tasasCambio.euros && (
-                      <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        EUR: {Number(tasasCambio.euros).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Bs.
-                      </span>
-                    )}
-                    {errorTasas && (
-                      <span className="text-xs text-yellow-500">Usando tasas por defecto</span>
-                    )}
+                  <div className="mt-1 flex gap-4 text-xs">
+                    {tasasCambio.dolares && <span className={darkMode ? "text-gray-400" : "text-gray-500"}>USD: {Number(tasasCambio.dolares).toLocaleString("es-VE", { minimumFractionDigits: 2 })} Bs.</span>}
+                    {tasasCambio.euros && <span className={darkMode ? "text-gray-400" : "text-gray-500"}>EUR: {Number(tasasCambio.euros).toLocaleString("es-VE", { minimumFractionDigits: 2 })} Bs.</span>}
                   </div>
                 </div>
 
-                {/* ========== FLAT (%) - MUESTRA DESCUENTO ========== */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Flat (%) <span className="text-red-500">*</span></label>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Flat (%) <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">%</span>
-                    <input 
-                      type="text"
-                      value={`- Bs ${formatMonto(montoBolivares.flatMonto)}`}
-                      readOnly
-                      className={`w-full pl-4 pr-10 py-2.5 rounded-lg border ${darkMode ? 'bg-gray-600 border-gray-500 text-red-400 cursor-not-allowed' : 'bg-red-50 border-red-200 text-red-700 cursor-not-allowed'} focus:outline-none text-sm font-semibold`} 
-                    />
+                    <input type="text" value={`- Bs ${formatMonto(montoBolivares.flatMonto)}`} readOnly className={`w-full pl-4 pr-10 py-2.5 rounded-lg border ${darkMode ? "bg-gray-600 border-gray-500 text-red-400 cursor-not-allowed" : "bg-red-50 border-red-200 text-red-700 cursor-not-allowed"} focus:outline-none text-sm font-semibold`} />
                   </div>
-                  {formErrors.flat && <p className="mt-1 text-xs text-red-500">{formErrors.flat}</p>}
                 </div>
 
-                {/* ========== % INTERÉS - MUESTRA INTERÉS CALCULADO ========== */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    % Interés <span className="text-red-500">*</span>
-                  </label>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>% Interés <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">%</span>
-                    <input 
-                      type="text"
-                      value={`${parseFloat(formGestion.monto_moneda || 0) * (parseFloat(formGestion.interes_porcentaje || 0) / 100)} ${getMonedaNombre(formGestion.moneda)}`}
-                      readOnly
-                      className={`w-full pl-4 pr-10 py-2.5 rounded-lg border ${darkMode ? 'bg-gray-600 border-gray-500 text-blue-400 cursor-not-allowed' : 'bg-blue-50 border-blue-200 text-blue-700 cursor-not-allowed'} focus:outline-none text-sm font-semibold`} 
-                    />
+                    <input type="text" value={`${(parseFloat(formGestion.monto_moneda || 0) * (parseFloat(formGestion.interes_porcentaje || 0) / 100)).toFixed(2)} ${getMonedaNombre(formGestion.moneda)}`} readOnly className={`w-full pl-4 pr-10 py-2.5 rounded-lg border ${darkMode ? "bg-gray-600 border-gray-500 text-blue-400 cursor-not-allowed" : "bg-blue-50 border-blue-200 text-blue-700 cursor-not-allowed"} focus:outline-none text-sm font-semibold`} />
                   </div>
-                  {formErrors.interes_porcentaje && <p className="mt-1 text-xs text-red-500">{formErrors.interes_porcentaje}</p>}
                 </div>
 
-                {/* Devolvimiento */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Devolvimiento <span className="text-red-500">*</span>
-                    <span className="ml-2 text-xs text-green-600">(Monto + Interés)</span>
-                  </label>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Devolvimiento <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                    <input 
-                      type="number" 
-                      step="0.01" 
-                      value={formGestion.devolvimiento} 
-                      readOnly
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? 'bg-gray-600 border-gray-500 text-gray-300 cursor-not-allowed' : 'bg-gray-100 border-gray-200 text-gray-600 cursor-not-allowed'} focus:outline-none text-sm font-medium`} 
-                      placeholder="Se calcula automáticamente" 
-                    />
+                    <input type="number" step="0.01" value={formGestion.devolvimiento} readOnly className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? "bg-gray-600 border-gray-500 text-gray-300 cursor-not-allowed" : "bg-gray-100 border-gray-200 text-gray-600 cursor-not-allowed"} focus:outline-none text-sm font-medium`} />
                   </div>
                 </div>
 
-                {/* Número de Cuotas */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Número de Cuotas <span className="text-red-500">*</span>
-                    {configuracionContrato && (
-                      <span className="ml-2 text-xs text-gray-500">(Config: {configuracionContrato.cuotas_obligatorias})</span>
-                    )}
-                  </label>
-                  <input 
-                    type="number" 
-                    value={formGestion.numero_cuotas} 
-                    onChange={(e) => handleNumeroCuotasChange(e.target.value)} 
-                    className={`w-full px-4 py-2.5 rounded-lg border ${formErrors.numero_cuotas ? 'border-red-500 focus:ring-red-500' : (darkMode ? 'border-gray-600 focus:ring-[#2A9D8F]' : 'border-gray-200 focus:ring-[#2A9D8F]')} ${darkMode ? 'bg-gray-700 text-white' : 'bg-white'} focus:outline-none focus:ring-2 text-sm`} 
-                    placeholder="Ej: 12" 
-                  />
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Número de Cuotas <span className="text-red-500">*</span></label>
+                  <input type="number" value={formGestion.numero_cuotas} onChange={(e) => handleNumeroCuotasChange(e.target.value)} className={`w-full px-4 py-2.5 rounded-lg border ${formErrors.numero_cuotas ? "border-red-500 focus:ring-red-500" : (darkMode ? "border-gray-600 focus:ring-[#2A9D8F]" : "border-gray-200 focus:ring-[#2A9D8F]")} ${darkMode ? "bg-gray-700 text-white" : "bg-white"} focus:outline-none focus:ring-2 text-sm`} placeholder="Ej: 12" />
                   {formErrors.numero_cuotas && <p className="mt-1 text-xs text-red-500">{formErrors.numero_cuotas}</p>}
                 </div>
 
-                {/* Número de Gracias */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Número de Gracias
-                    <span className="ml-2 text-xs text-purple-500">(Meses sin pago)</span>
-                    {configuracionContrato?.cuotas_gracia !== undefined && (
-                      <span className="ml-2 text-xs text-gray-500">(Config: {configuracionContrato.cuotas_gracia})</span>
-                    )}
-                  </label>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Número de Gracias</label>
                   <div className="relative">
                     <Gift className="absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-400" size={18} />
-                    <input 
-                      type="number" 
-                      min="0"
-                      max={formGestion.numero_cuotas ? parseInt(formGestion.numero_cuotas) - 1 : 12}
-                      value={formGestion.numero_gracias} 
-                      onChange={(e) => handleInputChange('numero_gracias', e.target.value)} 
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${formErrors.numero_gracias ? 'border-red-500 focus:ring-red-500' : (darkMode ? 'border-gray-600 focus:ring-[#2A9D8F]' : 'border-gray-200 focus:ring-[#2A9D8F]')} ${darkMode ? 'bg-gray-700 text-white' : 'bg-white'} focus:outline-none focus:ring-2 text-sm`} 
-                      placeholder="0" 
-                    />
+                    <input type="number" min="0" max={formGestion.numero_cuotas ? parseInt(formGestion.numero_cuotas) - 1 : 12} value={formGestion.numero_gracias} onChange={(e) => handleInputChange("numero_gracias", e.target.value)} className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${formErrors.numero_gracias ? "border-red-500 focus:ring-red-500" : (darkMode ? "border-gray-600 focus:ring-[#2A9D8F]" : "border-gray-200 focus:ring-[#2A9D8F]")} ${darkMode ? "bg-gray-700 text-white" : "bg-white"} focus:outline-none focus:ring-2 text-sm`} placeholder="0" />
                   </div>
                   {formErrors.numero_gracias && <p className="mt-1 text-xs text-red-500">{formErrors.numero_gracias}</p>}
-                  <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Las gracias extienden la duración del contrato. Máximo: {formGestion.numero_cuotas ? parseInt(formGestion.numero_cuotas) - 1 : 0} meses
-                    {configuracionContrato?.cuotas_gracia > 0 && (
-                      <span className="ml-1 text-purple-500">| Valor por defecto: {configuracionContrato.cuotas_gracia}</span>
-                    )}
-                  </p>
                 </div>
 
-                {/* Frecuencia de Pago */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Frecuencia de Pago</label>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Frecuencia de Pago</label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                    <input 
-                      type="text" 
-                      value={configuracionContrato ? getFrecuenciaPagoTexto(configuracionContrato.frecuencia_pago) : "Cargando..."} 
-                      readOnly
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? 'bg-gray-600 border-gray-500 text-gray-300 cursor-not-allowed' : 'bg-gray-100 border-gray-200 text-gray-600 cursor-not-allowed'} focus:outline-none text-sm`} 
-                    />
+                    <input type="text" value={configuracionContrato ? getFrecuenciaPagoTexto(configuracionContrato.frecuencia_pago) : "Cargando..."} readOnly className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? "bg-gray-600 border-gray-500 text-gray-300 cursor-not-allowed" : "bg-gray-100 border-gray-200 text-gray-600 cursor-not-allowed"} focus:outline-none text-sm`} />
                   </div>
-                  <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    La fecha de cierre incluye el período de gracia + pagos
-                  </p>
                 </div>
 
-                {/* Fecha Inicio */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Fecha de Inicio <span className="text-red-500">*</span></label>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Fecha de Inicio <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                    <input 
-                      type="date" 
-                      value={formGestion.inicio} 
-                      onChange={(e) => handleFechaInicioChange(e.target.value)} 
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${formErrors.inicio ? 'border-red-500 focus:ring-red-500' : (darkMode ? 'border-gray-600 focus:ring-[#2A9D8F]' : 'border-gray-200 focus:ring-[#2A9D8F]')} ${darkMode ? 'bg-gray-700 text-white' : 'bg-white'} focus:outline-none focus:ring-2 text-sm`} 
-                    />
+                    <input type="date" value={formGestion.inicio} onChange={(e) => handleFechaInicioChange(e.target.value)} className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${formErrors.inicio ? "border-red-500 focus:ring-red-500" : (darkMode ? "border-gray-600 focus:ring-[#2A9D8F]" : "border-gray-200 focus:ring-[#2A9D8F]")} ${darkMode ? "bg-gray-700 text-white" : "bg-white"} focus:outline-none focus:ring-2 text-sm`} />
                   </div>
                   {formErrors.inicio && <p className="mt-1 text-xs text-red-500">{formErrors.inicio}</p>}
                 </div>
 
-                {/* Fecha Cierre */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Fecha de Cierre <span className="text-red-500">*</span>
-                    <span className="ml-2 text-xs text-blue-500">(Calculada con gracias)</span>
-                  </label>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Fecha de Cierre <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                    <input 
-                      type="date" 
-                      value={formGestion.cierre} 
-                      readOnly
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? 'bg-gray-600 border-gray-500 text-gray-300 cursor-not-allowed' : 'bg-gray-100 border-gray-200 text-gray-600 cursor-not-allowed'} focus:outline-none text-sm font-medium`} 
-                    />
+                    <input type="date" value={formGestion.cierre} readOnly className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? "bg-gray-600 border-gray-500 text-gray-300 cursor-not-allowed" : "bg-gray-100 border-gray-200 text-gray-600 cursor-not-allowed"} focus:outline-none text-sm font-medium`} />
                   </div>
-                  {formGestion.inicio && formGestion.numero_cuotas && configuracionContrato?.frecuencia_pago && (
-                    <p className={`text-xs mt-1 ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
-                      Calculado: {formGestion.numero_gracias > 0 ? `${formGestion.numero_gracias} gracia(s) + ` : ''}
-                      {Math.max(0, parseInt(formGestion.numero_cuotas) + parseInt(formGestion.numero_gracias || 0))} pago(s) {getFrecuenciaPagoTexto(configuracionContrato.frecuencia_pago).toLowerCase()} desde {formGestion.inicio}
-                    </p>
-                  )}
                   {formErrors.cierre && <p className="mt-1 text-xs text-red-500">{formErrors.cierre}</p>}
-                </div>
-              </div>
-
-              {/* Resumen del Contrato */}
-              <div className={`p-4 rounded-lg mb-6 ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-                <h4 className={`text-sm font-semibold mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Resumen del Contrato</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                  <div>
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Contrato:</span>
-                    <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{formGestion.numero_contrato || "—"}</span>
-                  </div>
-                  <div>
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Moneda:</span>
-                    <span className={`ml-2 font-medium uppercase ${darkMode ? 'text-white' : 'text-gray-800'}`}>{getMonedaNombre(formGestion.moneda)}</span>
-                  </div>
-                  <div>
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Monto:</span>
-                    <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {formGestion.monto_moneda || "0"} {getMonedaNombre(formGestion.moneda)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cambio (Neto):</span>
-                    <span className={`ml-2 font-medium text-green-600 dark:text-green-400`}>
-                      Bs. {formatMonto(montoBolivares.neto)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Flat:</span>
-                    <span className={`ml-2 font-medium text-red-600 dark:text-red-400`}>
-                      - Bs. {formatMonto(montoBolivares.flatMonto)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Interés:</span>
-                    <span className={`ml-2 font-medium text-blue-600 dark:text-blue-400`}>
-                      {parseFloat(formGestion.monto_moneda || 0) * (parseFloat(formGestion.interes_porcentaje || 0) / 100)} {getMonedaNombre(formGestion.moneda)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Devolvimiento:</span>
-                    <span className={`ml-2 font-semibold text-green-600 dark:text-green-400`}>
-                      {formGestion.devolvimiento || "0"} {getMonedaNombre(formGestion.moneda)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cuotas:</span>
-                    <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{formGestion.numero_cuotas || "—"}</span>
-                  </div>
-                  <div>
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Gracias:</span>
-                    <span className={`ml-2 font-medium flex items-center gap-1 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
-                      <Gift size={14} />
-                      {formGestion.numero_gracias || "0"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Frecuencia:</span>
-                    <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{configuracionContrato ? getFrecuenciaPagoTexto(configuracionContrato.frecuencia_pago) : "—"}</span>
-                  </div>
-                  <div>
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Inicio:</span>
-                    <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{formGestion.inicio || "—"}</span>
-                  </div>
-                  <div>
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cierre:</span>
-                    <span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{formGestion.cierre || "—"}</span>
-                  </div>
                 </div>
               </div>
 
@@ -1876,108 +1536,11 @@ const Contrato = () => {
               )}
 
               <div className="flex gap-3 justify-end">
-                <button 
-                  type="button" 
-                  onClick={cerrarModalGestion} 
-                  disabled={submitting} 
-                  className={`px-6 py-2.5 rounded-lg border ${darkMode ? 'border-gray-600 text-gray-400 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'} transition-colors text-sm font-medium disabled:opacity-50`}
-                >
+                <button type="button" onClick={cerrarModalGestion} disabled={submitting} className={`px-6 py-2.5 rounded-lg border ${darkMode ? "border-gray-600 text-gray-400 hover:bg-gray-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"} transition-colors text-sm font-medium disabled:opacity-50`}>
                   Cancelar
                 </button>
-                <button 
-                  type="submit" 
-                  disabled={submitting} 
-                  className="px-6 py-2.5 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 text-sm font-medium disabled:opacity-50"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      Guardando...
-                    </>
-                  ) : (
-                    <>
-                      <FileSignature size={16} />
-                      Guardar Contrato
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DE DESEMBOLSO */}
-      {showDesembolsoModal && selectedContractForDesembolso && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 bg-opacity-50" onClick={() => setShowDesembolsoModal(false)} />
-          <div className={`relative w-full max-w-lg mx-4 p-6 rounded-xl shadow-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Registrar Desembolso</h3>
-              <button onClick={() => setShowDesembolsoModal(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><X size={20} /></button>
-            </div>
-            <form onSubmit={(e) => { e.preventDefault(); realizarDesembolso(); }}>
-              <div className="space-y-4 mb-6">
-                <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className={`p-2 rounded-full ${darkMode ? 'bg-gray-600' : 'bg-blue-50'}`}><User size={20} /></div>
-                    <div>
-                      <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{selectedContractForDesembolso.emprendedor}</p>
-                      <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Contrato {selectedContractForDesembolso.numero_contrato || `#${selectedContractForDesembolso.id_aprobacion}`}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div><span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cuotas:</span><span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{selectedContractForDesembolso.numero_cuotas}</span></div>
-                    <div><span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Gracias:</span><span className={`ml-2 font-medium ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}><Gift size={12} className="inline mr-1" />{selectedContractForDesembolso.numero_gracias || 0}</span></div>
-                    <div><span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Inicio:</span><span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{selectedContractForDesembolso.inicio}</span></div>
-                    <div><span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cierre:</span><span className={`ml-2 font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{selectedContractForDesembolso.cierre}</span></div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Referencia Bancaria <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                    <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                    <input type="text" maxLength="6" value={formDesembolso.referencia_bancaria} onChange={(e) => handleDesembolsoChange('referencia_bancaria', e.target.value.toUpperCase())} className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${desembolsoErrors.referencia_bancaria ? 'border-red-500' : (darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200')} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm uppercase`} placeholder="Ej: ABC123" />
-                  </div>
-                  {desembolsoErrors.referencia_bancaria && <p className="mt-1 text-xs text-red-500">{desembolsoErrors.referencia_bancaria}</p>}
-                </div>
-
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Monto Pagado <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                    <input type="number" step="0.01" value={formDesembolso.monto_pagado} onChange={(e) => handleDesembolsoChange('monto_pagado', e.target.value)} className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${desembolsoErrors.monto_pagado ? 'border-red-500' : (darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200')} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm`} placeholder="0.00" />
-                  </div>
-                  {desembolsoErrors.monto_pagado && <p className="mt-1 text-xs text-red-500">{desembolsoErrors.monto_pagado}</p>}
-                </div>
-
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Fecha de Desembolso <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                    <input type="date" value={formDesembolso.fecha_desembolso} onChange={(e) => handleDesembolsoChange('fecha_desembolso', e.target.value)} className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${desembolsoErrors.fecha_desembolso ? 'border-red-500' : (darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200')} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm`} />
-                  </div>
-                  {desembolsoErrors.fecha_desembolso && <p className="mt-1 text-xs text-red-500">{desembolsoErrors.fecha_desembolso}</p>}
-                </div>
-
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Observaciones</label>
-                  <textarea rows={3} value={formDesembolso.observaciones} onChange={(e) => handleDesembolsoChange('observaciones', e.target.value)} className={`w-full px-4 py-2.5 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-200 placeholder-gray-400'} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm`} placeholder="Observaciones adicionales..." />
-                </div>
-
-                {desembolsoErrors.submit && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-                    <AlertCircle size={16} className="text-red-500" />
-                    <p className="text-sm text-red-600">{desembolsoErrors.submit}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-3 justify-end">
-                <button type="button" onClick={() => setShowDesembolsoModal(false)} disabled={desembolsoSubmitting} className={`px-4 py-2 rounded-lg border ${darkMode ? 'border-gray-600 text-gray-400 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'} transition-colors text-sm disabled:opacity-50`}>Cancelar</button>
-                <button type="submit" disabled={desembolsoSubmitting} className="px-6 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 text-sm font-medium disabled:opacity-50">
-                  {desembolsoSubmitting ? <><Loader2 size={16} className="animate-spin" /> Procesando...</> : <><CreditCard size={16} /> Registrar Desembolso</>}
+                <button type="submit" disabled={submitting} className="px-6 py-2.5 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 text-sm font-medium disabled:opacity-50">
+                  {submitting ? <><Loader2 size={16} className="animate-spin" /> Guardando...</> : <><FileSignature size={16} /> Guardar Contrato</>}
                 </button>
               </div>
             </form>

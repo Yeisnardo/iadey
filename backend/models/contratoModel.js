@@ -31,10 +31,9 @@ class ContratoModel {
         c.created_at as contrato_created_at,
         c.updated_at as contrato_updated_at,
         d.id_desembolso,
-        d.monto_pagado,
         d.fecha_desembolso,
-        d.referecia_bancaria,
-        d.estatus as estatus_desembolso,
+        d.capture_desembolso,
+        d.estatus_desembolso,
         d.fecha_confirmacion
       FROM aprobacion a
       LEFT JOIN contrato c ON a.id_aprobacion = c.id_aprob
@@ -178,51 +177,86 @@ class ContratoModel {
 
   // ==================== MÉTODOS DE DESEMBOLSO ====================
 
-  // Crear un nuevo desembolso
-  static async crearDesembolso(desembolsoData) {
-    const {
-      id_aprob,
-      referencia_bancaria,
-      monto_pagado,
-      fecha_desembolso,
-      estatus
-    } = desembolsoData;
+// In models/contratoModel.js - Ensure crearDesembolso is correct
+// In models/contratoModel.js - Modified crearDesembolso method
+static async crearDesembolso(desembolsoData) {
+  const {
+    id_cont,              // ID del contrato (de la tabla contrato)
+    capture_desembolso,   // URL de la imagen del comprobante
+    fecha_desembolso,     // Fecha del desembolso
+    estatus_desembolso    // Estado del desembolso
+  } = desembolsoData;
 
-    // Obtener el contrato asociado
-    const contratoQuery = `
-      SELECT id_contrato FROM contrato 
-      WHERE id_aprob = $1
-    `;
-    const contratoResult = await pool.query(contratoQuery, [id_aprob]);
+  // Validar que los campos requeridos existan
+  if (!id_cont) {
+    throw new Error('ID del contrato es requerido');
+  }
+
+  if (!capture_desembolso) {
+    throw new Error('El comprobante bancario es requerido');
+  }
+
+  if (!fecha_desembolso) {
+    throw new Error('La fecha de desembolso es requerida');
+  }
+
+  // Iniciar una transacción para asegurar consistencia
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
     
-    if (!contratoResult.rows[0]) {
-      throw new Error('Contrato no encontrado');
-    }
-
-    const id_contrato = contratoResult.rows[0].id_contrato;
-
-    const query = `
+    // 1. Crear el desembolso
+    const insertQuery = `
       INSERT INTO desembolso (
         id_cont,
         fecha_desembolso,
-        referecia_bancaria,
-        monto_pagado,
-        estatus
-      ) VALUES ($1, $2, $3, $4, $5)
+        capture_desembolso,
+        estatus_desembolso
+      ) VALUES ($1, $2, $3, $4)
       RETURNING *
     `;
 
     const values = [
-      id_contrato,
+      id_cont,
       fecha_desembolso,
-      referencia_bancaria,
-      monto_pagado,
-      estatus || 'Pendiente'
+      capture_desembolso,
+      estatus_desembolso || 'pendiente por confirmar'
     ];
 
-    const result = await pool.query(query, values);
-    return result.rows[0];
+    const desembolsoResult = await client.query(insertQuery, values);
+    
+    // 2. Actualizar el estatus del contrato a 'esperando aceptar contrato'
+    const updateContratoQuery = `
+      UPDATE contrato 
+      SET estatus = 'esperando aceptar desembolso', 
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id_contrato = $1 
+      RETURNING *
+    `;
+    
+    const contratoResult = await client.query(updateContratoQuery, [id_cont]);
+    
+    if (!contratoResult.rows[0]) {
+      throw new Error('No se encontró el contrato para actualizar');
+    }
+    
+    await client.query('COMMIT');
+    
+    // Retornar ambos resultados
+    return {
+      desembolso: desembolsoResult.rows[0],
+      contrato: contratoResult.rows[0]
+    };
+    
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error en crearDesembolso:', error);
+    throw new Error(`Error al crear desembolso: ${error.message}`);
+  } finally {
+    client.release();
   }
+}
 
   // Obtener todos los desembolsos de un contrato
   static async getDesembolsosByContrato(id_aprob) {

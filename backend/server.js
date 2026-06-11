@@ -15,6 +15,7 @@ const configuracion_contratoRoutes = require('../backend/routes/configuracion_co
 const inspeccionRoutes = require('../backend/routes/inspeccionRoutes');
 const aprobacionRoutes = require('../backend/routes/aprobacionRoutes');
 const contratoRoutes = require('../backend/routes/contratoRoutes');
+const desembolsoRoutes = require('../backend/routes/desembolsoRoutes');
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ app.use('/api/configuracion_contrato', configuracion_contratoRoutes);
 app.use('/api/inspeccion', inspeccionRoutes);
 app.use('/api/aprobacion', aprobacionRoutes);
 app.use('/api/contrato', contratoRoutes);
+app.use('/api/desembolso', desembolsoRoutes);
 
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Servidor funcionando' });

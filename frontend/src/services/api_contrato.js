@@ -57,9 +57,10 @@ const ContratoAPI = {
   },
 
   // Realizar desembolso
-  realizarDesembolso: async (id_aprob, desembolsoData) => {
+  realizarDesembolso: async (desembolsoData) => {
     try {
-      const response = await api.post(`/contrato/${id_aprob}/desembolso`, desembolsoData);
+      // CORRECTED: Send to /contrato/desembolso (POST) as defined in your routes
+      const response = await api.post('/contrato/desembolso', desembolsoData);
       return response.data;
     } catch (error) {
       console.error('Error en realizarDesembolso:', error);
@@ -70,7 +71,7 @@ const ContratoAPI = {
   // Confirmar pago de desembolso
   confirmarPago: async (id_desembolso, pagoData) => {
     try {
-      const response = await api.put(`/desembolso/${id_desembolso}/confirmar-pago`, pagoData);
+      const response = await api.put(`/contrato/desembolso/${id_desembolso}/confirmar-pago`, pagoData);
       return response.data;
     } catch (error) {
       console.error('Error en confirmarPago:', error);

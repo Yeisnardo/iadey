@@ -21,7 +21,8 @@ import {
   DollarSign,
   Users,
   FolderOpen,
-  X
+  X,
+  Banknote  // Added for desembolso
 } from "lucide-react";
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
@@ -58,7 +59,9 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
     { id: "inspection", icon: ClipboardCheck, text: "Inspección", path: "/Inspeccion", section: "operaciones" },
     { id: "approval", icon: Handshake, text: "Aprobación", path: "/aprobacion", section: "operaciones" },
     { id: "banck", icon: Landmark, text: "Crédito a Banco", path: "/Bancarios", section: "financiero" },
+    
     { id: "contract", icon: FileSignature, text: "Contrato", path: "/Contrato", section: "financiero" },
+    { id: "disbursement", icon: Banknote, text: "Desembolso", path: "/Desembolso", section: "financiero" },
     { id: "payment", icon: CreditCard, text: "Pago de Cuota", path: "/pago", section: "financiero" }
   ];
 

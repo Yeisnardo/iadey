@@ -34,7 +34,7 @@ const contratoController = {
       }
 
       // Establecer estatus inicial como "Pendiente"
-      contratoData.estatus = 'Pendiente';
+      contratoData.estatus = 'Pendiente por aceptar';
 
       const nuevoContrato = await ContratoModel.create(contratoData);
       
@@ -96,138 +96,141 @@ const contratoController = {
     }
   },
 
-  // Actualizar estatus del contrato
-  async updateStatus(req, res) {
-    try {
-      const { id } = req.params;
-      const { estatus } = req.body;
+// Actualizar estatus del contrato
+async updateStatus(req, res) {
+  try {
+    const { id } = req.params;
+    const { estatus } = req.body;
 
-      if (!estatus) {
-        return res.status(400).json({
-          success: false,
-          error: 'El estatus es requerido'
-        });
-      }
-
-      const allowedStatuses = [
-        'Activo', 
-        'Pendiente', 
-        'Pendiente por desembolso', 
-        'Esperando contrato', 
-        'Cancelado', 
-        'Finalizado'
-      ];
-      
-      if (!allowedStatuses.includes(estatus)) {
-        return res.status(400).json({
-          success: false,
-          error: `Estatus no válido. Estatus permitidos: ${allowedStatuses.join(', ')}`
-        });
-      }
-
-      const contratoExistente = await ContratoModel.getById(id);
-      if (!contratoExistente) {
-        return res.status(404).json({
-          success: false,
-          error: 'Contrato no encontrado'
-        });
-      }
-
-      const currentStatus = contratoExistente.estatus;
-      const validTransitions = {
-        'Esperando contrato': ['Pendiente'],
-        'Pendiente': ['Pendiente por desembolso'],
-        'Pendiente por desembolso': ['Activo'],
-        'Activo': ['Finalizado', 'Cancelado'],
-        'Finalizado': ['Cancelado'],
-        'Cancelado': ['Esperando contrato']
-      };
-
-      if (validTransitions[currentStatus] && !validTransitions[currentStatus].includes(estatus)) {
-        return res.status(400).json({
-          success: false,
-          error: `No se puede cambiar de "${currentStatus}" a "${estatus}". Transiciones válidas: ${validTransitions[currentStatus].join(', ') || 'ninguna'}`
-        });
-      }
-
-      const contratoActualizado = await ContratoModel.updateStatus(id, estatus);
-
-      res.json({
-        success: true,
-        message: `Estatus actualizado a "${estatus}" exitosamente`,
-        data: contratoActualizado
-      });
-    } catch (error) {
-      console.error('Error en updateStatus:', error);
-      res.status(500).json({
+    if (!estatus) {
+      return res.status(400).json({
         success: false,
-        error: error.message || 'Error al actualizar el estatus del contrato'
+        error: 'El estatus es requerido'
       });
     }
-  },
+
+    const allowedStatuses = [
+      'Activo', 
+      'Pendiente por aceptar',
+      'Pendiente por desembolso',
+      'Esperando aceptar desembolso',  // NUEVO ESTADO
+      'Esperando contrato', 
+      'Cancelado', 
+      'Finalizado'
+    ];
+    
+    if (!allowedStatuses.includes(estatus)) {
+      return res.status(400).json({
+        success: false,
+        error: `Estatus no válido. Estatus permitidos: ${allowedStatuses.join(', ')}`
+      });
+    }
+
+    const contratoExistente = await ContratoModel.getById(id);
+    if (!contratoExistente) {
+      return res.status(404).json({
+        success: false,
+        error: 'Contrato no encontrado'
+      });
+    }
+
+    const currentStatus = contratoExistente.estatus;
+    
+    // Definir transiciones válidas con el nuevo estado
+    const validTransitions = {
+      'Esperando contrato': ['Pendiente por aceptar', 'Cancelado'],
+      'Pendiente por aceptar': ['Pendiente por desembolso', 'Cancelado'],
+      'Pendiente por desembolso': ['Esperando aceptar desembolso', 'Cancelado'],  // Cambia a Esperando aceptar desembolso
+      'Esperando aceptar desembolso': ['Activo', 'Cancelado'],  // Desde aquí puede ir a Activo o Cancelado
+      'Activo': ['Finalizado', 'Cancelado'],
+      'Finalizado': ['Cancelado'],
+      'Cancelado': []
+    };
+
+    // Validar transición
+    if (validTransitions[currentStatus] && 
+        !validTransitions[currentStatus].includes(estatus)) {
+      return res.status(400).json({
+        success: false,
+        error: `No se puede cambiar de "${currentStatus}" a "${estatus}". Transiciones válidas: ${validTransitions[currentStatus].join(', ') || 'ninguna'}`
+      });
+    }
+
+    const contratoActualizado = await ContratoModel.updateStatus(id, estatus);
+
+    res.json({
+      success: true,
+      message: `Estatus actualizado a "${estatus}" exitosamente`,
+      data: contratoActualizado
+    });
+  } catch (error) {
+    console.error('Error en updateStatus:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Error al actualizar el estatus del contrato'
+    });
+  }
+},
 
   // Realizar desembolso
   async realizarDesembolso(req, res) {
     try {
-      const { id } = req.params;
-      const { referencia_bancaria, monto_pagado, fecha_desembolso, observaciones } = req.body;
-
-      if (!referencia_bancaria || !monto_pagado || !fecha_desembolso) {
+      const desembolsoData = req.body;
+      
+      // Validar campos requeridos
+      if (!desembolsoData.id_cont) {
         return res.status(400).json({
           success: false,
-          error: 'La referencia bancaria, el monto pagado y la fecha son requeridos'
+          error: 'El ID del contrato es requerido'
         });
       }
-
-      if (referencia_bancaria.length > 6) {
+      
+      if (!desembolsoData.capture_desembolso) {
         return res.status(400).json({
           success: false,
-          error: 'La referencia bancaria debe tener máximo 6 caracteres'
+          error: 'La captura del comprobante es requerida'
         });
       }
-
-      if (isNaN(monto_pagado) || Number(monto_pagado) <= 0) {
+      
+      if (!desembolsoData.fecha_desembolso) {
         return res.status(400).json({
           success: false,
-          error: 'El monto pagado debe ser un número válido mayor a 0'
+          error: 'La fecha de desembolso es requerida'
         });
       }
-
-      const contratoExistente = await ContratoModel.getById(id);
-      if (!contratoExistente) {
+      
+      // Obtener el contrato
+      const contrato = await ContratoModel.getById(desembolsoData.id_cont);
+      
+      if (!contrato) {
         return res.status(404).json({
           success: false,
-          error: 'Contrato no encontrado'
+          error: `No se encontró un contrato para la aprobación #${desembolsoData.id_cont}`
         });
       }
-
-      if (contratoExistente.estatus !== 'Pendiente por desembolso') {
+      
+      // Verificar estado del contrato
+      if (contrato.estatus !== 'Pendiente por desembolso') {
         return res.status(400).json({
           success: false,
-          error: `El contrato debe estar en estado "Pendiente por desembolso". Estado actual: ${contratoExistente.estatus}`
+          error: `El contrato debe estar en estado "Pendiente por desembolso". Estado actual: ${contrato.estatus}`
         });
       }
-
-      const desembolsoData = {
-        id_aprob: id,
-        referencia_bancaria: referencia_bancaria.toUpperCase(),
-        monto_pagado,
-        fecha_desembolso,
-        observaciones,
-        estatus: 'Pendiente' // Estatus inicial del desembolso
-      };
-
-      const desembolso = await ContratoModel.crearDesembolso(desembolsoData);
-      const contratoActualizado = await ContratoModel.updateStatus(id, 'Activo');
-
+      
+      // Crear el desembolso
+      const desembolso = await ContratoModel.crearDesembolso({
+        id_cont: contrato.id_contrato,
+        capture_desembolso: desembolsoData.capture_desembolso,
+        fecha_desembolso: desembolsoData.fecha_desembolso,
+        estatus_desembolso: desembolsoData.estatus_desembolso || 'pendiente por confirmar'
+      });
+      
       res.json({
         success: true,
-        message: 'Desembolso registrado exitosamente. Contrato activado.',
-        data: {
-          desembolso,
-          contrato: contratoActualizado
-        }
+        message: 'Desembolso registrado exitosamente',
+        data: desembolso
       });
+      
     } catch (error) {
       console.error('Error en realizarDesembolso:', error);
       res.status(500).json({
@@ -237,7 +240,7 @@ const contratoController = {
     }
   },
 
-  // Confirmar pago de desembolso (NUEVO MÉTODO)
+  // Confirmar pago de desembolso
   async confirmarPago(req, res) {
     try {
       const { id } = req.params;
@@ -260,10 +263,10 @@ const contratoController = {
       }
 
       // Verificar que el desembolso está en estado "Pendiente"
-      if (desembolsoExistente.estatus !== 'Pendiente') {
+      if (desembolsoExistente.estatus_desembolso !== 'pendiente por confirmar') {
         return res.status(400).json({
           success: false,
-          error: `El desembolso debe estar en estado "Pendiente" para confirmar el pago. Estado actual: ${desembolsoExistente.estatus}`
+          error: `El desembolso debe estar en estado "pendiente por confirmar" para confirmar el pago. Estado actual: ${desembolsoExistente.estatus_desembolso}`
         });
       }
 
@@ -271,7 +274,7 @@ const contratoController = {
         fecha_confirmacion,
         observaciones_pago: observaciones_pago || null,
         referencia_pago: referencia_pago || null,
-        estatus: 'Completado'
+        estatus_desembolso: 'confirmado'
       };
 
       const desembolsoActualizado = await ContratoModel.confirmarPagoDesembolso(id, pagoData);
@@ -290,7 +293,7 @@ const contratoController = {
     }
   },
 
-  // Obtener desembolsos por contrato (NUEVO MÉTODO)
+  // Obtener desembolsos por contrato
   async getDesembolsosByContrato(req, res) {
     try {
       const { id } = req.params;
