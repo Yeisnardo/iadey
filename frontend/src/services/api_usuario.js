@@ -18,7 +18,7 @@ const usuarioAPI = {
         // Guardar información del usuario con datos de persona
         const userData = {
           cedula_usuario: response.data.data.cedula_usuario,
-          rol: response.data.data.rol,
+          id_rol_usu: response.data.data.id_rol_usu,
           estatus: response.data.data.estatus,
           nombre_completo: response.data.data.nombre_completo || null,
           nombres: response.data.data.nombres || response.data.data.persona?.nombres || null,

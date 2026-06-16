@@ -5,6 +5,7 @@ const dotenv = require('dotenv');
 
 // Importaciones de las rutas
 const personaRoutes = require('../backend/routes/personaRoutes');
+const rolRoutes = require('../backend/routes/rolRoutes');
 const usuarioRoutes = require('../backend/routes/usuarioRoutes');
 const clasifEmprendimientoRoutes = require('../backend/routes/clasifEmprenRoutes');
 const solicitudRoutes = require('../backend/routes/solicitudRoutes');
@@ -34,6 +35,7 @@ app.use(express.json());
 // Rutas
 app.use('/api', personaRoutes);
 app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/roles', rolRoutes);
 app.use('/api/clasificacion_emprendimiento', clasifEmprendimientoRoutes);
 app.use('/api/solicitud', solicitudRoutes);
 app.use('/api/emprendimiento', emprendimientoRoutes);

@@ -68,6 +68,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
   const settingsSubItems = [
     { id: "users", icon: Users, text: "Usuarios, roles y permisos", path: "/Usuario" },
     { id: "entrepreneurships", icon: Building, text: "Emprendimientos", path: "/Clasificacion_emprendimiento" },
+    { id: "roles", icon: Users, text: "Roles", path: "/Roles"},
     { id: "contract-params", icon: FileText, text: "Contratos", path: "/Configuracion_contrato" },
     { id: "requirements", icon: FileText, text: "Requisitos", path: "/Configuracion_requisitos" }
   ];

@@ -622,7 +622,7 @@ const RegistroEmprendedor = () => {
         const datosUsuario = {
           cedula_usuario: cedulaFormateada,
           clave: formData.clave,
-          rol: "emprendedor",
+           id_rol_usu: 1,
           estatus: "activo",
         };
         

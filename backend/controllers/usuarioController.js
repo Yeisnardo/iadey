@@ -50,7 +50,7 @@ const usuarioController = {
   // Crear usuario
   async create(req, res) {
     try {
-      const { cedula_usuario, clave, rol, estatus } = req.body;
+      const { cedula_usuario, clave, id_rol_usu, estatus } = req.body;
 
       // Verificar si ya existe la cédula
       const existeCedula = await UsuarioModel.getByCedula(cedula_usuario);
@@ -65,7 +65,7 @@ const usuarioController = {
       const nuevoUsuario = await UsuarioModel.create({
         cedula_usuario,
         clave: claveHasheada,
-        rol: rol || 'emprendedor',
+        id_rol_usu: id_rol_usu || 1, // Por defecto rol 1 (Emprendedor)
         estatus: estatus || 'activo'
       });
 
@@ -78,8 +78,8 @@ const usuarioController = {
   // Actualizar usuario
   async update(req, res) {
     try {
-      const { rol, estatus } = req.body;
-      const usuario = await UsuarioModel.update(req.params.id, { rol, estatus });
+      const { id_rol_usu, estatus } = req.body;
+      const usuario = await UsuarioModel.update(req.params.id, { id_rol_usu, estatus });
       if (!usuario) {
         return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
       }
@@ -147,7 +147,7 @@ const usuarioController = {
         });
       }
       
-      // Buscar por cédula (incluye datos de persona)
+      // Buscar por cédula (incluye datos de persona y rol)
       const usuario = await UsuarioModel.getByCedula(cedula_usuario);
       
       if (!usuario) {

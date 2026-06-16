@@ -18,6 +18,7 @@ import Cuota from "./pages/Cuota.jsx";
 
 //Configuaciones de sistema
 import Usuario from "./pages/Usuario.jsx";
+import Roles from "./pages/Roles.jsx";
 import Clasificacion_emprendimiento from "./pages/Clasificacion_emprendimiento.jsx";
 import Configuracion_requisitos from "./pages/Configuracion_requisitos.jsx";
 import Configuracion_contrato from "./pages/Configuracion_contrato.jsx";
@@ -66,6 +67,7 @@ function App() {
 
         {/*Configuarion del sistema */}
         <Route path="/Usuario" element={<Usuario />} />
+        <Route path="/Roles" element={<Roles />} />
         <Route path="/Clasificacion_emprendimiento" element={<Clasificacion_emprendimiento />} />
         <Route path="/Configuracion_requisitos" element={<Configuracion_requisitos />} />
         <Route path="/Configuracion_contrato" element={<Configuracion_contrato />} />

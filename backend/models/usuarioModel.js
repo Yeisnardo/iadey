@@ -2,48 +2,54 @@
 const pool = require('../config/db');
 
 class UsuarioModel {
-  // Obtener todos los usuarios con datos de persona
+  // Obtener todos los usuarios con datos de persona y rol
   static async getAll() {
     const result = await pool.query(`
       SELECT u.*, 
              p.nacionalidad, p.nombres, p.apellidos, p.fecha_nacimiento, 
              p.telefono, p.correo, p.estado_civil, p.direccion, p.estado, 
              p.municipio, p.parroquia, p.tipo_persona, p.email,
+             r.nombre_rol, r.descripcion as rol_descripcion,
              CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
       FROM usuario u
       LEFT JOIN persona p ON u.cedula_usuario = p.cedula
+      LEFT JOIN roles r ON u.id_rol_usu = r.id_rol
       ORDER BY u.id
     `);
     return result.rows;
   }
 
-  // Obtener usuario por ID con datos de persona
+  // Obtener usuario por ID con datos de persona y rol
   static async getById(id) {
     const result = await pool.query(`
       SELECT u.*, 
              p.nacionalidad, p.nombres, p.apellidos, p.fecha_nacimiento, 
              p.telefono, p.correo, p.estado_civil, p.direccion, p.estado, 
              p.municipio, p.parroquia, p.tipo_persona, p.email,
+             r.nombre_rol, r.descripcion as rol_descripcion,
              CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
       FROM usuario u
       LEFT JOIN persona p ON u.cedula_usuario = p.cedula
+      LEFT JOIN roles r ON u.id_rol_usu = r.id_rol
       WHERE u.id = $1
     `, [id]);
     return result.rows[0];
   }
 
-  // Obtener usuario por cédula con datos de persona formateados
+  // Obtener usuario por cédula con datos de persona y rol
   static async getByCedula(cedula_usuario) {
     const result = await pool.query(`
       SELECT 
-        u.id, u.cedula_usuario, u.clave, u.rol, u.estatus, 
+        u.id, u.cedula_usuario, u.clave, u.id_rol_usu, u.estatus, 
         u.created_at, u.updated_at, u.ultimo_acceso,
         p.nombres, p.apellidos, p.nacionalidad, p.fecha_nacimiento, 
         p.telefono, p.correo, p.estado_civil, p.direccion, p.estado as estado_persona, 
         p.municipio, p.parroquia, p.tipo_persona, p.email,
+        r.nombre_rol, r.descripcion as rol_descripcion,
         CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
       FROM usuario u
       LEFT JOIN persona p ON u.cedula_usuario = p.cedula
+      LEFT JOIN roles r ON u.id_rol_usu = r.id_rol
       WHERE u.cedula_usuario = $1
     `, [cedula_usuario]);
     
@@ -56,7 +62,8 @@ class UsuarioModel {
       id: user.id,
       cedula_usuario: user.cedula_usuario,
       clave: user.clave, // Incluir clave para comparación en login
-      rol: user.rol,
+      id_rol_usu: user.id_rol_usu,
+      rol: user.nombre_rol, // Para compatibilidad
       estatus: user.estatus,
       created_at: user.created_at,
       updated_at: user.updated_at,
@@ -83,28 +90,28 @@ class UsuarioModel {
     };
   }
 
-  // Crear usuario (asume que la persona ya existe)
+  // Crear usuario (con id_rol_usu)
   static async create(data) {
-    const { cedula_usuario, clave, rol, estatus } = data;
+    const { cedula_usuario, clave, id_rol_usu, estatus } = data;
     
     const result = await pool.query(
-      `INSERT INTO usuario (cedula_usuario, clave, rol, estatus)
+      `INSERT INTO usuario (cedula_usuario, clave, id_rol_usu, estatus)
        VALUES ($1, $2, $3, $4)
-       RETURNING id, cedula_usuario, rol, estatus, created_at`,
-      [cedula_usuario, clave, rol, estatus || 'activo']
+       RETURNING id, cedula_usuario, id_rol_usu, estatus, created_at`,
+      [cedula_usuario, clave, id_rol_usu || 1, estatus || 'activo']
     );
     return result.rows[0];
   }
 
   // Actualizar usuario
   static async update(id, data) {
-    const { rol, estatus } = data;
+    const { id_rol_usu, estatus } = data;
     
     const result = await pool.query(
       `UPDATE usuario SET
-        rol = $1, estatus = $2, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $3 RETURNING id, cedula_usuario, rol, estatus, created_at`,
-      [rol, estatus, id]
+        id_rol_usu = $1, estatus = $2, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3 RETURNING id, cedula_usuario, id_rol_usu, estatus, created_at`,
+      [id_rol_usu, estatus, id]
     );
     return result.rows[0];
   }
@@ -146,18 +153,20 @@ class UsuarioModel {
   }
 
   // Obtener usuarios por rol con datos de persona
-  static async getByRol(rol) {
+  static async getByRol(id_rol) {
     const result = await pool.query(`
       SELECT u.*, 
              p.nacionalidad, p.nombres, p.apellidos, p.fecha_nacimiento, 
              p.telefono, p.correo, p.estado_civil, p.direccion, p.estado as estado_persona, 
              p.municipio, p.parroquia, p.tipo_persona, p.email,
+             r.nombre_rol, r.descripcion as rol_descripcion,
              CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
       FROM usuario u
       LEFT JOIN persona p ON u.cedula_usuario = p.cedula
-      WHERE u.rol = $1
+      LEFT JOIN roles r ON u.id_rol_usu = r.id_rol
+      WHERE u.id_rol_usu = $1
       ORDER BY u.id
-    `, [rol]);
+    `, [id_rol]);
     return result.rows;
   }
 
@@ -192,15 +201,15 @@ class UsuarioModel {
         personaData.email
       ]);
 
-      // Insertar usuario
+      // Insertar usuario con id_rol_usu
       const usuarioResult = await client.query(`
-        INSERT INTO usuario (cedula_usuario, clave, rol, estatus)
+        INSERT INTO usuario (cedula_usuario, clave, id_rol_usu, estatus)
         VALUES ($1, $2, $3, $4)
-        RETURNING id, cedula_usuario, rol, estatus, created_at
+        RETURNING id, cedula_usuario, id_rol_usu, estatus, created_at
       `, [
         personaData.cedula,
         usuarioData.clave,
-        usuarioData.rol,
+        usuarioData.id_rol_usu || 1, // Por defecto rol 1 (Emprendedor)
         usuarioData.estatus || 'activo'
       ]);
 

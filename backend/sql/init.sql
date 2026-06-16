@@ -27,7 +27,6 @@ CREATE TABLE persona (
 CREATE TABLE roles (
     id_rol SERIAL PRIMARY KEY,
     nombre_rol TEXT NOT NULL,
-    descripcion TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -37,7 +36,7 @@ CREATE TABLE roles (
 -- =============================================
 CREATE TABLE roles_menu (
     id_rol INT NOT NULL,
-    menu_item_id VARCHAR(50) NOT NULL, -- 'overview', 'credit-request', 'inspection', etc.
+    menu_item_id VARCHAR(50) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id_rol, menu_item_id),
     FOREIGN KEY (id_rol) REFERENCES roles(id_rol) ON DELETE CASCADE
@@ -49,7 +48,7 @@ CREATE TABLE roles_menu (
 CREATE TABLE usuario (
     id SERIAL PRIMARY KEY,
     cedula_usuario VARCHAR(20) NOT NULL,
-    clave VARCHAR(255) NOT NULL, -- Contraseña hasheada
+    clave VARCHAR(255) NOT NULL, 
     id_rol_usu INT NOT NULL,
     estatus VARCHAR(20),
     ultimo_acceso TIMESTAMP,
@@ -846,3 +845,26 @@ CREATE TABLE cuota (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_cuota_cont) REFERENCES contrato (id_contrato)
 );
+
+
+
+
+
+-- 1. Insertar persona
+INSERT INTO persona (nacionalidad, cedula, nombres, apellidos, fecha_nacimiento, 
+    telefono, correo, estado_civil, direccion, estado, municipio, parroquia, 
+    tipo_persona, email) 
+VALUES ('V', 'V-12345678', 'Juan Carlos', 'Pérez González', '1980-05-15',
+    '0412-1234567', 'juan.perez@empresa.com', 'Casado', 
+    'Av. Principal #123, Edif. Central', 'Miranda', 'Chacao', 'Chacao', 
+    'Emprendedor', 'juan.perez@gmail.com');
+
+-- 2. Insertar rol
+INSERT INTO roles (nombre_rol, descripcion) 
+VALUES ('Emprendedor', 'opcionales');
+
+-- 3. Insertar usuario
+INSERT INTO usuario (cedula_usuario, clave, id_rol_usu, estatus, ultimo_acceso) 
+VALUES ('12345678', 'Yb1810..', 
+    1, 'Activo', '2026-06-15 10:30:00');
+
