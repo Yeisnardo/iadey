@@ -88,6 +88,7 @@ const Contrato = () => {
     inicio: "",
     cierre: "",
     numero_gracias: "0",
+    frecuencia_pago_contrato: "", // NUEVO CAMPO
   });
   const [formErrors, setFormErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -454,6 +455,7 @@ const Contrato = () => {
           <p><strong>Emprendedor:</strong> ${selectedContractForGestion.emprendedor}</p>
           <p><strong>Monto:</strong> ${formGestion.monto_moneda} ${getMonedaNombre(formGestion.moneda)}</p>
           <p><strong>Cuotas:</strong> ${formGestion.numero_cuotas}</p>
+          <p><strong>Frecuencia:</strong> ${getFrecuenciaPagoTexto(formGestion.frecuencia_pago_contrato)}</p>
           <p><strong>Valor en Bs:</strong> Bs. ${formatMonto(montoBolivares.neto)}</p>
         </div>
       `,
@@ -495,6 +497,7 @@ const Contrato = () => {
         numero_gracias: parseInt(formGestion.numero_gracias) || 0,
         inicio: formGestion.inicio,
         cierre: formGestion.cierre,
+        frecuencia_pago_contrato: formGestion.frecuencia_pago_contrato, // NUEVO CAMPO
       };
 
       const response = await ContratoAPI.create(contratoData);
@@ -510,7 +513,8 @@ const Contrato = () => {
             title: '¡Contrato registrado!',
             html: `
               El contrato <strong>${formGestion.numero_contrato}</strong> ha sido registrado exitosamente.<br/>
-              Estado actual: <strong>Pendiente por aceptar</strong>
+              Estado actual: <strong>Pendiente por aceptar</strong><br/>
+              Frecuencia de pago: <strong>${getFrecuenciaPagoTexto(formGestion.frecuencia_pago_contrato)}</strong>
             `,
             icon: 'success',
             confirmButtonColor: '#2A9D8F',
@@ -535,6 +539,7 @@ const Contrato = () => {
                     flat: `- Bs ${formatMonto(montoBolivares.flatMonto)}`,
                     interes_porcentaje: parseFloat(formGestion.interes_porcentaje),
                     devolvimiento: parseFloat(formGestion.devolvimiento),
+                    frecuencia_pago_contrato: formGestion.frecuencia_pago_contrato, // NUEVO CAMPO
                   }
                 : contract
             )
@@ -728,6 +733,7 @@ const Contrato = () => {
             interes_porcentaje: item.interes_porcentaje || null,
             devolvimiento: item.devolvimiento || null,
             numero_gracias: item.numero_gracias || 0,
+            frecuencia_pago_contrato: item.frecuencia_pago_contrato || null, // NUEVO CAMPO
           }));
           setContractsData(dataConDefaults);
         } else {
@@ -812,6 +818,7 @@ const Contrato = () => {
         inicio: fechaInicioDefault,
         cierre: fechaCierreDefault,
         numero_gracias: graciasConfig,
+        frecuencia_pago_contrato: configuracionContrato.frecuencia_pago || "", // NUEVO CAMPO
       });
       setMontoBolivares({ bruto: 0, flatMonto: 0, neto: 0 });
       setFormErrors({});
@@ -1122,17 +1129,18 @@ const Contrato = () => {
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-  <tr className={`${darkMode ? "bg-gray-700/50" : "bg-gray-50"}`}>
-    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">ID Aprobación</th>
-    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Emprendedor</th>
-    <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">N° Cuotas</th>
-    <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Gracias</th>
-    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Inicio</th>
-    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Cierre</th>
-    <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Estatus</th>
-    <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Acciones</th>
-  </tr>
-</thead>
+                        <tr className={`${darkMode ? "bg-gray-700/50" : "bg-gray-50"}`}>
+                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">ID Aprobación</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Emprendedor</th>
+                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">N° Cuotas</th>
+                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Gracias</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Inicio</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Cierre</th>
+                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Frecuencia</th>
+                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Estatus</th>
+                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Acciones</th>
+                        </tr>
+                      </thead>
                       <tbody className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-200"}`}>
                         {currentItems.map((contract) => (
                           <tr key={contract.id_aprobacion} className={`${darkMode ? "hover:bg-gray-700/50" : "hover:bg-gray-50"} transition-colors`}>
@@ -1177,6 +1185,13 @@ const Contrato = () => {
                                 <Calendar size={14} className="text-gray-400" />
                                 {contract.cierre === "Sin definir" ? <span className={darkMode ? "text-gray-500" : "text-gray-400"}>Sin definir</span> : contract.cierre}
                               </div>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                                {contract.frecuencia_pago_contrato 
+                                  ? getFrecuenciaPagoTexto(contract.frecuencia_pago_contrato)
+                                  : "Pendiente"}
+                              </span>
                             </td>
                             <td className="px-6 py-4 text-center">
                               {getStatusComponent(contract)}
@@ -1330,8 +1345,16 @@ const Contrato = () => {
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Frecuencia de Pago</p>
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Frecuencia de Pago del Contrato</p>
                     <p className={`font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>
+                      {selectedContractForConsulta.frecuencia_pago_contrato 
+                        ? getFrecuenciaPagoTexto(selectedContractForConsulta.frecuencia_pago_contrato)
+                        : "No definida"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Frecuencia Configurada en Sistema</p>
+                    <p className={`font-medium text-blue-600 dark:text-blue-400`}>
                       {configuracionContrato ? getFrecuenciaPagoTexto(configuracionContrato.frecuencia_pago) : "No definida"}
                     </p>
                   </div>

@@ -62,11 +62,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
     
     { id: "contract", icon: FileSignature, text: "Contrato", path: "/Contrato", section: "financiero" },
     { id: "disbursement", icon: Banknote, text: "Desembolso", path: "/Desembolso", section: "financiero" },
-    { id: "payment", icon: CreditCard, text: "Pago de Cuota", path: "/pago", section: "financiero" }
+    { id: "payment", icon: CreditCard, text: "Pago de Cuota", path: "/Cuota", section: "financiero" }
   ];
 
   const settingsSubItems = [
-    { id: "users", icon: Users, text: "Usuarios", path: "/Usuario" },
+    { id: "users", icon: Users, text: "Usuarios, roles y permisos", path: "/Usuario" },
     { id: "entrepreneurships", icon: Building, text: "Emprendimientos", path: "/Clasificacion_emprendimiento" },
     { id: "contract-params", icon: FileText, text: "Contratos", path: "/Configuracion_contrato" },
     { id: "requirements", icon: FileText, text: "Requisitos", path: "/Configuracion_requisitos" }

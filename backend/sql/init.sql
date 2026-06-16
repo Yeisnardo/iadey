@@ -15,9 +15,32 @@ CREATE TABLE persona (
     municipio VARCHAR(100) NOT NULL,
     parroquia VARCHAR(100) NOT NULL,
     tipo_persona VARCHAR(20) NOT NULL,
-    email VARCHAR(100), -- Correo para login (opcional en persona)
+    email VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- =============================================
+-- TABLA: roles 
+-- =============================================
+CREATE TABLE roles (
+    id_rol SERIAL PRIMARY KEY,
+    nombre_rol TEXT NOT NULL,
+    descripcion TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =============================================
+-- TABLA: roles_menu (qué roles pueden ver qué items del menú)
+-- =============================================
+CREATE TABLE roles_menu (
+    id_rol INT NOT NULL,
+    menu_item_id VARCHAR(50) NOT NULL, -- 'overview', 'credit-request', 'inspection', etc.
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_rol, menu_item_id),
+    FOREIGN KEY (id_rol) REFERENCES roles(id_rol) ON DELETE CASCADE
 );
 
 -- =============================================
@@ -27,12 +50,13 @@ CREATE TABLE usuario (
     id SERIAL PRIMARY KEY,
     cedula_usuario VARCHAR(20) NOT NULL,
     clave VARCHAR(255) NOT NULL, -- Contraseña hasheada
-    rol VARCHAR(20) NOT NULL,
+    id_rol_usu INT NOT NULL,
     estatus VARCHAR(20),
     ultimo_acceso TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (cedula_usuario) REFERENCES persona(cedula) ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY (cedula_usuario) REFERENCES persona(cedula) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (id_rol_usu) REFERENCES roles(id_rol) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- =============================================
@@ -775,6 +799,7 @@ CREATE TABLE contrato (
     devolvimiento VARCHAR (50) NOT NULL,
     numero_cuotas VARCHAR (50) NOT NULL,
     numero_gracias VARCHAR (20) NOT NULL,
+    frecuencia_pago_contrato VARCHAR(50),
     inicio VARCHAR (50) NOT NULL,
     cierre VARCHAR (50) NOT NULL,
     estatus  VARCHAR (50) NOT NULL,
@@ -792,4 +817,32 @@ CREATE TABLE desembolso (
     capture_desembolso TEXT NOT NULL,
     estatus_desembolso VARCHAR (100) NOT NULL,
     FOREIGN KEY (id_cont) REFERENCES contrato(id_contrato)
+);
+
+
+CREATE TABLE cuota (
+    id_cuota INT PRIMARY KEY,
+    id_cuota_cont INT NOT NULL, 
+    num_cuota VARCHAR(255) NOT NULL,
+    --Frecuencia de la cuota
+    fecha_desde TEXT,
+    fecha_hasta TEXT,
+    --Frecuencia de la cuota
+    --Monto segun la frecuencia y el numero de cuotas
+    monto_cuota VARCHAR(255) NOT NULL,
+    monte_bs VARCHAR(255),
+    --Monto segun la frecuencia y el numero de cuotas
+    
+    fecha_pagada TEXT,
+    estado_cuota VARCHAR(50) NOT NULL,
+    tipo_cuota VARCHAR(20) , 
+
+    --Segun los dias de mora se calcula el monto_morosidad calculado segun los dias
+    dias_mora_cuota INT,
+    monto_morosidad TEXT,
+    --Segun los dias de mora se calcula el monto_morosidad calculado segun los dias
+
+    comprobante TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_cuota_cont) REFERENCES contrato (id_contrato)
 );

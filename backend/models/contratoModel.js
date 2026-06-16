@@ -28,6 +28,7 @@ class ContratoModel {
         c.inicio,
         c.cierre,
         c.estatus,
+        c.frecuencia_pago_contrato,
         c.created_at as contrato_created_at,
         c.updated_at as contrato_updated_at,
         d.id_desembolso,
@@ -61,7 +62,8 @@ class ContratoModel {
       numero_gracias,
       inicio,
       cierre,
-      estatus
+      estatus,
+      frecuencia_pago_contrato // NUEVO CAMPO
     } = contratoData;
 
     const query = `
@@ -79,8 +81,9 @@ class ContratoModel {
         numero_gracias,
         inicio,
         cierre,
-        estatus
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        estatus,
+        frecuencia_pago_contrato
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
     `;
     
@@ -98,7 +101,8 @@ class ContratoModel {
       numero_gracias,
       inicio,
       cierre,
-      estatus
+      estatus,
+      frecuencia_pago_contrato
     ];
 
     const result = await pool.query(query, values);
@@ -134,9 +138,11 @@ class ContratoModel {
         c.interes,
         c.devolvimiento,
         c.numero_cuotas,
+        c.numero_gracias,
         c.inicio,
         c.cierre,
         c.estatus,
+        c.frecuencia_pago_contrato,
         c.created_at,
         c.updated_at,
         a.id_aprobacion,
@@ -147,6 +153,7 @@ class ContratoModel {
         a.seleccion_manejo
       FROM contrato c
       JOIN aprobacion a ON c.id_aprob = a.id_aprobacion
+      JOIN expediente e ON a.id_expediente = e.id_expediente
       WHERE c.id_aprob = $1
     `;
     const result = await pool.query(query, [id]);
@@ -168,95 +175,155 @@ class ContratoModel {
   // Obtener contrato por ID
   static async getContratoById(id_contrato) {
     const query = `
-      SELECT * FROM contrato 
-      WHERE id_contrato = $1
+      SELECT 
+        c.*,
+        a.id_aprobacion,
+        a.id_expediente
+      FROM contrato c
+      JOIN aprobacion a ON c.id_aprob = a.id_aprobacion
+      JOIN expediente e ON a.id_expediente = e.id_expediente
+      WHERE c.id_contrato = $1
     `;
     const result = await pool.query(query, [id_contrato]);
     return result.rows[0];
   }
 
-  // ==================== MÉTODOS DE DESEMBOLSO ====================
+  // Actualizar contrato completo
+  static async update(id_contrato, contratoData) {
+    const {
+      numero_contrato,
+      moneda,
+      monto_moneda,
+      cambio,
+      flat,
+      interes,
+      devolvimiento,
+      numero_cuotas,
+      numero_gracias,
+      inicio,
+      cierre,
+      estatus,
+      frecuencia_pago_contrato
+    } = contratoData;
 
-// In models/contratoModel.js - Ensure crearDesembolso is correct
-// In models/contratoModel.js - Modified crearDesembolso method
-static async crearDesembolso(desembolsoData) {
-  const {
-    id_cont,              // ID del contrato (de la tabla contrato)
-    capture_desembolso,   // URL de la imagen del comprobante
-    fecha_desembolso,     // Fecha del desembolso
-    estatus_desembolso    // Estado del desembolso
-  } = desembolsoData;
-
-  // Validar que los campos requeridos existan
-  if (!id_cont) {
-    throw new Error('ID del contrato es requerido');
-  }
-
-  if (!capture_desembolso) {
-    throw new Error('El comprobante bancario es requerido');
-  }
-
-  if (!fecha_desembolso) {
-    throw new Error('La fecha de desembolso es requerida');
-  }
-
-  // Iniciar una transacción para asegurar consistencia
-  const client = await pool.connect();
-  
-  try {
-    await client.query('BEGIN');
-    
-    // 1. Crear el desembolso
-    const insertQuery = `
-      INSERT INTO desembolso (
-        id_cont,
-        fecha_desembolso,
-        capture_desembolso,
-        estatus_desembolso
-      ) VALUES ($1, $2, $3, $4)
+    const query = `
+      UPDATE contrato 
+      SET 
+        numero_contrato = COALESCE($1, numero_contrato),
+        moneda = COALESCE($2, moneda),
+        monto_moneda = COALESCE($3, monto_moneda),
+        cambio = COALESCE($4, cambio),
+        flat = COALESCE($5, flat),
+        interes = COALESCE($6, interes),
+        devolvimiento = COALESCE($7, devolvimiento),
+        numero_cuotas = COALESCE($8, numero_cuotas),
+        numero_gracias = COALESCE($9, numero_gracias),
+        inicio = COALESCE($10, inicio),
+        cierre = COALESCE($11, cierre),
+        estatus = COALESCE($12, estatus),
+        frecuencia_pago_contrato = COALESCE($13, frecuencia_pago_contrato),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id_contrato = $14
       RETURNING *
     `;
 
     const values = [
-      id_cont,
-      fecha_desembolso,
-      capture_desembolso,
-      estatus_desembolso || 'pendiente por confirmar'
+      numero_contrato,
+      moneda,
+      monto_moneda,
+      cambio,
+      flat,
+      interes,
+      devolvimiento,
+      numero_cuotas,
+      numero_gracias,
+      inicio,
+      cierre,
+      estatus,
+      frecuencia_pago_contrato,
+      id_contrato
     ];
 
-    const desembolsoResult = await client.query(insertQuery, values);
-    
-    // 2. Actualizar el estatus del contrato a 'esperando aceptar contrato'
-    const updateContratoQuery = `
-      UPDATE contrato 
-      SET estatus = 'esperando aceptar desembolso', 
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id_contrato = $1 
-      RETURNING *
-    `;
-    
-    const contratoResult = await client.query(updateContratoQuery, [id_cont]);
-    
-    if (!contratoResult.rows[0]) {
-      throw new Error('No se encontró el contrato para actualizar');
-    }
-    
-    await client.query('COMMIT');
-    
-    // Retornar ambos resultados
-    return {
-      desembolso: desembolsoResult.rows[0],
-      contrato: contratoResult.rows[0]
-    };
-    
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Error en crearDesembolso:', error);
-    throw new Error(`Error al crear desembolso: ${error.message}`);
-  } finally {
-    client.release();
+    const result = await pool.query(query, values);
+    return result.rows[0];
   }
-}
+
+  // ==================== MÉTODOS DE DESEMBOLSO ====================
+
+  // Crear un nuevo desembolso
+  static async crearDesembolso(desembolsoData) {
+    const {
+      id_cont,
+      capture_desembolso,
+      fecha_desembolso,
+      estatus_desembolso
+    } = desembolsoData;
+
+    if (!id_cont) {
+      throw new Error('ID del contrato es requerido');
+    }
+
+    if (!capture_desembolso) {
+      throw new Error('El comprobante bancario es requerido');
+    }
+
+    if (!fecha_desembolso) {
+      throw new Error('La fecha de desembolso es requerida');
+    }
+
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      const insertQuery = `
+        INSERT INTO desembolso (
+          id_cont,
+          fecha_desembolso,
+          capture_desembolso,
+          estatus_desembolso
+        ) VALUES ($1, $2, $3, $4)
+        RETURNING *
+      `;
+
+      const values = [
+        id_cont,
+        fecha_desembolso,
+        capture_desembolso,
+        estatus_desembolso || 'pendiente por confirmar'
+      ];
+
+      const desembolsoResult = await client.query(insertQuery, values);
+      
+      const updateContratoQuery = `
+        UPDATE contrato 
+        SET estatus = 'esperando aceptar desembolso', 
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id_contrato = $1 
+        RETURNING *
+      `;
+      
+      const contratoResult = await client.query(updateContratoQuery, [id_cont]);
+      
+      if (!contratoResult.rows[0]) {
+        throw new Error('No se encontró el contrato para actualizar');
+      }
+      
+      await client.query('COMMIT');
+      
+      return {
+        desembolso: desembolsoResult.rows[0],
+        contrato: contratoResult.rows[0]
+      };
+      
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error en crearDesembolso:', error);
+      throw new Error(`Error al crear desembolso: ${error.message}`);
+    } finally {
+      client.release();
+    }
+  }
 
   // Obtener todos los desembolsos de un contrato
   static async getDesembolsosByContrato(id_aprob) {
@@ -268,7 +335,7 @@ static async crearDesembolso(desembolsoData) {
         d.fecha_confirmacion,
         d.referecia_bancaria,
         d.monto_pagado,
-        d.estatus,
+        d.estatus_desembolso as estatus,
         d.referencia_pago,
         d.created_at,
         d.updated_at,
@@ -305,7 +372,7 @@ static async crearDesembolso(desembolsoData) {
     const {
       fecha_confirmacion,
       referencia_pago,
-      estatus
+      estatus_desembolso
     } = pagoData;
 
     const query = `
@@ -313,7 +380,7 @@ static async crearDesembolso(desembolsoData) {
       SET 
         fecha_confirmacion = $1,
         referencia_pago = $2,
-        estatus = $3,
+        estatus_desembolso = $3,
         updated_at = CURRENT_TIMESTAMP
       WHERE id_desembolso = $4
       RETURNING *
@@ -322,7 +389,7 @@ static async crearDesembolso(desembolsoData) {
     const values = [
       fecha_confirmacion,
       referencia_pago,
-      estatus,
+      estatus_desembolso,
       id_desembolso
     ];
 
@@ -336,7 +403,7 @@ static async crearDesembolso(desembolsoData) {
       fecha_desembolso,
       referecia_bancaria,
       monto_pagado,
-      estatus
+      estatus_desembolso
     } = desembolsoData;
 
     const query = `
@@ -345,7 +412,7 @@ static async crearDesembolso(desembolsoData) {
         fecha_desembolso = COALESCE($1, fecha_desembolso),
         referecia_bancaria = COALESCE($2, referecia_bancaria),
         monto_pagado = COALESCE($3, monto_pagado),
-        estatus = COALESCE($4, estatus),
+        estatus_desembolso = COALESCE($4, estatus_desembolso),
         updated_at = CURRENT_TIMESTAMP
       WHERE id_desembolso = $5
       RETURNING *
@@ -355,7 +422,7 @@ static async crearDesembolso(desembolsoData) {
       fecha_desembolso,
       referecia_bancaria,
       monto_pagado,
-      estatus,
+      estatus_desembolso,
       id_desembolso
     ];
 
@@ -382,11 +449,12 @@ static async crearDesembolso(desembolsoData) {
         c.numero_contrato,
         c.moneda,
         a.id_expediente,
-        a.id_inspeccion
+        a.id_inspeccion,
       FROM desembolso d
       JOIN contrato c ON d.id_cont = c.id_contrato
       JOIN aprobacion a ON c.id_aprob = a.id_aprobacion
-      WHERE d.estatus = 'Pendiente'
+      JOIN expediente e ON a.id_expediente = e.id_expediente
+      WHERE d.estatus_desembolso = 'pendiente por confirmar'
       ORDER BY d.fecha_desembolso ASC
     `;
     const result = await pool.query(query);
@@ -399,15 +467,31 @@ static async crearDesembolso(desembolsoData) {
       SELECT 
         d.*,
         CASE 
-          WHEN d.estatus = 'Confirmado' THEN 'Completado'
-          WHEN d.estatus = 'Pendiente' THEN 'En Proceso'
-          ELSE d.estatus
+          WHEN d.estatus_desembolso = 'confirmado' THEN 'Completado'
+          WHEN d.estatus_desembolso = 'pendiente por confirmar' THEN 'En Proceso'
+          ELSE d.estatus_desembolso
         END as estado_descripcion
       FROM desembolso d
       WHERE d.id_cont = $1
       ORDER BY d.created_at DESC
     `;
     const result = await pool.query(query, [id_contrato]);
+    return result.rows;
+  }
+
+  // Obtener contratos por frecuencia de pago
+  static async getContratosByFrecuenciaPago(frecuencia) {
+    const query = `
+      SELECT 
+        c.*,
+        a.id_expediente,
+      FROM contrato c
+      JOIN aprobacion a ON c.id_aprob = a.id_aprobacion
+      JOIN expediente e ON a.id_expediente = e.id_expediente
+      WHERE c.frecuencia_pago_contrato = $1
+      ORDER BY c.created_at DESC
+    `;
+    const result = await pool.query(query, [frecuencia]);
     return result.rows;
   }
 }

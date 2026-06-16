@@ -14,12 +14,14 @@ import Bancarios from "./pages/Bancarios.jsx";
 import Contrato from "./pages/Contrato.jsx";
 import RegistroEmprendedor from "./pages/Registro-emprendedor.jsx";
 import Desembolso from "./pages/Desembolso.jsx";
-import Configuracion_requisitos from "./pages/Configuracion_requisitos.jsx";
-import Configuracion_contrato from "./pages/Configuracion_contrato.jsx";
+import Cuota from "./pages/Cuota.jsx";
 
 //Configuaciones de sistema
 import Usuario from "./pages/Usuario.jsx";
 import Clasificacion_emprendimiento from "./pages/Clasificacion_emprendimiento.jsx";
+import Configuracion_requisitos from "./pages/Configuracion_requisitos.jsx";
+import Configuracion_contrato from "./pages/Configuracion_contrato.jsx";
+
 
 
 
@@ -60,6 +62,7 @@ function App() {
         <Route path="/Contrato" element={<Contrato />} />
         <Route path="/Registro-emprendedor" element={<RegistroEmprendedor />} />
         <Route path="/Desembolso" element={<Desembolso />} />
+        <Route path="/Cuota" element={<Cuota/>} />
 
         {/*Configuarion del sistema */}
         <Route path="/Usuario" element={<Usuario />} />
