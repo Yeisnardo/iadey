@@ -7,7 +7,6 @@ import {
   Edit,
   Eye,
   EyeOff,
-  Download,
   Filter,
   ArrowUpDown,
   ChevronLeft,
@@ -17,33 +16,24 @@ import {
   Users,
   UserCheck,
   UserX,
-  UserPlus,
   Shield,
   Lock,
   Unlock,
   Mail,
   Phone,
   Calendar,
-  Building,
-  Briefcase,
-  Clock,
   AlertCircle,
   CheckCircle,
   XCircle,
-  MoreVertical,
   Trash2,
   RefreshCw,
   Key,
-  Settings,
-  UserCog,
   Activity,
-  BarChart,
   Save,
   X,
   Loader2,
   Home,
-  Hash,
-  User
+  Hash
 } from "lucide-react";
 
 // Importamos nuestros componentes personalizados
@@ -81,7 +71,6 @@ const Usuario = () => {
   
   // Datos del backend
   const [usuarios, setUsuarios] = useState([]);
-  const [personas, setPersonas] = useState([]);
   
   // Dominios de correo
   const dominiosCorreo = [
@@ -135,7 +124,7 @@ const Usuario = () => {
     // Datos de usuario
     clave: "",
     confirmPassword: "",
-    rol: "",
+    id_rol_usu: "", // Cambiado de 'rol' a 'id_rol_usu'
     estatus: "activo",
     aceptaTerminos: false,
   });
@@ -147,7 +136,7 @@ const Usuario = () => {
   const [selectedRows, setSelectedRows] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
-    rol: '',
+    id_rol_usu: '', // Cambiado de 'rol' a 'id_rol_usu'
     estatus: '',
     fechaDesde: '',
     fechaHasta: ''
@@ -482,9 +471,9 @@ const Usuario = () => {
     const correoError = validarCorreo(formData.correo, formData.correo_local, formData.correo_dominio);
     if (correoError) errors.correo = correoError;
     
-    // Validar rol
-    if (!formData.rol) {
-      errors.rol = "Debes seleccionar un rol para el usuario";
+    // Validar rol (id_rol_usu)
+    if (!formData.id_rol_usu) {
+      errors.id_rol_usu = "Debes seleccionar un rol para el usuario";
     }
     
     // Validar contraseña solo en creación
@@ -624,15 +613,6 @@ const Usuario = () => {
     }
   };
 
-  // Roles disponibles
-  const roles = [
-    { value: "Presidente", label: "Presidente(a)", descripcion: "Máxima autoridad del instituto" },
-    { value: "Secretario", label: "Secretario(a)", descripcion: "Gestión administrativa y documental" },
-    { value: "Inspector", label: "Inspector", descripcion: "Supervisión y fiscalización" },
-    { value: "Analista de Credito", label: "Analista de Crédito", descripcion: "Evaluación y análisis de créditos" },
-    { value: "Credito y Cobranza", label: "Crédito y Cobranza", descripcion: "Gestión de cobranzas y seguimiento de créditos" }
-  ];
-
   // Estados civiles
   const estadosCiviles = ["Soltero/a", "Casado/a", "Divorciado/a", "Viudo/a", "Unión Libre"];
 
@@ -643,16 +623,18 @@ const Usuario = () => {
     setIsVisible(true);
   }, []);
 
+  // Función para cargar roles desde el backend
   const cargarRoles = async () => {
-  try {
-    const response = await usuarioAPI.getRoles();
-    if (response.success) {
-      setRolesDB(response.data);
+    try {
+      const response = await usuarioAPI.getRoles();
+      if (response.success) {
+        setRolesDB(response.data);
+      }
+    } catch (err) {
+      console.error("Error cargando roles:", err);
     }
-  } catch (err) {
-    console.error("Error cargando roles:", err);
-  }
-};
+  };
+
   // Función para cargar usuarios desde el backend
   const cargarUsuarios = async () => {
     setLoading(true);
@@ -661,30 +643,16 @@ const Usuario = () => {
       const usuariosResponse = await usuarioAPI.getAllUsuarios();
       
       if (usuariosResponse.success) {
-        const usuariosConPersona = await Promise.all(
-          usuariosResponse.data.map(async (usuario) => {
-            try {
-              const personaResponse = await personaAPI.getPersonaByCedula(usuario.cedula_usuario);
-              if (personaResponse.success) {
-                return {
-                  ...usuario,
-                  persona: personaResponse.data,
-                  nombre: personaResponse.data.nombres,
-                  apellido: personaResponse.data.apellidos,
-                  nombre_completo: `${personaResponse.data.nombres} ${personaResponse.data.apellidos}`,
-                  email: personaResponse.data.correo,
-                  telefono: personaResponse.data.telefono,
-                  fechaRegistro: usuario.created_at?.split('T')[0] || new Date().toISOString().split('T')[0]
-                };
-              }
-              return usuario;
-            } catch (err) {
-              console.error(`Error cargando persona para usuario ${usuario.cedula_usuario}:`, err);
-              return usuario;
-            }
-          })
-        );
-        setUsuarios(usuariosConPersona);
+        // Los datos de persona ya vienen incluidos en la respuesta del backend
+        const usuariosFormateados = usuariosResponse.data.map(usuario => ({
+          ...usuario,
+          nombre_completo: usuario.nombre_completo || `${usuario.nombres || ''} ${usuario.apellidos || ''}`.trim(),
+          email: usuario.email || usuario.correo,
+          telefono: usuario.telefono || usuario.persona?.telefono,
+          fechaRegistro: usuario.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+          rol: usuario.nombre_rol || usuario.rol // El backend devuelve nombre_rol
+        }));
+        setUsuarios(usuariosFormateados);
       }
     } catch (err) {
       console.error("Error cargando usuarios:", err);
@@ -700,14 +668,7 @@ const Usuario = () => {
     activos: usuarios.filter(u => u.estatus === "activo").length,
     inactivos: usuarios.filter(u => u.estatus === "inactivo").length,
     bloqueados: usuarios.filter(u => u.estatus === "bloqueado").length,
-    porRol: {
-      presidentes: usuarios.filter(u => u.rol === "Presidente" || u.rol === "Presidente(a)").length,
-      secretarios: usuarios.filter(u => u.rol === "Secretario" || u.rol === "Secretario(a)").length,
-      inspectores: usuarios.filter(u => u.rol === "Inspector").length,
-      analistas: usuarios.filter(u => u.rol === "Analista de Credito" || u.rol === "Analista de Crédito").length,
-      cobranza: usuarios.filter(u => u.rol === "Credito y Cobranza" || u.rol === "Crédito y Cobranza").length,
-      administradores: 0
-    },
+    porRol: {},
     accesosRecientes: usuarios.filter(u => {
       if (!u.ultimo_acceso) return false;
       const ultimoAcceso = new Date(u.ultimo_acceso);
@@ -716,6 +677,13 @@ const Usuario = () => {
       return diffDias <= 7;
     }).length
   };
+
+  // Calcular estadísticas por rol dinámicamente
+  rolesDB.forEach(rol => {
+    estadisticas.porRol[rol.nombre_rol] = usuarios.filter(u => 
+      u.id_rol_usu === rol.id_rol || u.rol === rol.nombre_rol
+    ).length;
+  });
 
   // Datos del usuario actual (logueado)
   const currentUser = {
@@ -747,7 +715,9 @@ const Usuario = () => {
       (user.cedula_usuario && user.cedula_usuario.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (user.rol && user.rol.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const matchesRol = filters.rol === '' || user.rol === filters.rol;
+    const matchesRol = filters.id_rol_usu === '' || 
+      user.id_rol_usu?.toString() === filters.id_rol_usu ||
+      user.rol === filters.id_rol_usu;
     const matchesEstado = filters.estatus === '' || user.estatus === filters.estatus;
     
     let matchesFecha = true;
@@ -829,7 +799,7 @@ const Usuario = () => {
     // Extraer local y dominio del correo si es posible
     let correo_local = "";
     let correo_dominio = "";
-    const email = user.persona?.correo || "";
+    const email = user.email || user.correo || user.persona?.correo || "";
     if (email && email.includes("@")) {
       const [local, dominio] = email.split("@");
       correo_local = local;
@@ -837,24 +807,24 @@ const Usuario = () => {
     }
     
     setFormData({
-      nacionalidad: user.persona?.nacionalidad || "V",
+      nacionalidad: user.nacionalidad || user.persona?.nacionalidad || "V",
       cedula: user.cedula_usuario?.replace(/^[VE]-/, "") || "",
-      nombres: user.persona?.nombres || "",
-      apellidos: user.persona?.apellidos || "",
-      fecha_nacimiento: user.persona?.fecha_nacimiento?.split('T')[0] || "",
-      telefono: user.persona?.telefono || "",
+      nombres: user.nombres || user.persona?.nombres || "",
+      apellidos: user.apellidos || user.persona?.apellidos || "",
+      fecha_nacimiento: user.fecha_nacimiento?.split('T')[0] || user.persona?.fecha_nacimiento?.split('T')[0] || "",
+      telefono: user.telefono || user.persona?.telefono || "",
       correo_local: correo_local,
       correo_dominio: correo_dominio,
       correo: email,
-      estado_civil: user.persona?.estado_civil || "",
-      direccion: user.persona?.direccion || "",
-      estado: user.persona?.estado || "Yaracuy",
-      municipio: user.persona?.municipio || "",
-      parroquia: user.persona?.parroquia || "",
-      tipo_persona: user.persona?.tipo_persona || "usuario_sistema",
+      estado_civil: user.estado_civil || user.persona?.estado_civil || "",
+      direccion: user.direccion || user.persona?.direccion || "",
+      estado: user.estado || user.persona?.estado || "Yaracuy",
+      municipio: user.municipio || user.persona?.municipio || "",
+      parroquia: user.parroquia || user.persona?.parroquia || "",
+      tipo_persona: user.tipo_persona || user.persona?.tipo_persona || "usuario_sistema",
       clave: "",
       confirmPassword: "",
-      rol: user.rol,
+      id_rol_usu: user.id_rol_usu?.toString() || "", // Convertir a string para el select
       estatus: user.estatus,
       aceptaTerminos: false,
     });
@@ -883,7 +853,7 @@ const Usuario = () => {
       tipo_persona: "usuario_sistema",
       clave: "",
       confirmPassword: "",
-      rol: "",
+      id_rol_usu: "", // Inicializar vacío
       estatus: "activo", // Siempre activo al crear
       aceptaTerminos: false,
     });
@@ -954,6 +924,7 @@ const Usuario = () => {
       const correoFinal = formData.correo || (formData.correo_local && formData.correo_dominio ? `${formData.correo_local}@${formData.correo_dominio}` : "");
       
       if (modalMode === "create") {
+        // Primero crear la persona
         const personaData = {
           nacionalidad: formData.nacionalidad,
           cedula: cedulaFormateada,
@@ -976,11 +947,12 @@ const Usuario = () => {
           throw new Error(personaResponse.error || "Error al crear la persona");
         }
         
+        // Luego crear el usuario con id_rol_usu
         const usuarioData = {
           cedula_usuario: cedulaFormateada,
           clave: formData.clave,
-          rol: formData.rol,
-          estatus: "activo" // Siempre activo para nuevos usuarios
+          id_rol_usu: parseInt(formData.id_rol_usu), // Enviar como número
+          estatus: "activo"
         };
         
         const usuarioResponse = await usuarioAPI.createUsuario(usuarioData);
@@ -993,6 +965,7 @@ const Usuario = () => {
         await cargarUsuarios();
         
       } else if (modalMode === "edit" && selectedUser) {
+        // Actualizar persona
         const personaData = {
           nacionalidad: formData.nacionalidad,
           cedula: cedulaFormateada,
@@ -1009,11 +982,11 @@ const Usuario = () => {
           tipo_persona: formData.tipo_persona,
         };
         
-        await personaAPI.updatePersona(selectedUser.persona?.id, personaData);
+        await personaAPI.updatePersona(selectedUser.persona?.id || selectedUser.id, personaData);
         
+        // Actualizar usuario con id_rol_usu
         const usuarioData = {
-          rol: formData.rol,
-          id_rol_usu: parseInt(formData.rol),
+          id_rol_usu: parseInt(formData.id_rol_usu), // Enviar como número
           estatus: formData.estatus.toLowerCase()
         };
         
@@ -1058,7 +1031,7 @@ const Usuario = () => {
 
   const resetFilters = () => {
     setFilters({
-      rol: '',
+      id_rol_usu: '',
       estatus: '',
       fechaDesde: '',
       fechaHasta: ''
@@ -1086,19 +1059,25 @@ const Usuario = () => {
   };
 
   const getRolBadge = (rol) => {
-    const styles = {
-      'Presidente': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-      'Presidente(a)': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-      'Secretario': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-      'Secretario(a)': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-      'Inspector': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      'Analista de Credito': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-      'Analista de Crédito': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-      'Credito y Cobranza': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-      'Crédito y Cobranza': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-      'Emprendedor': 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200'
-    };
-    return styles[rol] || 'bg-gray-100 text-gray-800';
+    // Función para generar colores dinámicos basados en el nombre del rol
+    const colorMap = {};
+    const baseColors = [
+      'purple', 'blue', 'green', 'yellow', 'orange', 'teal', 'pink', 'indigo'
+    ];
+    
+    if (!colorMap[rol]) {
+      const colorIndex = Object.keys(colorMap).length % baseColors.length;
+      colorMap[rol] = baseColors[colorIndex];
+    }
+    
+    const color = colorMap[rol] || 'gray';
+    return `bg-${color}-100 text-${color}-800 dark:bg-${color}-900 dark:text-${color}-200`;
+  };
+
+  // Función para obtener el nombre del rol por ID
+  const getNombreRol = (id_rol_usu) => {
+    const rol = rolesDB.find(r => r.id_rol === parseInt(id_rol_usu));
+    return rol ? rol.nombre_rol : id_rol_usu;
   };
 
   const formatDate = (dateString) => {
@@ -1490,39 +1469,34 @@ const Usuario = () => {
           </h3>
         </div>
         
+        {/* Selector de Rol usando datos de la BD */}
         <div>
-  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-    Rol *
-  </label>
-  <select
-    name="rol"
-    value={formData.rol}
-    onChange={(e) => {
-      setFormData(prev => ({ 
-        ...prev, 
-        rol: e.target.value,
-        rol_id: e.target.value // Guardar el ID del rol
-      }));
-    }}
-    className={`w-full px-4 py-2 rounded-lg border ${
-      darkMode 
-        ? 'bg-gray-700 border-gray-600 text-white' 
-        : 'bg-white border-gray-200'
-    } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${
-      hasError('rol') ? 'border-red-500' : ''
-    }`}
-  >
-    <option value="">Seleccionar rol</option>
-    {rolesDB.map(rol => (
-      <option key={rol.id_rol} value={rol.id_rol}>
-        {rol.nombre_rol}
-      </option>
-    ))}
-  </select>
-  {hasError('rol') && (
-    <p className="text-xs text-red-500 mt-1">{getErrorMessage('rol')}</p>
-  )}
-</div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Rol *
+          </label>
+          <select
+            name="id_rol_usu"
+            value={formData.id_rol_usu}
+            onChange={handleChange}
+            className={`w-full px-4 py-2 rounded-lg border ${
+              darkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-200'
+            } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${
+              hasError('id_rol_usu') ? 'border-red-500' : ''
+            }`}
+          >
+            <option value="">Seleccionar rol</option>
+            {rolesDB.map(rol => (
+              <option key={rol.id_rol} value={rol.id_rol}>
+                {rol.nombre_rol}
+              </option>
+            ))}
+          </select>
+          {hasError('id_rol_usu') && (
+            <p className="text-xs text-red-500 mt-1">{getErrorMessage('id_rol_usu')}</p>
+          )}
+        </div>
         
         {/* Estado - Visible solo en edición, informativo en creación */}
         {modalMode === "edit" && (
@@ -1803,7 +1777,7 @@ const Usuario = () => {
                 <div className="flex items-center justify-between mb-2">
                   <Shield className="text-purple-500" size={24} />
                   <span className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    {estadisticas.porRol.administradores}
+                    {estadisticas.porRol['Administrador'] || 0}
                   </span>
                 </div>
                 <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Administradores</p>
@@ -1867,8 +1841,8 @@ const Usuario = () => {
               }`}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <select
-                    value={filters.rol}
-                    onChange={(e) => setFilters({...filters, rol: e.target.value})}
+                    value={filters.id_rol_usu}
+                    onChange={(e) => setFilters({...filters, id_rol_usu: e.target.value})}
                     className={`px-3 py-2 rounded-lg border ${
                       darkMode 
                         ? 'bg-gray-700 border-gray-600 text-white' 
@@ -1876,8 +1850,10 @@ const Usuario = () => {
                     }`}
                   >
                     <option value="">Todos los roles</option>
-                    {roles.map(rol => (
-                      <option key={rol.value} value={rol.value}>{rol.label}</option>
+                    {rolesDB.map(rol => (
+                      <option key={rol.id_rol} value={rol.id_rol}>
+                        {rol.nombre_rol}
+                      </option>
                     ))}
                   </select>
 
@@ -2008,7 +1984,7 @@ const Usuario = () => {
                             <td className="px-4 py-3">
                               <div>
                                 <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                  {usuario.nombre_completo || `${usuario.nombre} ${usuario.apellido}`}
+                                  {usuario.nombre_completo || `${usuario.nombres || ''} ${usuario.apellidos || ''}`}
                                 </div>
                                 <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                   {usuario.cedula_usuario}
@@ -2026,8 +2002,8 @@ const Usuario = () => {
                               </div>
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`px-2 py-1 text-xs rounded-full ${getRolBadge(usuario.rol)}`}>
-                                {usuario.rol === 'emprendedor' ? 'Emprendedor' : usuario.rol}
+                              <span className={`px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200`}>
+                                {usuario.rol || getNombreRol(usuario.id_rol_usu)}
                               </span>
                             </td>
                             <td className="px-4 py-3">
@@ -2162,14 +2138,14 @@ const Usuario = () => {
                         </button>
                         
                         <span className={`px-3 py-1 text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                          Página {currentPage} de {totalPages}
+                          Página {currentPage} de {totalPages || 1}
                         </span>
                         
                         <button
-                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                          disabled={currentPage === totalPages}
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages || 1, prev + 1))}
+                          disabled={currentPage === totalPages || totalPages === 0}
                           className={`p-1 rounded ${
-                            currentPage === totalPages
+                            currentPage === totalPages || totalPages === 0
                               ? 'text-gray-400 cursor-not-allowed'
                               : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
                           }`}
@@ -2177,10 +2153,10 @@ const Usuario = () => {
                           <ChevronRight size={18} />
                         </button>
                         <button
-                          onClick={() => setCurrentPage(totalPages)}
-                          disabled={currentPage === totalPages}
+                          onClick={() => setCurrentPage(totalPages || 1)}
+                          disabled={currentPage === totalPages || totalPages === 0}
                           className={`p-1 rounded ${
-                            currentPage === totalPages
+                            currentPage === totalPages || totalPages === 0
                               ? 'text-gray-400 cursor-not-allowed'
                               : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
                           }`}
@@ -2192,7 +2168,7 @@ const Usuario = () => {
                   </div>
                 </div>
 
-                {sortedUsuarios.length === 0 && (
+                {sortedUsuarios.length === 0 && !loading && (
                   <div className={`text-center py-12 rounded-xl border ${
                     darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
                   }`}>
@@ -2219,12 +2195,22 @@ const Usuario = () => {
               <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
                 <div className={`rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl`}>
                   <div className={`p-6 border-b sticky top-0 ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
-                    <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {modalMode === "create" && "Crear Nuevo Usuario"}
-                      {modalMode === "edit" && "Editar Usuario"}
-                      {modalMode === "view" && "Detalles del Usuario"}
-                      {modalMode === "resetPassword" && "Restablecer Contraseña"}
-                    </h2>
+                    <div className="flex justify-between items-center">
+                      <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                        {modalMode === "create" && "Crear Nuevo Usuario"}
+                        {modalMode === "edit" && "Editar Usuario"}
+                        {modalMode === "view" && "Detalles del Usuario"}
+                        {modalMode === "resetPassword" && "Restablecer Contraseña"}
+                      </h2>
+                      <button
+                        onClick={() => setModalOpen(false)}
+                        className={`p-2 rounded-lg ${
+                          darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                        }`}
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="p-6 space-y-4">
@@ -2301,7 +2287,7 @@ const Usuario = () => {
                           <div>
                             <label className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Rol</label>
                             <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                              {selectedUser.rol === 'emprendedor' ? 'Emprendedor' : selectedUser.rol}
+                              {selectedUser.rol || getNombreRol(selectedUser.id_rol_usu)}
                             </p>
                           </div>
                           <div>
@@ -2368,17 +2354,6 @@ const Usuario = () => {
                       >
                         {loading && <Loader2 size={18} className="animate-spin" />}
                         {modalMode === "create" ? "Crear Usuario" : "Guardar Cambios"}
-                      </button>
-                    </div>
-                  )}
-
-                  {modalMode === "view" && (
-                    <div className={`p-6 border-t flex justify-end ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                      <button
-                        onClick={() => setModalOpen(false)}
-                        className="px-4 py-2 rounded-lg bg-[#2A9D8F] text-white hover:bg-[#264653]"
-                      >
-                        Cerrar
                       </button>
                     </div>
                   )}

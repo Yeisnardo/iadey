@@ -452,59 +452,60 @@ const GestionExpedientes = () => {
   };
 
   const cargarInspectores = async () => {
-    try {
-      const response = await usuarioAPI.getAllUsuarios();
-      if (response.success) {
-        const todosUsuarios = response.data;
+  try {
+    const response = await usuarioAPI.getAllUsuarios();
+    if (response.success) {
+      const todosUsuarios = response.data;
+      console.log("📋 Todos los usuarios:", todosUsuarios);
 
-        // Filtrar inspectores
-        const inspectoresFiltrados = todosUsuarios.filter((usuario) => {
-          const rol = (usuario.rol || "").toLowerCase();
-          return rol === "inspector";
-        });
+      // ✅ CORRECCIÓN: Filtrar inspectores por id_rol_usu = 2 (número, no string)
+      const inspectoresFiltrados = todosUsuarios.filter((usuario) => {
+        // Convertir a número para comparación segura
+        const idRol = parseInt(usuario.id_rol_usu);
+        console.log(`👤 Usuario: ${usuario.nombres || ''} ${usuario.apellidos || ''}, id_rol_usu: ${usuario.id_rol_usu}, tipo: ${typeof usuario.id_rol_usu}`);
+        return idRol === 2;
+      });
 
-        // Formatear para asegurar que tengan los campos necesarios
-        const inspectoresFormateados = inspectoresFiltrados.map(
-          (inspector) => ({
-            ...inspector,
-            id: inspector.id,
-            id_usuario: inspector.id,
-            nombre_completo:
-              inspector.nombre_completo ||
-              `${inspector.nombres || ""} ${inspector.apellidos || ""}`.trim() ||
-              `Inspector #${inspector.id}`,
-            cedula_usuario: inspector.cedula_usuario || "Sin cédula",
-          }),
-        );
+      // Formatear para asegurar que tengan los campos necesarios
+      const inspectoresFormateados = inspectoresFiltrados.map(
+        (inspector) => ({
+          ...inspector,
+          id: inspector.id,
+          id_usuario: inspector.id,
+          nombre_completo:
+            inspector.nombre_completo ||
+            `${inspector.nombres || ""} ${inspector.apellidos || ""}`.trim() ||
+            `Inspector #${inspector.id}`,
+          cedula_usuario: inspector.cedula_usuario || "Sin cédula",
+        }),
+      );
 
-        setInspectores(inspectoresFormateados);
-        console.log("✅ Inspectores cargados:", inspectoresFormateados);
-        console.log(
-          "📋 IDs disponibles:",
-          inspectoresFormateados.map((i) => i.id),
-        );
-
-        if (inspectoresFormateados.length === 0) {
-          Swal.fire({
-            ...swalConfig,
-            title: "⚠️ Atención",
-            text: "No hay inspectores registrados en el sistema. Contacte al administrador.",
-            icon: "warning",
-            confirmButtonText: "Entendido",
-          });
-        }
-      } else {
-        console.error("Error cargando inspectores:", response.error);
+      setInspectores(inspectoresFormateados);
+      console.log(`✅ Inspectores cargados (id_rol_usu=2): ${inspectoresFormateados.length}`, inspectoresFormateados);
+      
+      if (inspectoresFormateados.length === 0) {
         Swal.fire({
           ...swalConfig,
-          title: "Error",
-          text: "Error al cargar inspectores",
-          icon: "error",
-          confirmButtonText: "Aceptar",
+          title: "⚠️ Atención",
+          html: `
+            <div class="text-left">
+              <p class="mb-2">No se encontraron inspectores con <strong>id_rol_usu = 2</strong>.</p>
+              <p class="text-sm text-gray-500">Total de usuarios encontrados: ${todosUsuarios.length}</p>
+              <p class="text-sm text-gray-500">Roles encontrados:</p>
+              <ul class="list-disc list-inside text-sm text-gray-500">
+                ${[...new Set(todosUsuarios.map(u => u.id_rol_usu))].map(rol => 
+                  `<li>id_rol_usu: ${rol} (${todosUsuarios.filter(u => u.id_rol_usu === rol).length} usuarios)</li>`
+                ).join('')}
+              </ul>
+              <p class="mt-2 text-xs">Verifique que existan usuarios con rol de Inspector (id_rol_usu = 2) en la base de datos.</p>
+            </div>
+          `,
+          icon: "warning",
+          confirmButtonText: "Entendido",
         });
       }
-    } catch (error) {
-      console.error("Error cargando inspectores:", error);
+    } else {
+      console.error("Error cargando inspectores:", response.error);
       Swal.fire({
         ...swalConfig,
         title: "Error",
@@ -513,7 +514,17 @@ const GestionExpedientes = () => {
         confirmButtonText: "Aceptar",
       });
     }
-  };
+  } catch (error) {
+    console.error("Error cargando inspectores:", error);
+    Swal.fire({
+      ...swalConfig,
+      title: "Error",
+      text: "Error al cargar inspectores",
+      icon: "error",
+      confirmButtonText: "Aceptar",
+    });
+  }
+};
 
   const generarCodigoExpediente = (solicitud, numeroAutoincrementable) => {
     const cedula = solicitud.cedula || "00000000";

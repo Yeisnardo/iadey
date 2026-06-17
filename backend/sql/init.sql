@@ -15,7 +15,6 @@ CREATE TABLE persona (
     municipio VARCHAR(100) NOT NULL,
     parroquia VARCHAR(100) NOT NULL,
     tipo_persona VARCHAR(20) NOT NULL,
-    email VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -123,6 +122,7 @@ CREATE TABLE expediente (
     id_usuario int NOT NULL,
     id_requisitos TEXT NOT NULL DEFAULT '',
     codigo_expediente VARCHAR NOT NULL,
+    urls_imagenes TEXT,
     observaciones TEXT,
     estatus VARCHAR NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

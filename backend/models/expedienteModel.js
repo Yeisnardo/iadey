@@ -42,7 +42,7 @@ class ExpedienteModel {
         exp.id_requisitos,
         exp.urls_imagenes,  -- ✅ NUEVO: URLs de imágenes
         u.cedula_usuario as inspector_cedula,
-        u.rol as inspector_rol,
+        u.id_rol_usu as inspector_rol,
         CONCAT(pi.nombres, ' ', pi.apellidos) as inspector_nombre
       FROM solicitud s
       INNER JOIN persona p ON s.cedula_persona = p.cedula
@@ -212,7 +212,7 @@ class ExpedienteModel {
              s.solicitud as motivo_solicitud,
              s.monto_solicitado,
              u.cedula_usuario,
-             u.rol as inspector_rol
+             u.id_rol_usu as inspector_rol
       FROM expediente e
       LEFT JOIN solicitud s ON e.id_solicitud = s.id_solicitud
       LEFT JOIN usuario u ON e.id_usuario = u.id
@@ -234,7 +234,7 @@ class ExpedienteModel {
              s.solicitud as motivo_solicitud,
              s.monto_solicitado,
              u.cedula_usuario,
-             u.rol as inspector_rol
+             u.id_rol_usu as inspector_rol
       FROM expediente e
       LEFT JOIN solicitud s ON e.id_solicitud = s.id_solicitud
       LEFT JOIN usuario u ON e.id_usuario = u.id
