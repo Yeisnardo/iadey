@@ -3,8 +3,11 @@ const express = require('express');
 const router = express.Router();
 const usuarioController = require('../controllers/usuarioController');
 
+router.get('/roles', usuarioController.getRoles);
+
 // Login (debe ir antes de las rutas con parámetros)
 router.post('/login', usuarioController.login);
+
 
 // Rutas CRUD
 router.get('/', usuarioController.getAll);

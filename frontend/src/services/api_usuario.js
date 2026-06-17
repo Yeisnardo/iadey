@@ -184,6 +184,16 @@ const usuarioAPI = {
       throw error.response?.data || { error: 'Error al eliminar el usuario' };
     }
   },
+
+  getRoles: async () => {
+    try {
+      const response = await api.get('/usuarios/roles');
+      return response.data;
+    } catch (error) {
+      console.error('Error en getRoles:', error);
+      throw error.response?.data || { error: 'Error al obtener los roles' };
+    }
+  },
 };
 
 export default usuarioAPI;

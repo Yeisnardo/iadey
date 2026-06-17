@@ -4,37 +4,38 @@ const pool = require('../config/db');
 class UsuarioModel {
   // Obtener todos los usuarios con datos de persona y rol
   static async getAll() {
-    const result = await pool.query(`
-      SELECT u.*, 
-             p.nacionalidad, p.nombres, p.apellidos, p.fecha_nacimiento, 
-             p.telefono, p.correo, p.estado_civil, p.direccion, p.estado, 
-             p.municipio, p.parroquia, p.tipo_persona, p.email,
-             r.nombre_rol, r.descripcion as rol_descripcion,
-             CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
-      FROM usuario u
-      LEFT JOIN persona p ON u.cedula_usuario = p.cedula
-      LEFT JOIN roles r ON u.id_rol_usu = r.id_rol
-      ORDER BY u.id
-    `);
-    return result.rows;
-  }
+  const result = await pool.query(`
+    SELECT u.*, 
+           p.nacionalidad, p.nombres, p.apellidos, p.fecha_nacimiento, 
+           p.telefono, p.correo, p.estado_civil, p.direccion, p.estado as estado_persona, 
+           p.municipio, p.parroquia, p.tipo_persona, p.email,
+           r.id_rol, r.nombre_rol, r.descripcion as rol_descripcion,
+           CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
+    FROM usuario u
+    LEFT JOIN persona p ON u.cedula_usuario = p.cedula
+    LEFT JOIN roles r ON u.id_rol_usu = r.id_rol
+    ORDER BY u.id
+  `);
+  return result.rows;
+}
 
-  // Obtener usuario por ID con datos de persona y rol
-  static async getById(id) {
-    const result = await pool.query(`
-      SELECT u.*, 
-             p.nacionalidad, p.nombres, p.apellidos, p.fecha_nacimiento, 
-             p.telefono, p.correo, p.estado_civil, p.direccion, p.estado, 
-             p.municipio, p.parroquia, p.tipo_persona, p.email,
-             r.nombre_rol, r.descripcion as rol_descripcion,
-             CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
-      FROM usuario u
-      LEFT JOIN persona p ON u.cedula_usuario = p.cedula
-      LEFT JOIN roles r ON u.id_rol_usu = r.id_rol
-      WHERE u.id = $1
-    `, [id]);
-    return result.rows[0];
-  }
+// MODIFICAR: Obtener usuario por ID (agregar r.id_rol)
+static async getById(id) {
+  const result = await pool.query(`
+    SELECT u.*, 
+           p.nacionalidad, p.nombres, p.apellidos, p.fecha_nacimiento, 
+           p.telefono, p.correo, p.estado_civil, p.direccion, p.estado as estado_persona, 
+           p.municipio, p.parroquia, p.tipo_persona, p.email,
+           r.id_rol, r.nombre_rol, r.descripcion as rol_descripcion,
+           CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
+    FROM usuario u
+    LEFT JOIN persona p ON u.cedula_usuario = p.cedula
+    LEFT JOIN roles r ON u.id_rol_usu = r.id_rol
+    WHERE u.id = $1
+  `, [id]);
+  return result.rows[0];
+}
+
 
   // Obtener usuario por cédula con datos de persona y rol
   static async getByCedula(cedula_usuario) {
@@ -105,16 +106,35 @@ class UsuarioModel {
 
   // Actualizar usuario
   static async update(id, data) {
-    const { id_rol_usu, estatus } = data;
-    
-    const result = await pool.query(
-      `UPDATE usuario SET
-        id_rol_usu = $1, estatus = $2, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $3 RETURNING id, cedula_usuario, id_rol_usu, estatus, created_at`,
-      [id_rol_usu, estatus, id]
-    );
-    return result.rows[0];
+  const { id_rol_usu, estatus } = data;
+  
+  let query = 'UPDATE usuario SET updated_at = CURRENT_TIMESTAMP';
+  const params = [];
+  let paramCount = 1;
+
+  if (id_rol_usu !== undefined) {
+    query += `, id_rol_usu = $${paramCount}`;
+    params.push(id_rol_usu);
+    paramCount++;
   }
+
+  if (estatus !== undefined) {
+    query += `, estatus = $${paramCount}`;
+    params.push(estatus);
+    paramCount++;
+  }
+
+  // Si no hay campos para actualizar, retornar error
+  if (params.length === 0) {
+    throw new Error('No se proporcionaron campos para actualizar');
+  }
+
+  query += ` WHERE id = $${paramCount} RETURNING id, cedula_usuario, id_rol_usu, estatus, created_at, updated_at`;
+  params.push(id);
+
+  const result = await pool.query(query, params);
+  return result.rows[0];
+}
 
   // Actualizar contraseña
   static async updatePassword(id, nuevaClave) {
@@ -261,6 +281,12 @@ class UsuarioModel {
     ]);
     return result.rows[0];
   }
+
+  static async getRoles() {
+  const result = await pool.query('SELECT id_rol, nombre_rol, descripcion FROM roles ORDER BY id_rol');
+  return result.rows;
+}
+
 }
 
 module.exports = UsuarioModel;

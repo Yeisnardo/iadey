@@ -60,6 +60,7 @@ const Usuario = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [rolesDB, setRolesDB] = useState([]);
   
   const [notifications, setNotifications] = useState([
     { id: 1, text: "Bienvenido al sistema de gestión de usuarios", time: "ahora", read: false },
@@ -638,9 +639,20 @@ const Usuario = () => {
   // Cargar datos al montar el componente
   useEffect(() => {
     cargarUsuarios();
+    cargarRoles();
     setIsVisible(true);
   }, []);
 
+  const cargarRoles = async () => {
+  try {
+    const response = await usuarioAPI.getRoles();
+    if (response.success) {
+      setRolesDB(response.data);
+    }
+  } catch (err) {
+    console.error("Error cargando roles:", err);
+  }
+};
   // Función para cargar usuarios desde el backend
   const cargarUsuarios = async () => {
     setLoading(true);
@@ -1001,6 +1013,7 @@ const Usuario = () => {
         
         const usuarioData = {
           rol: formData.rol,
+          id_rol_usu: parseInt(formData.rol),
           estatus: formData.estatus.toLowerCase()
         };
         
@@ -1478,30 +1491,38 @@ const Usuario = () => {
         </div>
         
         <div>
-          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-            Rol *
-          </label>
-          <select
-            name="rol"
-            value={formData.rol}
-            onChange={handleChange}
-            className={`w-full px-4 py-2 rounded-lg border ${
-              darkMode 
-                ? 'bg-gray-700 border-gray-600 text-white' 
-                : 'bg-white border-gray-200'
-            } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${
-              hasError('rol') ? 'border-red-500' : ''
-            }`}
-          >
-            <option value="">Seleccionar rol</option>
-            {roles.map(rol => (
-              <option key={rol.value} value={rol.value}>{rol.label}</option>
-            ))}
-          </select>
-          {hasError('rol') && (
-            <p className="text-xs text-red-500 mt-1">{getErrorMessage('rol')}</p>
-          )}
-        </div>
+  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+    Rol *
+  </label>
+  <select
+    name="rol"
+    value={formData.rol}
+    onChange={(e) => {
+      setFormData(prev => ({ 
+        ...prev, 
+        rol: e.target.value,
+        rol_id: e.target.value // Guardar el ID del rol
+      }));
+    }}
+    className={`w-full px-4 py-2 rounded-lg border ${
+      darkMode 
+        ? 'bg-gray-700 border-gray-600 text-white' 
+        : 'bg-white border-gray-200'
+    } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${
+      hasError('rol') ? 'border-red-500' : ''
+    }`}
+  >
+    <option value="">Seleccionar rol</option>
+    {rolesDB.map(rol => (
+      <option key={rol.id_rol} value={rol.id_rol}>
+        {rol.nombre_rol}
+      </option>
+    ))}
+  </select>
+  {hasError('rol') && (
+    <p className="text-xs text-red-500 mt-1">{getErrorMessage('rol')}</p>
+  )}
+</div>
         
         {/* Estado - Visible solo en edición, informativo en creación */}
         {modalMode === "edit" && (

@@ -47,47 +47,78 @@ const usuarioController = {
     }
   },
 
-  // Crear usuario
-  async create(req, res) {
-    try {
-      const { cedula_usuario, clave, id_rol_usu, estatus } = req.body;
+// Crear usuario
+async create(req, res) {
+  try {
+    const { cedula_usuario, clave, id_rol_usu, estatus } = req.body;
 
-      // Verificar si ya existe la cédula
-      const existeCedula = await UsuarioModel.getByCedula(cedula_usuario);
-      if (existeCedula) {
-        return res.status(400).json({ success: false, error: 'Ya existe un usuario con esta cédula' });
-      }
-
-      // Hashear contraseña
-      const saltRounds = 10;
-      const claveHasheada = await bcrypt.hash(clave, saltRounds);
-
-      const nuevoUsuario = await UsuarioModel.create({
-        cedula_usuario,
-        clave: claveHasheada,
-        id_rol_usu: id_rol_usu || 1, // Por defecto rol 1 (Emprendedor)
-        estatus: estatus || 'activo'
+    // Validar que id_rol_usu sea un número válido
+    if (!id_rol_usu || isNaN(parseInt(id_rol_usu))) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'El rol del usuario es requerido y debe ser un ID válido' 
       });
-
-      res.status(201).json({ success: true, data: nuevoUsuario });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
     }
-  },
 
-  // Actualizar usuario
-  async update(req, res) {
-    try {
-      const { id_rol_usu, estatus } = req.body;
-      const usuario = await UsuarioModel.update(req.params.id, { id_rol_usu, estatus });
-      if (!usuario) {
-        return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
-      }
-      res.json({ success: true, data: usuario });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+    // Verificar si ya existe la cédula
+    const existeCedula = await UsuarioModel.getByCedula(cedula_usuario);
+    if (existeCedula) {
+      return res.status(400).json({ success: false, error: 'Ya existe un usuario con esta cédula' });
     }
-  },
+
+    // Hashear contraseña
+    const saltRounds = 10;
+    const claveHasheada = await bcrypt.hash(clave, saltRounds);
+
+    const nuevoUsuario = await UsuarioModel.create({
+      cedula_usuario,
+      clave: claveHasheada,
+      id_rol_usu: parseInt(id_rol_usu), // Convertir a número
+      estatus: estatus || 'activo'
+    });
+
+    res.status(201).json({ success: true, data: nuevoUsuario });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+},
+
+// Actualizar usuario
+async update(req, res) {
+  try {
+    const { id_rol_usu, estatus } = req.body;
+    
+    // Validar que id_rol_usu sea un número válido si se proporciona
+    if (id_rol_usu && isNaN(parseInt(id_rol_usu))) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'El rol del usuario debe ser un ID válido' 
+      });
+    }
+
+    const usuarioActualizado = await UsuarioModel.update(req.params.id, { 
+      id_rol_usu: id_rol_usu ? parseInt(id_rol_usu) : undefined, 
+      estatus 
+    });
+    
+    if (!usuarioActualizado) {
+      return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    }
+    res.json({ success: true, data: usuarioActualizado });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+},
+
+// Nuevo método: Obtener roles disponibles
+async getRoles(req, res) {
+  try {
+    const roles = await UsuarioModel.getRoles();
+    res.json({ success: true, data: roles });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+},
 
   // Cambiar contraseña
   async updatePassword(req, res) {
