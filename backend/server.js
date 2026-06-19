@@ -18,6 +18,7 @@ const aprobacionRoutes = require('../backend/routes/aprobacionRoutes');
 const contratoRoutes = require('../backend/routes/contratoRoutes');
 const desembolsoRoutes = require('../backend/routes/desembolsoRoutes');
 const cuotasRoutes = require('../backend/routes/cuotaRoute');
+const permisosRoutes = require('../backend/routes/permisosRoutes');
 
 dotenv.config();
 
@@ -47,6 +48,7 @@ app.use('/api/aprobacion', aprobacionRoutes);
 app.use('/api/contrato', contratoRoutes);
 app.use('/api/desembolso', desembolsoRoutes);
 app.use('/api/cuota', cuotasRoutes);
+app.use('/api/permisos', permisosRoutes);
 
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Servidor funcionando' });

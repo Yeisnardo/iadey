@@ -53,24 +53,24 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, darkMode }) => {
   }, [location.pathname, sidebarOpen]);
 
   const menuItems = [
-    { id: "overview", icon: LayoutDashboard, text: "Panel General", path: "/Dashboard", section: "principal" },
-    { id: "credit-request", icon: FileCheck, text: "Solicitud de Crédito", path: "/Solicitud", section: "operaciones" },
-    { id: "entrepreneur-file", icon: FolderOpen, text: "Expediente", path: "/Expediente", section: "operaciones" },
-    { id: "inspection", icon: ClipboardCheck, text: "Inspección", path: "/Inspeccion", section: "operaciones" },
-    { id: "approval", icon: Handshake, text: "Aprobación", path: "/aprobacion", section: "operaciones" },
-    { id: "banck", icon: Landmark, text: "Crédito a Banco", path: "/Bancarios", section: "financiero" },
+    { id: "panel", icon: LayoutDashboard, text: "Panel General", path: "/Dashboard", section: "principal" },
+    { id: "sol", icon: FileCheck, text: "Solicitud de Crédito", path: "/Solicitud", section: "operaciones" },
+    { id: "exp", icon: FolderOpen, text: "Expediente", path: "/Expediente", section: "operaciones" },
+    { id: "ins", icon: ClipboardCheck, text: "Inspección", path: "/Inspeccion", section: "operaciones" },
+    { id: "apr", icon: Handshake, text: "Aprobación", path: "/aprobacion", section: "operaciones" },
+    { id: "banc", icon: Landmark, text: "Crédito a Banco", path: "/Bancarios", section: "financiero" },
     
-    { id: "contract", icon: FileSignature, text: "Contrato", path: "/Contrato", section: "financiero" },
-    { id: "disbursement", icon: Banknote, text: "Desembolso", path: "/Desembolso", section: "financiero" },
-    { id: "payment", icon: CreditCard, text: "Pago de Cuota", path: "/Cuota", section: "financiero" }
+    { id: "cont", icon: FileSignature, text: "Contrato", path: "/Contrato", section: "financiero" },
+    { id: "des", icon: Banknote, text: "Desembolso", path: "/Desembolso", section: "financiero" },
+    { id: "cuo", icon: CreditCard, text: "Pago de Cuota", path: "/Cuota", section: "financiero" }
   ];
 
   const settingsSubItems = [
-    { id: "users", icon: Users, text: "Usuarios, roles y permisos", path: "/Usuario" },
-    { id: "entrepreneurships", icon: Building, text: "Emprendimientos", path: "/Clasificacion_emprendimiento" },
+    { id: "user", icon: Users, text: "Usuarios, roles y permisos", path: "/Usuario" },
+    { id: "empr", icon: Building, text: "Emprendimientos", path: "/Clasificacion_emprendimiento" },
     { id: "roles", icon: Users, text: "Roles", path: "/Roles"},
-    { id: "contract-params", icon: FileText, text: "Contratos", path: "/Configuracion_contrato" },
-    { id: "requirements", icon: FileText, text: "Requisitos", path: "/Configuracion_requisitos" }
+    { id: "configCont", icon: FileText, text: "Contratos", path: "/Configuracion_contrato" },
+    { id: "req", icon: FileText, text: "Requisitos", path: "/Configuracion_requisitos" }
   ];
 
   const handleMenuItemClick = (item) => {

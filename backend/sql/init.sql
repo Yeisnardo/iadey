@@ -19,7 +19,6 @@ CREATE TABLE persona (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-
 -- =============================================
 -- TABLA: roles 
 -- =============================================
@@ -31,14 +30,15 @@ CREATE TABLE roles (
 );
 
 -- =============================================
--- TABLA: roles_menu (qué roles pueden ver qué items del menú)
+-- TABLA: Permisos
 -- =============================================
-CREATE TABLE roles_menu (
-    id_rol INT NOT NULL,
+CREATE TABLE Permisos (
+    id_permisos SERIAL PRIMARY KEY,
+    id_roles INT NOT NULL,
     menu_item_id VARCHAR(50) NOT NULL,
+    acciones TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id_rol, menu_item_id),
-    FOREIGN KEY (id_rol) REFERENCES roles(id_rol) ON DELETE CASCADE
+    FOREIGN KEY (id_roles) REFERENCES roles(id_rol) ON DELETE CASCADE
 );
 
 -- =============================================
