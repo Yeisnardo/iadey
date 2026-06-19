@@ -39,7 +39,20 @@ const Login = () => {
     if (usuarioAPI.isAuthenticated()) {
       const user = usuarioAPI.getCurrentUser();
       if (user) {
-        navigate("/dashboard", { replace: true });
+        // Verificar que sea emprendedor (id_rol_usu = 1)
+        if (user.id_rol_usu === 1) {
+          navigate("/dashboard", { replace: true });
+        } else {
+          // Si no es emprendedor, cerrar sesión
+          usuarioAPI.logout();
+          Swal.fire({
+            icon: 'warning',
+            title: 'Acceso restringido',
+            text: 'Solo los emprendedores pueden acceder al sistema',
+            confirmButtonColor: '#264653',
+            confirmButtonText: 'Entendido'
+          });
+        }
       }
     }
   }, [navigate]);
@@ -258,28 +271,47 @@ const Login = () => {
     try {
       const response = await usuarioAPI.login(formData.cedula_usuario, formData.password);
       
-      // IMPORTANTE: Verificar explícitamente si success es true
+      // Verificar si success es true
       if (response && response.success === true) {
-        // Mostrar SweetAlert de éxito
-        await Swal.fire({
-          icon: 'success',
-          title: '¡Bienvenido!',
-          text: 'Has iniciado sesión correctamente',
-          confirmButtonColor: '#264653',
-          confirmButtonText: 'Continuar',
-          timer: 2000,
-          timerProgressBar: true,
-          showConfirmButton: true,
-          allowOutsideClick: false
-        });
+        // Obtener el usuario guardado
+        const storedUser = usuarioAPI.getCurrentUser();
         
-        // Redireccionar después del mensaje
-        setTimeout(() => {
-          navigate("/dashboard", { replace: true });
-        }, 500);
+        // *** VALIDACIÓN: Solo permitir id_rol_usu = 1 (Emprendedor) ***
+        if (storedUser && storedUser.id_rol_usu === 1) {
+          // Es emprendedor, permitir acceso
+          await Swal.fire({
+            icon: 'success',
+            title: '¡Bienvenido Emprendedor!',
+            text: 'Has iniciado sesión correctamente',
+            confirmButtonColor: '#264653',
+            confirmButtonText: 'Continuar',
+            timer: 2000,
+            timerProgressBar: true,
+            showConfirmButton: true,
+            allowOutsideClick: false
+          });
+          
+          setTimeout(() => {
+            navigate("/dashboard", { replace: true });
+          }, 500);
+        } else {
+          // No es emprendedor, mostrar error y cerrar sesión
+          usuarioAPI.logout();
+          
+          await Swal.fire({
+            icon: 'error',
+            title: 'Acceso restringido',
+            text: 'Solo los emprendedores pueden acceder al sistema',
+            confirmButtonColor: '#264653',
+            confirmButtonText: 'Entendido'
+          });
+          
+          setLoginError('Acceso restringido. Solo emprendedores pueden ingresar.');
+          setFormData((prev) => ({ ...prev, password: "" }));
+          setIsLoading(false);
+        }
       } else {
         // Credenciales incorrectas o error del servidor
-        // Mostrar SweetAlert de error
         const errorMessage = response?.message || response?.error || "Las credenciales son incorrectas";
         
         await Swal.fire({
@@ -292,12 +324,10 @@ const Login = () => {
         
         setLoginError(errorMessage);
         setFormData((prev) => ({ ...prev, password: "" }));
-        
-        // Limpiar cualquier estado de loading que pueda causar problemas
         setIsLoading(false);
       }
     } catch (error) {
-      // Este catch solo se ejecutará para errores graves de red o servidor
+      // Errores graves de red o servidor
       console.error("Error grave en login:", error);
       
       await Swal.fire({
@@ -350,6 +380,11 @@ const Login = () => {
                 {(loginError === "Las credenciales son incorrectas" || loginError.includes("credenciales")) && (
                   <p className="text-xs text-red-600 mt-1">
                     Verifica tus datos e intenta nuevamente
+                  </p>
+                )}
+                {loginError.includes("Acceso restringido") && (
+                  <p className="text-xs text-red-600 mt-1">
+                    Solo los emprendedores pueden acceder al sistema
                   </p>
                 )}
               </div>

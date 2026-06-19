@@ -19,15 +19,15 @@ const Login_administrativo = () => {
   useEffect(() => {
     setIsVisible(true);
     
-    // Verificar si ya está autenticado como administrador
+    // Verificar si ya está autenticado como administrativo
     if (usuarioAPI.isAuthenticated()) {
       const user = usuarioAPI.getCurrentUser();
       if (user) {
-        // Verificar si el usuario tiene rol de administrador
-        if (user.rol === 'administrador' || user.rol === 'admin') {
-          navigate("/admin/dashboard", { replace: true });
+        // *** MODIFICADO: Verificar que NO sea emprendedor (id_rol_usu !== 1) ***
+        if (user.id_rol_usu !== 1) {
+          navigate("/dashboard", { replace: true });
         } else {
-          // Si no es admin, cerrar sesión y mostrar mensaje
+          // Si es emprendedor, cerrar sesión y mostrar mensaje
           usuarioAPI.logout();
           showAccessDeniedAlert();
         }
@@ -75,21 +75,21 @@ const Login_administrativo = () => {
     Swal.fire({
       icon: 'error',
       title: 'Acceso Denegado',
-      text: 'No tienes permisos de administrador para acceder a este panel',
+      text: 'Los emprendedores no tienen acceso al panel administrativo',
       confirmButtonColor: '#1a3542',
       confirmButtonText: 'Entendido',
       timer: 4000,
       timerProgressBar: true,
       background: '#fff'
     });
-    setLoginError("Acceso restringido. Solo administradores.");
+    setLoginError("Acceso restringido. Solo personal administrativo.");
   };
 
   // Función para mostrar alerta de éxito
   const showSuccessAlert = () => {
     Swal.fire({
       icon: 'success',
-      title: '¡Bienvenido Administrador!',
+      title: '¡Bienvenido!',
       text: 'Acceso concedido al panel administrativo',
       confirmButtonColor: '#1a3542',
       confirmButtonText: 'Continuar',
@@ -168,25 +168,25 @@ const Login_administrativo = () => {
     setLoginError("");
     
     try {
-      // Usar la API real de usuarioAPI (CON ENCRIPTADO)
+      // Usar la API real de usuarioAPI
       const response = await usuarioAPI.login(formData.cedula_usuario, formData.password);
       
       if (response.success) {
         const user = response.data;
         
-        // Verificar si el usuario es administrador
-        if (user.rol === 'administrador' || user.rol === 'admin') {
-          // Login exitoso para administrador
+        // *** MODIFICADO: Verificar que NO sea emprendedor (id_rol_usu !== 1) ***
+        if (user.id_rol_usu !== 1) {
+          // Login exitoso para personal administrativo
           showSuccessAlert();
           // Pequeña pausa para mostrar la alerta antes de navegar
           setTimeout(() => {
             navigate("/admin/dashboard", { replace: true });
           }, 1500);
         } else {
-          // Usuario válido pero no es administrador
+          // Usuario es emprendedor, no tiene acceso
           usuarioAPI.logout(); // Cerrar sesión
           showAccessDeniedAlert();
-          setLoginError("Acceso restringido. Solo personal administrativo autorizado.");
+          setLoginError("Acceso restringido. Los emprendedores no pueden acceder al panel administrativo.");
         }
       } else {
         showErrorAlert(response.error || "Credenciales incorrectas");
@@ -228,7 +228,7 @@ const Login_administrativo = () => {
         border border-gray-100
         ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}
       `}>
-        {/* Header con color sólido - Diferente color para panel administrativo */}
+        {/* Header con color sólido - Panel administrativo */}
         <div className="bg-gradient-to-r from-[#1a3542] to-[#264653] px-8 py-6 rounded-t-2xl">
           <div className="flex items-center justify-center gap-3">
             <div className="bg-white/10 p-3 rounded-xl">
@@ -252,11 +252,11 @@ const Login_administrativo = () => {
               Acceso Administrativo
             </h3>
             <p className="text-gray-500 text-sm">
-              Ingresa tus credenciales de administrador
+              Ingresa tus credenciales de personal autorizado
             </p>
           </div>
 
-          {/* Mensaje de error tradicional (opcional, se puede mantener para feedback visual adicional) */}
+          {/* Mensaje de error tradicional */}
           {loginError && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 animate-shake">
               <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
@@ -366,7 +366,7 @@ const Login_administrativo = () => {
           <div className="mt-6 p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <p className="text-xs text-amber-700 text-center">
               <Shield size={12} className="inline mr-1" />
-              Área restringida. Solo personal autorizado.
+              Área restringida. Solo personal autorizado. Emprendedores no tienen acceso.
             </p>
           </div>
         </div>

@@ -9,24 +9,62 @@ const usuarioAPI = {
     try {
       const response = await api.post('/usuarios/login', { cedula_usuario, clave });
       
+      console.log('Respuesta del login:', response.data); // Para depuración
+      
       if (response.data.success) {
         // Guardar token
         if (response.data.token) {
           localStorage.setItem('token', response.data.token);
         }
         
-        // Guardar información del usuario con datos de persona
-        const userData = {
-          cedula_usuario: response.data.data.cedula_usuario,
-          id_rol_usu: response.data.data.id_rol_usu,
-          estatus: response.data.data.estatus,
-          nombre_completo: response.data.data.nombre_completo || null,
-          nombres: response.data.data.nombres || response.data.data.persona?.nombres || null,
-          apellidos: response.data.data.apellidos || response.data.data.persona?.apellidos || null,
-          ultimo_acceso: response.data.data.ultimo_acceso
+        // Obtener datos del usuario de la respuesta
+        const userDataFromResponse = response.data.data;
+        
+        // Determinar el rol correctamente
+        let roleName = 'Usuario';
+        
+        // Prioridades para obtener el nombre del rol:
+        if (userDataFromResponse.rol) {
+          roleName = userDataFromResponse.rol;
+        } else if (userDataFromResponse.nombre_rol) {
+          roleName = userDataFromResponse.nombre_rol;
+        } else if (userDataFromResponse.id_rol_usu) {
+          // Mapeo de roles según tu base de datos
+          const roleMap = {
+            1: 'Administrador',
+            2: 'Administrador',
+            3: 'Emprendedor',
+            4: 'Admin'
+          };
+          roleName = roleMap[userDataFromResponse.id_rol_usu] || `Rol ${userDataFromResponse.id_rol_usu}`;
+        }
+        
+        // Construir objeto de usuario con todos los datos necesarios
+        const userToStore = {
+          cedula_usuario: userDataFromResponse.cedula_usuario,
+          id_rol_usu: userDataFromResponse.id_rol_usu,
+          estatus: userDataFromResponse.estatus,
+          ultimo_acceso: userDataFromResponse.ultimo_acceso,
+          // Datos personales
+          nombres: userDataFromResponse.nombres || userDataFromResponse.persona?.nombres || '',
+          apellidos: userDataFromResponse.apellidos || userDataFromResponse.persona?.apellidos || '',
+          nombre_completo: userDataFromResponse.nombre_completo || 
+            userDataFromResponse.persona?.nombre_completo || 
+            `${userDataFromResponse.nombres || ''} ${userDataFromResponse.apellidos || ''}`.trim(),
+          // ROL (guardar en ambos campos para compatibilidad)
+          rol: roleName,
+          nombre_rol: roleName,
+          // Datos adicionales de persona (si están disponibles)
+          persona: userDataFromResponse.persona || null
         };
         
-        localStorage.setItem('user', JSON.stringify(userData));
+        console.log('Usuario a guardar:', userToStore); // Para depuración
+        
+        // Guardar en localStorage
+        localStorage.setItem('user', JSON.stringify(userToStore));
+        
+        // También guardar el rol por separado para fácil acceso
+        localStorage.setItem('userRole', roleName);
       }
       
       return response.data;
@@ -62,12 +100,44 @@ const usuarioAPI = {
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('userRole');
   },
 
-  // Obtener usuario actual
+  // Obtener usuario actual (mejorado)
   getCurrentUser: () => {
     const user = localStorage.getItem('user');
-    return user ? JSON.parse(user) : null;
+    if (!user) return null;
+    
+    try {
+      const userData = JSON.parse(user);
+      
+      // Asegurar que el rol esté presente
+      if (!userData.rol && userData.nombre_rol) {
+        userData.rol = userData.nombre_rol;
+      }
+      
+      if (!userData.rol && userData.id_rol_usu) {
+        const roleMap = {
+          1: 'Administrador',
+          2: 'Administrador',
+          3: 'Emprendedor'
+        };
+        userData.rol = roleMap[userData.id_rol_usu] || 'Usuario';
+        // Guardar de vuelta para futuras lecturas
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+      
+      // Si aún no tiene rol, asignar 'Usuario' por defecto
+      if (!userData.rol) {
+        userData.rol = 'Usuario';
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+      
+      return userData;
+    } catch (error) {
+      console.error('Error al parsear usuario:', error);
+      return null;
+    }
   },
 
   // Verificar si está autenticado

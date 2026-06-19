@@ -34,43 +34,92 @@ const useUserInfo = () => {
   const loadUserInfo = useCallback(async () => {
     try {
       const storedUser = usuarioAPI.getCurrentUser();
-      if (!storedUser) return;
+      if (!storedUser) {
+        console.log('No hay usuario almacenado');
+        return;
+      }
 
+      console.log('Usuario almacenado:', storedUser);
+
+      // Función para obtener el rol correctamente
+      const getRole = (user) => {
+        if (user.rol) return user.rol;
+        if (user.nombre_rol) return user.nombre_rol;
+        if (user.id_rol_usu) {
+          const roleMap = {
+            1: 'Administrador',
+            2: 'Administrador',
+            3: 'Emprendedor'
+          };
+          return roleMap[user.id_rol_usu] || 'Usuario';
+        }
+        return 'Usuario';
+      };
+
+      // Si tiene nombres y apellidos, usar esos datos directamente
       if (storedUser.nombres && storedUser.apellidos) {
+        const role = getRole(storedUser);
+        console.log('Rol obtenido de storedUser:', role);
+        
         setUserInfo({
           nombres: storedUser.nombres,
           apellidos: storedUser.apellidos,
           nombre_completo: `${storedUser.nombres} ${storedUser.apellidos}`,
           cedula: storedUser.cedula_usuario || '',
-          role: storedUser.rol || '',
+          role: role,
           estatus: storedUser.estatus || ''
         });
         return;
       }
 
-      const response = await usuarioAPI.getUsuarioByCedula(storedUser.cedula_usuario);
-      if (response?.success && response?.data) {
-        const data = response.data;
-        setUserInfo({
-          nombres: data.nombres || data.persona?.nombres || '',
-          apellidos: data.apellidos || data.persona?.apellidos || '',
-          nombre_completo: data.nombre_completo || 
-            data.persona?.nombre_completo || 
-            `${data.nombres || ''} ${data.apellidos || ''}`.trim(),
-          cedula: data.cedula_usuario || storedUser.cedula_usuario,
-          role: data.rol || storedUser.rol || '',
-          estatus: data.estatus || storedUser.estatus || ''
-        });
-        return;
+      // Si no tiene nombres, intentar obtener del API
+      if (storedUser.cedula_usuario) {
+        const response = await usuarioAPI.getUsuarioByCedula(storedUser.cedula_usuario);
+        if (response?.success && response?.data) {
+          const data = response.data;
+          const role = data.rol || data.nombre_rol || getRole(data);
+          
+          console.log('Rol obtenido del API:', role);
+          
+          setUserInfo({
+            nombres: data.nombres || data.persona?.nombres || '',
+            apellidos: data.apellidos || data.persona?.apellidos || '',
+            nombre_completo: data.nombre_completo || 
+              data.persona?.nombre_completo || 
+              `${data.nombres || ''} ${data.apellidos || ''}`.trim(),
+            cedula: data.cedula_usuario || storedUser.cedula_usuario,
+            role: role,
+            estatus: data.estatus || storedUser.estatus || ''
+          });
+          
+          // Actualizar localStorage con el rol correcto
+          const updatedUser = {
+            ...storedUser,
+            rol: role,
+            nombre_rol: role,
+            nombres: data.nombres || data.persona?.nombres || '',
+            apellidos: data.apellidos || data.persona?.apellidos || '',
+            nombre_completo: data.nombre_completo || 
+              data.persona?.nombre_completo || 
+              `${data.nombres || ''} ${data.apellidos || ''}`.trim()
+          };
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          
+          return;
+        }
       }
 
       // Fallback con datos mínimos
+      const role = getRole(storedUser);
+      console.log('Rol fallback:', role);
+      
       setUserInfo(prev => ({
         ...prev,
         cedula: storedUser.cedula_usuario || '',
-        role: storedUser.rol || '',
+        role: role,
         estatus: storedUser.estatus || ''
       }));
+      
     } catch (error) {
       console.error('Error cargando información del usuario:', error);
     }
@@ -121,7 +170,6 @@ const showLogoutConfirmation = async (handleLogout) => {
   });
 
   if (result.isConfirmed) {
-    // Mostrar loading mientras se cierra sesión
     Swal.fire({
       title: 'Cerrando sesión...',
       text: 'Por favor espera un momento',
@@ -136,7 +184,6 @@ const showLogoutConfirmation = async (handleLogout) => {
     try {
       await handleLogout();
       
-      // Mostrar mensaje de éxito
       await Swal.fire({
         title: '¡Sesión cerrada!',
         text: 'Has cerrado sesión exitosamente',
@@ -149,7 +196,6 @@ const showLogoutConfirmation = async (handleLogout) => {
         }
       });
     } catch (error) {
-      // Mostrar mensaje de error si algo sale mal
       Swal.fire({
         title: 'Error',
         text: 'No se pudo cerrar la sesión. Intenta de nuevo.',
@@ -346,6 +392,11 @@ const Header = ({
   const notificationRef = useRef(null);
   const userMenuRef = useRef(null);
   const userMenuButtonRef = useRef(null);
+
+  // DEBUG: Verificar estado del usuario
+  useEffect(() => {
+    console.log('UserInfo en Header:', userInfo);
+  }, [userInfo]);
 
   const displayName = useMemo(() => getDisplayName(userInfo), [userInfo]);
   const initials = useMemo(() => getInitials(userInfo), [userInfo]);

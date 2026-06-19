@@ -38,58 +38,61 @@ static async getById(id) {
 
 
   // Obtener usuario por cédula con datos de persona y rol
-  static async getByCedula(cedula_usuario) {
-    const result = await pool.query(`
-      SELECT 
-        u.id, u.cedula_usuario, u.clave, u.id_rol_usu, u.estatus, 
-        u.created_at, u.updated_at, u.ultimo_acceso,
-        p.nombres, p.apellidos, p.nacionalidad, p.fecha_nacimiento, 
-        p.telefono, p.correo, p.estado_civil, p.direccion, p.estado as estado_persona, 
-        p.municipio, p.parroquia, p.tipo_persona, p.email,
-        r.nombre_rol, r.descripcion as rol_descripcion,
-        CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
-      FROM usuario u
-      LEFT JOIN persona p ON u.cedula_usuario = p.cedula
-      LEFT JOIN roles r ON u.id_rol_usu = r.id_rol
-      WHERE u.cedula_usuario = $1
-    `, [cedula_usuario]);
-    
-    const user = result.rows[0];
-    
-    if (!user) return null;
-    
-    // Formatear la respuesta con la estructura que espera el frontend
-    return {
-      id: user.id,
-      cedula_usuario: user.cedula_usuario,
-      clave: user.clave, // Incluir clave para comparación en login
-      id_rol_usu: user.id_rol_usu,
-      rol: user.nombre_rol, // Para compatibilidad
-      estatus: user.estatus,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-      ultimo_acceso: user.ultimo_acceso,
-      nombre_completo: user.nombre_completo,
+  // models/UsuarioModel.js - Método getByCedula modificado
+
+static async getByCedula(cedula_usuario) {
+  const result = await pool.query(`
+    SELECT 
+      u.id, u.cedula_usuario, u.clave, u.id_rol_usu, u.estatus, 
+      u.created_at, u.updated_at, u.ultimo_acceso,
+      p.nombres, p.apellidos, p.nacionalidad, p.fecha_nacimiento, 
+      p.telefono, p.correo, p.estado_civil, p.direccion, p.estado as estado_persona, 
+      p.municipio, p.parroquia, p.tipo_persona, p.email,
+      r.nombre_rol, r.descripcion as rol_descripcion,
+      CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
+    FROM usuario u
+    LEFT JOIN persona p ON u.cedula_usuario = p.cedula
+    LEFT JOIN roles r ON u.id_rol_usu = r.id_rol
+    WHERE u.cedula_usuario = $1
+  `, [cedula_usuario]);
+  
+  const user = result.rows[0];
+  
+  if (!user) return null;
+  
+  // Formatear la respuesta con rol incluido
+  return {
+    id: user.id,
+    cedula_usuario: user.cedula_usuario,
+    clave: user.clave,
+    id_rol_usu: user.id_rol_usu,
+    rol: user.nombre_rol, // Añadir rol directamente
+    nombre_rol: user.nombre_rol, // Mantener por compatibilidad
+    estatus: user.estatus,
+    created_at: user.created_at,
+    updated_at: user.updated_at,
+    ultimo_acceso: user.ultimo_acceso,
+    nombre_completo: user.nombre_completo,
+    nombres: user.nombres,
+    apellidos: user.apellidos,
+    persona: {
       nombres: user.nombres,
       apellidos: user.apellidos,
-      persona: {
-        nombres: user.nombres,
-        apellidos: user.apellidos,
-        nombre_completo: user.nombre_completo,
-        nacionalidad: user.nacionalidad,
-        fecha_nacimiento: user.fecha_nacimiento,
-        telefono: user.telefono,
-        correo: user.correo,
-        estado_civil: user.estado_civil,
-        direccion: user.direccion,
-        estado: user.estado_persona,
-        municipio: user.municipio,
-        parroquia: user.parroquia,
-        tipo_persona: user.tipo_persona,
-        email: user.email
-      }
-    };
-  }
+      nombre_completo: user.nombre_completo,
+      nacionalidad: user.nacionalidad,
+      fecha_nacimiento: user.fecha_nacimiento,
+      telefono: user.telefono,
+      correo: user.correo,
+      estado_civil: user.estado_civil,
+      direccion: user.direccion,
+      estado: user.estado_persona,
+      municipio: user.municipio,
+      parroquia: user.parroquia,
+      tipo_persona: user.tipo_persona,
+      email: user.email
+    }
+  };
+}
 
   // Crear usuario (con id_rol_usu)
   static async create(data) {
