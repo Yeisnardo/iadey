@@ -97,11 +97,28 @@ const usuarioAPI = {
   },
 
   // Cerrar sesión
-  logout: () => {
-    localStorage.removeItem('token');
+  // En api_usuario.js
+const logout = async () => {
+  try {
+    const storedUser = getCurrentUser();
+    const idRolUsu = storedUser?.id_rol_usu;
+    
+    // Limpiar localStorage o tokens
     localStorage.removeItem('user');
-    localStorage.removeItem('userRole');
-  },
+    localStorage.removeItem('token');
+    
+    // Determinar ruta de redirección
+    const redirectPath = idRolUsu === 1 ? '/login' : '/login_administrativo';
+    
+    // Llamar a tu endpoint de logout si es necesario
+    // await api.post('/logout');
+    
+    return redirectPath;
+  } catch (error) {
+    console.error('Error al cerrar sesión:', error);
+    throw error;
+  }
+},
 
   // Obtener usuario actual (mejorado)
   getCurrentUser: () => {

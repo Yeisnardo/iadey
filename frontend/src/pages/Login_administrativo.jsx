@@ -180,7 +180,7 @@ const Login_administrativo = () => {
           showSuccessAlert();
           // Pequeña pausa para mostrar la alerta antes de navegar
           setTimeout(() => {
-            navigate("/admin/dashboard", { replace: true });
+            navigate("/dashboard", { replace: true });
           }, 1500);
         } else {
           // Usuario es emprendedor, no tiene acceso

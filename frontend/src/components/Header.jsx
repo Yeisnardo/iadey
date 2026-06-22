@@ -4,6 +4,7 @@ import {
   Menu, X, ChevronDown,
   User, Settings, HelpCircle, LogOut, CreditCard, Shield, Building2
 } from "lucide-react";
+import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import usuarioAPI from '../services/api_usuario';
 
@@ -148,8 +149,8 @@ const useClickOutside = (refs, handlers) => {
   }, [refs, handlers]);
 };
 
-// Función para mostrar confirmación de cierre de sesión
-const showLogoutConfirmation = async (handleLogout) => {
+// Función para mostrar confirmación de cierre de sesión con navegación
+const showLogoutConfirmation = async (handleLogout, navigate) => {
   const result = await Swal.fire({
     title: '¿Cerrar sesión?',
     text: '¿Estás seguro de que deseas cerrar tu sesión actual?',
@@ -183,6 +184,9 @@ const showLogoutConfirmation = async (handleLogout) => {
 
     try {
       await handleLogout();
+      
+      // Redirigir a la página de cierre de sesión
+      navigate('/Cierre_sesion');
       
       await Swal.fire({
         title: '¡Sesión cerrada!',
@@ -293,7 +297,7 @@ MenuItem.displayName = 'MenuItem';
 
 const UserMenuDropdown = React.memo(({ 
   userInfo, showUserMenu, setShowUserMenu, 
-  handleLogout, userMenuRef 
+  handleLogout, userMenuRef, navigate 
 }) => {
   const displayName = useMemo(() => getDisplayName(userInfo), [userInfo]);
   const fullName = useMemo(() => getFullName(userInfo), [userInfo]);
@@ -303,8 +307,8 @@ const UserMenuDropdown = React.memo(({
 
   const handleLogoutClick = useCallback(() => {
     setShowUserMenu(false);
-    showLogoutConfirmation(handleLogout);
-  }, [handleLogout, setShowUserMenu]);
+    showLogoutConfirmation(handleLogout, navigate);
+  }, [handleLogout, setShowUserMenu, navigate]);
 
   if (!showUserMenu) return null;
 
@@ -388,6 +392,7 @@ const Header = ({
   unreadCount, 
   markAsRead 
 }) => {
+  const navigate = useNavigate();
   const userInfo = useUserInfo();
   const notificationRef = useRef(null);
   const userMenuRef = useRef(null);
@@ -468,6 +473,7 @@ const Header = ({
               setShowUserMenu={setShowUserMenu}
               handleLogout={handleLogout}
               userMenuRef={userMenuRef}
+              navigate={navigate}
             />
           </div>
         </div>

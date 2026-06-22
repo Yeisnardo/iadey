@@ -3,8 +3,10 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
 // Importación de páginas
+import Cierre_sesion from './pages/Cierre_sesion.jsx';
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import Login_administrativo from './pages/Login_administrativo.jsx';
 import Dashboard from "./pages/Dashboard";
 import Solicitud from "./pages/Solicitud.jsx";
 import Expediente from "./pages/Expediente.jsx";
@@ -42,7 +44,7 @@ function App() {
 
   // Verificar si hay usuario en localStorage al cargar
   useEffect(() => {
-    const storedUser = localStorage.getItem('usuario');
+    const storedUser = localStorage.getItem('user');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
@@ -54,6 +56,8 @@ function App() {
         {/* Rutas públicas */}
         <Route path="/" element={<Index />} />
         <Route path="/Login" element={<Login />} />
+        <Route path="/Cierre_sesion" element={<Cierre_sesion />} />
+        <Route path="/Login_administrativo" element={<Login_administrativo />} />
         <Route path="/Dashboard" element={<Dashboard />} />
         <Route path="/Solicitud" element={<Solicitud />} />
         <Route path="/Expediente" element={<Expediente />} />
