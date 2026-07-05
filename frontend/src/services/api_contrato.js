@@ -34,6 +34,16 @@ const ContratoAPI = {
     }
   },
 
+  getByCedula: async (cedula) => {
+  try {
+    const response = await api.get(`/contrato/cedula/${cedula}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error en getByCedula:', error);
+    throw error.response?.data || { error: 'Error al obtener los contratos por cédula' };
+  }
+},
+
   // Obtener un contrato por ID de aprobación
   getById: async (id) => {
     try {

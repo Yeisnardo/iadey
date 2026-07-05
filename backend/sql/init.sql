@@ -154,7 +154,7 @@ CREATE TABLE aprobacion (
     id_aprobacion SERIAL PRIMARY KEY,
     id_inspeccion INT NOT NULL,
     id_expediente INT NOT NULL,
-    cedula_persona_id TEXT NOT NULL
+    cedula_persona_id TEXT NOT NULL,
     verificacion_requisitos TEXT NOT NULL,
     estatus_aprobacion VARCHAR (20) NOT NULL,
     seleccion_manejo VARCHAR (10) NOT NULL,
@@ -791,7 +791,7 @@ CREATE TABLE contrato (
     id_contrato SERIAL PRIMARY KEY,
     id_aprob INT NOT NULL,
     id_config INT NOT NULL,
-    id_cedula_aprob TEXT NOT NULL,
+    id_cedula_aprob TEXT,
     numero_contrato VARCHAR (30) NOT NULL,
     moneda VARCHAR (50) NOT NULL,
     monto_moneda VARCHAR (50) NOT NULL,
@@ -808,9 +808,7 @@ CREATE TABLE contrato (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_aprob) REFERENCES aprobacion(id_aprobacion),
-    FOREIGN KEY (id_config) REFERENCES configuracion_contrato(id_configuracion),
-    FOREIGN KEY (id_cedula_aprob) REFERENCES aprobacion(cedula_persona_id)
-
+    FOREIGN KEY (id_config) REFERENCES configuracion_contrato(id_configuracion)
 );
 
 CREATE TABLE desembolso (

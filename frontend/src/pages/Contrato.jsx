@@ -22,6 +22,8 @@ import {
   Gift,
   Users,
   UserCheck,
+  Shield,
+  Lock,
 } from "lucide-react";
 
 // Componentes personalizados
@@ -32,6 +34,7 @@ import Footer from "../components/Footer";
 // APIs
 import ContratoAPI from "../services/api_contrato";
 import configuracionContratoAPI from "../services/api_configuracion_contrato";
+import usuarioAPI from "../services/api_usuario";
 
 const Contrato = () => {
   const navigate = useNavigate();
@@ -58,7 +61,7 @@ const Contrato = () => {
   // ============================================================
   // ESTADOS - Sección activa (Mis Contratos / Todos los Contratos)
   // ============================================================
-  const [activeSection, setActiveSection] = useState("all"); // "my" o "all"
+  const [activeSection, setActiveSection] = useState("all");
 
   // ============================================================
   // ESTADOS - Datos principales
@@ -69,6 +72,12 @@ const Contrato = () => {
   const [configuracionContrato, setConfiguracionContrato] = useState(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [lastContractNumber, setLastContractNumber] = useState(0);
+
+  // ============================================================
+  // ESTADOS - Usuario logueado
+  // ============================================================
+  const [user, setUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
 
   // ============================================================
   // ESTADOS - Tasas de cambio
@@ -105,23 +114,6 @@ const Contrato = () => {
   // ============================================================
   const [showConsultaModal, setShowConsultaModal] = useState(false);
   const [selectedContractForConsulta, setSelectedContractForConsulta] = useState(null);
-
-  // ============================================================
-  // DATOS DEL USUARIO (simulados - reemplazar con datos reales)
-  // ============================================================
-  const user = {
-    name: "Administrador IADEY",
-    email: "admin@iadey.gob.ve",
-    role: "Administrador",
-    avatar: null,
-    department: "Gestión de Créditos",
-    joinDate: "Enero 2024",
-    pendingTasks: 8,
-    completedTasks: 45,
-    performance: "98%",
-    // ID del usuario actual (para filtrar "Mis Contratos")
-    userId: 1, // Este valor debería venir del usuario autenticado
-  };
 
   // ============================================================
   // CONFIGURACIÓN DE ESTADOS
@@ -338,9 +330,22 @@ const Contrato = () => {
   };
 
   // ============================================================
-  // HANDLERS - Aceptar Contrato
+  // HANDLERS - Aceptar Contrato (solo administradores)
   // ============================================================
   const aceptarContratoDirecto = async (contract) => {
+    // Verificar si el usuario es administrador
+    const userRole = user?.id_rol_usu || user?.id_rol || 0;
+    if (userRole !== 1) {
+      Swal.fire({
+        title: 'Acceso Denegado',
+        text: 'Solo los administradores pueden aceptar contratos.',
+        icon: 'error',
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Entendido'
+      });
+      return;
+    }
+
     const result = await Swal.fire({
       title: '¿Aceptar contrato?',
       html: `
@@ -494,6 +499,7 @@ const Contrato = () => {
       const contratoData = {
         id_aprob: selectedContractForGestion.id_aprobacion,
         id_config: selectedContractForGestion.id_config || 1,
+        id_cedula_aprob: selectedContractForGestion.cedula_persona_id,
         numero_contrato: formGestion.numero_contrato,
         moneda: getMonedaNombre(formGestion.moneda),
         monto_moneda: parseFloat(formGestion.monto_moneda),
@@ -665,6 +671,34 @@ const Contrato = () => {
   };
 
   // ============================================================
+  // EFECTO - Cargar usuario logueado
+  // ============================================================
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        setLoadingUser(true);
+        
+        const currentUser = usuarioAPI.getCurrentUser();
+        
+        if (currentUser) {
+          console.log('Usuario logueado:', currentUser);
+          setUser(currentUser);
+        } else {
+          console.warn('No hay usuario logueado');
+          navigate('/login');
+        }
+      } catch (error) {
+        console.error('Error al cargar usuario:', error);
+        navigate('/login');
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+    
+    loadUser();
+  }, [navigate]);
+
+  // ============================================================
   // EFECTOS - Carga de datos iniciales
   // ============================================================
   useEffect(() => {
@@ -721,44 +755,136 @@ const Contrato = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // ============================================================
+  // EFECTO - Cargar contratos según sección activa
+  // ============================================================
   useEffect(() => {
     const fetchContratos = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      
       try {
         setLoading(true);
-        const response = await ContratoAPI.getAll();
-        if (response.success) {
-          const dataConDefaults = response.data.map((item) => ({
-            ...item,
-            numero_cuotas: item.numero_cuotas || "Sin definir",
-            inicio: item.inicio || "Sin definir",
-            cierre: item.cierre || "Sin definir",
-            estatus: item.estatus || "Esperando contrato",
-            emprendedor: item.emprendedor || "Sin definir",
-            numero_contrato: item.numero_contrato || "",
-            moneda: item.moneda || "usd",
-            monto_moneda: item.monto_moneda || null,
-            cambio: item.cambio || null,
-            flat: item.flat || null,
-            interes_porcentaje: item.interes_porcentaje || null,
-            devolvimiento: item.devolvimiento || null,
-            numero_gracias: item.numero_gracias || 0,
-            frecuencia_pago_contrato: item.frecuencia_pago_contrato || null,
-            // Asignar un usuario creador al contrato (simulado - reemplazar con datos reales)
-            created_by: item.created_by || 1, // 1 = administrador, 2 = otro usuario, etc.
-          }));
-          setContractsData(dataConDefaults);
+        setError(null);
+        
+        const userRole = user?.id_rol_usu || user?.id_rol || 0;
+        const isAdmin = userRole === 1;
+        const cedulaUsuario = user.cedula_usuario || user.cedula || user.persona?.cedula;
+        
+        console.log('Sección activa:', activeSection);
+        console.log('Rol del usuario:', userRole);
+        console.log('Es administrador:', isAdmin);
+        
+        // Si la sección es "Mis Contratos" y el usuario NO es admin, mostrar error
+        if (activeSection === "my" && !isAdmin) {
+          setError('Acceso restringido: Solo administradores pueden ver "Mis Contratos"');
+          setContractsData([]);
+          setLoading(false);
+          return;
+        }
+        
+        // Si la sección es "Todos los Contratos" y el usuario ES admin, mostrar error
+        if (activeSection === "all" && isAdmin) {
+          setError('Acceso restringido: Los administradores solo pueden ver "Mis Contratos"');
+          setContractsData([]);
+          setLoading(false);
+          return;
+        }
+        
+        if (activeSection === "my") {
+          // Mis Contratos - solo para administradores
+          if (!cedulaUsuario) {
+            console.warn('Usuario sin cédula definida');
+            setContractsData([]);
+            setLoading(false);
+            return;
+          }
+          
+          const response = await ContratoAPI.getByCedula(cedulaUsuario);
+          
+          if (response.success) {
+            const dataConDefaults = response.data.map((item) => ({
+              ...item,
+              numero_cuotas: item.numero_cuotas || "Sin definir",
+              inicio: item.inicio || "Sin definir",
+              cierre: item.cierre || "Sin definir",
+              estatus: item.estatus || "Esperando contrato",
+              emprendedor: item.emprendedor || "Sin definir",
+              numero_contrato: item.numero_contrato || "",
+              moneda: item.moneda || "usd",
+              monto_moneda: item.monto_moneda || null,
+              cambio: item.cambio || null,
+              flat: item.flat || null,
+              interes_porcentaje: item.interes_porcentaje || null,
+              devolvimiento: item.devolvimiento || null,
+              numero_gracias: item.numero_gracias || 0,
+              frecuencia_pago_contrato: item.frecuencia_pago_contrato || null,
+              id_cedula_aprob: item.id_cedula_aprob || null,
+            }));
+            setContractsData(dataConDefaults);
+            console.log(`✅ ${dataConDefaults.length} contratos cargados para "Mis Contratos"`);
+          } else {
+            setError(response.error || "Error al cargar los contratos");
+          }
         } else {
-          setError(response.error || "Error al cargar los contratos");
+          // Todos los Contratos - solo para usuarios NO administradores
+          const response = await ContratoAPI.getAll();
+          
+          if (response.success) {
+            const dataConDefaults = response.data.map((item) => ({
+              ...item,
+              numero_cuotas: item.numero_cuotas || "Sin definir",
+              inicio: item.inicio || "Sin definir",
+              cierre: item.cierre || "Sin definir",
+              estatus: item.estatus || "Esperando contrato",
+              emprendedor: item.emprendedor || "Sin definir",
+              numero_contrato: item.numero_contrato || "",
+              moneda: item.moneda || "usd",
+              monto_moneda: item.monto_moneda || null,
+              cambio: item.cambio || null,
+              flat: item.flat || null,
+              interes_porcentaje: item.interes_porcentaje || null,
+              devolvimiento: item.devolvimiento || null,
+              numero_gracias: item.numero_gracias || 0,
+              frecuencia_pago_contrato: item.frecuencia_pago_contrato || null,
+              id_cedula_aprob: item.id_cedula_aprob || null,
+            }));
+            setContractsData(dataConDefaults);
+            console.log(`✅ ${dataConDefaults.length} contratos cargados para "Todos los Contratos"`);
+          } else {
+            setError(response.error || "Error al cargar los contratos");
+          }
         }
       } catch (err) {
+        console.error('Error en fetchContratos:', err);
         setError(err.error || "Error al conectar con el servidor");
       } finally {
         setLoading(false);
       }
     };
+    
     fetchContratos();
-  }, []);
+  }, [user, activeSection]);
 
+  // ============================================================
+  // EFECTO - Establecer sección inicial según rol
+  // ============================================================
+  useEffect(() => {
+    if (user) {
+      const userRole = user?.id_rol_usu || user?.id_rol || 0;
+      const isAdmin = userRole === 1;
+      
+      // Si es admin, mostrar "Mis Contratos"
+      // Si no es admin, mostrar "Todos los Contratos"
+      setActiveSection(isAdmin ? "my" : "all");
+    }
+  }, [user]);
+
+  // ============================================================
+  // EFECTO - Obtener último número de contrato
+  // ============================================================
   useEffect(() => {
     const fetchLastContract = async () => {
       try {
@@ -786,6 +912,9 @@ const Contrato = () => {
     if (contractsData.length > 0) fetchLastContract();
   }, [contractsData]);
 
+  // ============================================================
+  // EFECTO - Configurar modal de gestión
+  // ============================================================
   useEffect(() => {
     if (showGestionModal && selectedContractForGestion && configuracionContrato) {
       const currentYear = new Date().getFullYear();
@@ -839,26 +968,20 @@ const Contrato = () => {
   // ============================================================
   // RENDER - Datos de sección y estadísticas
   // ============================================================
-  // Filtrar contratos del usuario actual para "Mis Contratos"
-  const myContracts = contractsData.filter(
-    (c) => c.created_by === user.userId
-  );
-
   const contratosActivos = contractsData.filter((c) => c.estatus === "Activo").length;
   const contratosPendientesAceptar = contractsData.filter((c) => c.estatus === "Pendiente por aceptar").length;
   const contratosPendientesDesembolso = contractsData.filter((c) => c.estatus === "Pendiente por desembolso").length;
   const contratosEsperando = contractsData.filter((c) => c.estatus === "Esperando contrato").length;
 
-  // Estadísticas para "Mis Contratos"
-  const myContratosActivos = myContracts.filter((c) => c.estatus === "Activo").length;
-  const myContratosPendientesAceptar = myContracts.filter((c) => c.estatus === "Pendiente por aceptar").length;
-  const myContratosPendientesDesembolso = myContracts.filter((c) => c.estatus === "Pendiente por desembolso").length;
-  const myContratosEsperando = myContracts.filter((c) => c.estatus === "Esperando contrato").length;
+  const myContratosActivos = contractsData.filter((c) => c.estatus === "Activo").length;
+  const myContratosPendientesAceptar = contractsData.filter((c) => c.estatus === "Pendiente por aceptar").length;
+  const myContratosPendientesDesembolso = contractsData.filter((c) => c.estatus === "Pendiente por desembolso").length;
+  const myContratosEsperando = contractsData.filter((c) => c.estatus === "Esperando contrato").length;
 
   const sectionData = {
     contracts: {
-      title: "Gestión de Contratos",
-      description: "Administración de contratos con manejo interno",
+      title: "Todos los Contratos",
+      description: "Listado completo de contratos del sistema",
       stats: [
         { id: 1, title: "Contratos Activos", value: contratosActivos, icon: CheckCircle, color: "green", bgColor: "bg-green-50", textColor: "text-green-600" },
         { id: 2, title: "Pendientes por Aceptar", value: contratosPendientesAceptar, icon: Clock, color: "yellow", bgColor: "bg-yellow-50", textColor: "text-yellow-600" },
@@ -881,15 +1004,10 @@ const Contrato = () => {
   const currentData = activeSection === "my" ? sectionData.myContracts : sectionData.contracts;
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  // Obtener los contratos a mostrar según la sección activa
   const getContractsToShow = () => {
-    if (activeSection === "my") {
-      return myContracts;
-    }
     return contractsData;
   };
 
-  // Filtrado y paginación
   const filteredContracts = getContractsToShow().filter((contract) => {
     const searchFields = [
       contract.id_aprobacion?.toString(), 
@@ -931,9 +1049,17 @@ const Contrato = () => {
     );
   };
 
+  // ============================================================
+  // RENDER - getActionButtons con verificación de rol
+  // ============================================================
   const getActionButtons = (contract) => {
     const actions = [];
+    
+    // Obtener el rol del usuario actual
+    const userRole = user?.id_rol_usu || user?.id_rol || 0;
+    const isAdmin = userRole === 1;
 
+    // Botón Ver - visible para todos
     actions.push(
       <button
         key="ver"
@@ -950,64 +1076,67 @@ const Contrato = () => {
       </button>
     );
 
-    if (contract.estatus === "En espera de cuotas") {
-      actions.push(
-        <button
-          key="gestionar"
-          onClick={() => {
-            setSelectedContractForGestion(contract);
-            setShowGestionModal(true);
-          }}
-          className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-            darkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
-          }`}
-        >
-          <FileText size={14} /> Gestionar cuotas
-        </button>
-      );
-    }
+    // Botón Gestionar - solo para administradores
+    if (isAdmin) {
+      if (contract.estatus === "En espera de cuotas") {
+        actions.push(
+          <button
+            key="gestionar"
+            onClick={() => {
+              setSelectedContractForGestion(contract);
+              setShowGestionModal(true);
+            }}
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              darkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
+            }`}
+          >
+            <FileText size={14} /> Gestionar cuotas
+          </button>
+        );
+      }
 
-    if (contract.estatus === "Esperando contrato") {
-      actions.push(
-        <button
-          key="gestionar"
-          onClick={() => {
-            setSelectedContractForGestion(contract);
-            setShowGestionModal(true);
-          }}
-          className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-            darkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
-          }`}
-        >
-          <FileText size={14} /> Gestionar
-        </button>
-      );
-    }
+      if (contract.estatus === "Esperando contrato") {
+        actions.push(
+          <button
+            key="gestionar"
+            onClick={() => {
+              setSelectedContractForGestion(contract);
+              setShowGestionModal(true);
+            }}
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              darkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
+            }`}
+          >
+            <FileText size={14} /> Gestionar
+          </button>
+        );
+      }
 
-    if (contract.estatus === "Pendiente por aceptar") {
-      actions.push(
-        <button
-          key="aceptar"
-          onClick={() => aceptarContratoDirecto(contract)}
-          className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-            darkMode ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-emerald-500 hover:bg-emerald-600 text-white"
-          }`}
-        >
-          <CheckCircle size={14} /> Aceptar
-        </button>
-      );
+      // Botón Aceptar - SOLO PARA ADMINISTRADORES
+      if (contract.estatus === "Pendiente por aceptar") {
+        actions.push(
+          <button
+            key="aceptar"
+            onClick={() => aceptarContratoDirecto(contract)}
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              darkMode ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-emerald-500 hover:bg-emerald-600 text-white"
+            }`}
+          >
+            <CheckCircle size={14} /> Aceptar
+          </button>
+        );
+      }
     }
 
     if (actions.length === 0) {
       return <span className={`text-xs ${darkMode ? "text-gray-500" : "text-gray-400"}`}>Sin acciones</span>;
     }
+    
     return <div className="flex items-center justify-center gap-2 flex-wrap">{actions}</div>;
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("usuario");
-    localStorage.removeItem("rememberToken");
-    window.dispatchEvent(new Event("authChange"));
+    usuarioAPI.logout();
     navigate("/login");
   };
 
@@ -1029,6 +1158,41 @@ const Contrato = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, selectedFilter, activeSection]);
+
+  // ============================================================
+  // RENDER - Estados de carga y errores
+  // ============================================================
+  if (loadingUser) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 size={48} className="animate-spin text-[#2A9D8F]" />
+          <p className={`text-lg ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Cargando usuario...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className={`min-h-screen flex flex-col items-center justify-center p-4 ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
+        <AlertCircle size={48} className="text-red-500 mb-4" />
+        <h2 className={`text-2xl font-bold mb-2 ${darkMode ? "text-white" : "text-gray-800"}`}>Usuario no autenticado</h2>
+        <p className={`text-center mb-6 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+          Por favor, inicia sesión para acceder a la gestión de contratos.
+        </p>
+        <button 
+          onClick={() => navigate('/login')}
+          className="px-6 py-2.5 bg-[#2A9D8F] text-white rounded-lg hover:bg-[#238b7e] transition-colors"
+        >
+          Ir al Login
+        </button>
+      </div>
+    );
+  }
+
+  const userRole = user?.id_rol_usu || user?.id_rol || 0;
+  const isAdmin = userRole === 1;
 
   // ============================================================
   // RENDER PRINCIPAL
@@ -1060,60 +1224,57 @@ const Contrato = () => {
               <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
                 <span>Inicio</span>
                 <ChevronRight size={14} />
-                <span className={darkMode ? "text-gray-300" : "text-gray-700"}>Gestión de Contratos</span>
+                <span className={darkMode ? "text-gray-300" : "text-gray-700"}>
+                  {isAdmin ? "Mis Contratos" : "Todos los Contratos"}
+                </span>
               </div>
-              <h1 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>Gestión de Contratos</h1>
-              <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Administración de contratos con manejo interno</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                    {isAdmin ? "Mis Contratos" : "Todos los Contratos"}
+                  </h1>
+                  <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                    {isAdmin 
+                      ? `Contratos del usuario: ${user.nombre_completo || user.nombres || "Sin nombre"}`
+                      : "Listado completo de todos los contratos del sistema"}
+                  </p>
+                </div>
+                {isAdmin && (
+                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${darkMode ? "bg-green-900/30 text-green-400" : "bg-green-50 text-green-700"} text-sm font-medium`}>
+                    <Shield size={16} />
+                    Administrador
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* ============================================================ */}
-            {/* BOTONES DE SECCIÓN: Mis Contratos / Todos los Contratos */}
+            {/* BOTONES DE SECCIÓN - Solo se muestra el botón correspondiente según el rol */}
             {/* ============================================================ */}
-            <div className="flex gap-3 mb-6">
-              <button
-                onClick={() => {
-                  setActiveSection("my");
-                  setSearchTerm("");
-                  setSelectedFilter("all");
-                }}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all ${
-                  activeSection === "my"
-                    ? "bg-[#2A9D8F] text-white shadow-md"
-                    : `${darkMode ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`
-                }`}
-              >
-                <UserCheck size={18} />
-                Mis Contratos
-                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
-                  activeSection === "my"
-                    ? "bg-white/20 text-white"
-                    : darkMode ? "bg-gray-500 text-gray-200" : "bg-gray-300 text-gray-700"
-                }`}>
-                  {myContracts.length}
-                </span>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveSection("all");
-                  setSearchTerm("");
-                  setSelectedFilter("all");
-                }}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all ${
-                  activeSection === "all"
-                    ? "bg-[#2A9D8F] text-white shadow-md"
-                    : `${darkMode ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`
-                }`}
-              >
-                <Users size={18} />
-                Todos los Contratos
-                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
-                  activeSection === "all"
-                    ? "bg-white/20 text-white"
-                    : darkMode ? "bg-gray-500 text-gray-200" : "bg-gray-300 text-gray-700"
-                }`}>
-                  {contractsData.length}
-                </span>
-              </button>
+            <div className="flex flex-wrap gap-3 mb-6">
+              {isAdmin ? (
+                // Si es administrador, solo muestra "Mis Contratos" (activo por defecto)
+                <button
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium bg-[#2A9D8F] text-white shadow-md cursor-default"
+                >
+                  <UserCheck size={18} />
+                  Mis Contratos
+                  <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-white/20 text-white">
+                    {contractsData.length}
+                  </span>
+                </button>
+              ) : (
+                // Si NO es administrador, solo muestra "Todos los Contratos" (activo por defecto)
+                <button
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium bg-[#2A9D8F] text-white shadow-md cursor-default"
+                >
+                  <Users size={18} />
+                  Todos los Contratos
+                  <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-white/20 text-white">
+                    {contractsData.length}
+                  </span>
+                </button>
+              )}
             </div>
 
             {/* ============================================================ */}
@@ -1143,11 +1304,12 @@ const Contrato = () => {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
                     <h3 className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>
-                      {activeSection === "my" ? "Mis Contratos" : "Listado de Contratos"}
+                      {isAdmin ? "Mis Contratos" : "Listado de Contratos"}
                     </h3>
                     <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
                       {filteredContracts.length} contratos encontrados
-                      {activeSection === "my" && " (creados por mí)"}
+                      {isAdmin && ` (usuario: ${user.nombre_completo || user.nombres || "Sin nombre"})`}
+                      {!isAdmin && " 👀 Visión general del sistema"}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -1225,11 +1387,11 @@ const Contrato = () => {
                 <div className="flex flex-col items-center justify-center py-20">
                   <FileText size={48} className="text-gray-400 mb-4" />
                   <p className={`text-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-                    {activeSection === "my" 
+                    {isAdmin 
                       ? "No tienes contratos creados. Comienza gestionando un nuevo contrato."
-                      : "No se encontraron contratos"}
+                      : "No se encontraron contratos en el sistema"}
                   </p>
-                  {activeSection === "my" && (
+                  {isAdmin && (
                     <p className={`text-sm ${darkMode ? "text-gray-500" : "text-gray-400"} mt-2`}>
                       Los contratos que crees aparecerán aquí automáticamente.
                     </p>
@@ -1265,6 +1427,9 @@ const Contrato = () => {
                                 </div>
                                 <div>
                                   <span className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>{contract.emprendedor}</span>
+                                  <span className={darkMode ? "text-gray-300" : "text-gray-700"}>
+                                    {contract.cedula_persona_id || "N/A"}
+                                  </span>
                                   {contract.numero_contrato && <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Contrato: {contract.numero_contrato}</p>}
                                 </div>
                               </div>
@@ -1309,7 +1474,18 @@ const Contrato = () => {
                             <td className="px-6 py-4 text-center">
                               {getStatusComponent(contract)}
                             </td>
-                            <td className="px-6 py-4">{getActionButtons(contract)}</td>
+                            <td className="px-6 py-4">
+                              {getActionButtons(contract)}
+                              {/* Mostrar indicador si el contrato está pendiente por aceptar pero el usuario no es admin */}
+                              {contract.estatus === "Pendiente por aceptar" && !isAdmin && (
+                                <div className="flex items-center justify-center mt-1">
+                                  <span className="text-xs text-yellow-500 flex items-center gap-1">
+                                    <AlertCircle size={12} />
+                                    Solo administradores pueden aceptar
+                                  </span>
+                                </div>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1344,7 +1520,7 @@ const Contrato = () => {
         </main>
       </div>
 
-      {/* MODAL CONSULTA CONTRATO - (sin cambios, igual que antes) */}
+      {/* MODAL CONSULTA CONTRATO */}
       {showConsultaModal && selectedContractForConsulta && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black bg-opacity-60" onClick={() => setShowConsultaModal(false)} />
@@ -1504,7 +1680,7 @@ const Contrato = () => {
         </div>
       )}
 
-      {/* MODAL GESTIÓN DE CONTRATO - (sin cambios, igual que antes) */}
+      {/* MODAL GESTIÓN DE CONTRATO */}
       {showGestionModal && selectedContractForGestion && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50 bg-opacity-50" onClick={cerrarModalGestion} />
@@ -1528,6 +1704,9 @@ const Contrato = () => {
                   <p className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>{selectedContractForGestion.emprendedor}</p>
                   <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
                     ID Aprobación: <span className="font-semibold text-[#2A9D8F]">#{selectedContractForGestion.id_aprobacion}</span>
+                  </p>
+                  <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                    Cédula: <span className="font-semibold">{selectedContractForGestion.cedula_persona_id}</span>
                   </p>
                 </div>
               </div>

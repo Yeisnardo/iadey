@@ -19,7 +19,7 @@ const contratoController = {
       
       // Validar campos requeridos
       const requiredFields = [
-        'id_aprob', 'id_config', 'numero_contrato', 'moneda', 
+        'id_aprob', 'id_config', 'id_cedula_aprob', 'numero_contrato', 'moneda', 
         'monto_moneda', 'cambio', 'flat', 'interes', 
         'devolvimiento', 'numero_cuotas', 'inicio', 'cierre'
       ];
@@ -75,6 +75,32 @@ const contratoController = {
       res.status(500).json({ success: false, error: error.message });
     }
   },
+
+  async getByCedula(req, res) {
+  try {
+    const { cedula } = req.params;
+    
+    if (!cedula) {
+      return res.status(400).json({
+        success: false,
+        error: 'La cédula es requerida'
+      });
+    }
+
+    const contratos = await ContratoModel.getByCedula(cedula);
+    
+    res.json({
+      success: true,
+      data: contratos
+    });
+  } catch (error) {
+    console.error('Error en getByCedula:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Error al obtener los contratos por cédula'
+    });
+  }
+},
 
   // Obtener un contrato por ID de aprobación
   async getById(req, res) {
