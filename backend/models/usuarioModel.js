@@ -8,8 +8,8 @@ class UsuarioModel {
     SELECT u.*, 
            p.nacionalidad, p.nombres, p.apellidos, p.fecha_nacimiento, 
            p.telefono, p.correo, p.estado_civil, p.direccion, p.estado as estado_persona, 
-           p.municipio, p.parroquia, p.tipo_persona, p.email,
-           r.id_rol, r.nombre_rol, r.descripcion as rol_descripcion,
+           p.municipio, p.parroquia, p.tipo_persona,
+           r.id_rol, r.nombre_rol,
            CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
     FROM usuario u
     LEFT JOIN persona p ON u.cedula_usuario = p.cedula
@@ -25,8 +25,8 @@ static async getById(id) {
     SELECT u.*, 
            p.nacionalidad, p.nombres, p.apellidos, p.fecha_nacimiento, 
            p.telefono, p.correo, p.estado_civil, p.direccion, p.estado as estado_persona, 
-           p.municipio, p.parroquia, p.tipo_persona, p.email,
-           r.id_rol, r.nombre_rol, r.descripcion as rol_descripcion,
+           p.municipio, p.parroquia, p.tipo_persona,
+           r.id_rol, r.nombre_rol,
            CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
     FROM usuario u
     LEFT JOIN persona p ON u.cedula_usuario = p.cedula
@@ -38,17 +38,33 @@ static async getById(id) {
 
 
   // Obtener usuario por cédula con datos de persona y rol
-  // models/UsuarioModel.js - Método getByCedula modificado
+// models/UsuarioModel.js - Método getByCedula CORREGIDO
 
 static async getByCedula(cedula_usuario) {
   const result = await pool.query(`
     SELECT 
-      u.id, u.cedula_usuario, u.clave, u.id_rol_usu, u.estatus, 
-      u.created_at, u.updated_at, u.ultimo_acceso,
-      p.nombres, p.apellidos, p.nacionalidad, p.fecha_nacimiento, 
-      p.telefono, p.correo, p.estado_civil, p.direccion, p.estado as estado_persona, 
-      p.municipio, p.parroquia, p.tipo_persona, p.email,
-      r.nombre_rol, r.descripcion as rol_descripcion,
+      u.id, 
+      u.cedula_usuario, 
+      u.clave, 
+      u.id_rol_usu, 
+      u.estatus, 
+      u.created_at, 
+      u.updated_at, 
+      u.ultimo_acceso,
+      p.nombres, 
+      p.apellidos, 
+      p.nacionalidad, 
+      p.fecha_nacimiento, 
+      p.telefono, 
+      p.correo, 
+      p.estado_civil, 
+      p.direccion, 
+      p.estado as estado_persona, 
+      p.municipio, 
+      p.parroquia, 
+      p.tipo_persona,
+      r.id_rol,
+      r.nombre_rol,
       CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
     FROM usuario u
     LEFT JOIN persona p ON u.cedula_usuario = p.cedula
@@ -60,25 +76,25 @@ static async getByCedula(cedula_usuario) {
   
   if (!user) return null;
   
-  // Formatear la respuesta con rol incluido
+  // Formatear la respuesta con todos los campos necesarios
   return {
     id: user.id,
     cedula_usuario: user.cedula_usuario,
     clave: user.clave,
     id_rol_usu: user.id_rol_usu,
-    rol: user.nombre_rol, // Añadir rol directamente
-    nombre_rol: user.nombre_rol, // Mantener por compatibilidad
+    nombre_rol: user.nombre_rol, // Asegurar que esté presente
+    rol: user.nombre_rol, // Para compatibilidad
     estatus: user.estatus,
     created_at: user.created_at,
     updated_at: user.updated_at,
     ultimo_acceso: user.ultimo_acceso,
-    nombre_completo: user.nombre_completo,
+    nombre_completo: user.nombre_completo || `${user.nombres || ''} ${user.apellidos || ''}`.trim(),
     nombres: user.nombres,
     apellidos: user.apellidos,
     persona: {
       nombres: user.nombres,
       apellidos: user.apellidos,
-      nombre_completo: user.nombre_completo,
+      nombre_completo: user.nombre_completo || `${user.nombres || ''} ${user.apellidos || ''}`.trim(),
       nacionalidad: user.nacionalidad,
       fecha_nacimiento: user.fecha_nacimiento,
       telefono: user.telefono,
@@ -88,8 +104,7 @@ static async getByCedula(cedula_usuario) {
       estado: user.estado_persona,
       municipio: user.municipio,
       parroquia: user.parroquia,
-      tipo_persona: user.tipo_persona,
-      email: user.email
+      tipo_persona: user.tipo_persona
     }
   };
 }
@@ -181,8 +196,8 @@ static async getByCedula(cedula_usuario) {
       SELECT u.*, 
              p.nacionalidad, p.nombres, p.apellidos, p.fecha_nacimiento, 
              p.telefono, p.correo, p.estado_civil, p.direccion, p.estado as estado_persona, 
-             p.municipio, p.parroquia, p.tipo_persona, p.email,
-             r.nombre_rol, r.descripcion as rol_descripcion,
+             p.municipio, p.parroquia, p.tipo_persona,
+             r.nombre_rol,
              CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
       FROM usuario u
       LEFT JOIN persona p ON u.cedula_usuario = p.cedula
@@ -204,8 +219,8 @@ static async getByCedula(cedula_usuario) {
         INSERT INTO persona (
           nacionalidad, cedula, nombres, apellidos, fecha_nacimiento, 
           telefono, correo, estado_civil, direccion, estado, municipio, 
-          parroquia, tipo_persona, email
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          parroquia, tipo_persona
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING *
       `, [
         personaData.nacionalidad,
@@ -220,8 +235,7 @@ static async getByCedula(cedula_usuario) {
         personaData.estado,
         personaData.municipio,
         personaData.parroquia,
-        personaData.tipo_persona,
-        personaData.email
+        personaData.tipo_persona
       ]);
 
       // Insertar usuario con id_rol_usu
@@ -264,7 +278,6 @@ static async getByCedula(cedula_usuario) {
         estado = $8,
         municipio = $9,
         parroquia = $10,
-        email = $11,
         updated_at = CURRENT_TIMESTAMP
       WHERE cedula = $12
       RETURNING *
@@ -279,7 +292,6 @@ static async getByCedula(cedula_usuario) {
       personaData.estado,
       personaData.municipio,
       personaData.parroquia,
-      personaData.email,
       cedula
     ]);
     return result.rows[0];

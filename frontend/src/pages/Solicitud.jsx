@@ -12,6 +12,8 @@ import {
   X,
   Check,
   AlertCircle,
+  User,
+  Users,
 } from "lucide-react";
 import Swal from "sweetalert2";
 
@@ -115,6 +117,8 @@ const ActionButton = ({
       "text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/30",
     danger:
       "text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30",
+    primary:
+      "text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/30",
   };
 
   return (
@@ -128,22 +132,24 @@ const ActionButton = ({
   );
 };
 
-const EmptyState = ({ onNew, darkMode }) => (
+const EmptyState = ({ onNew, darkMode, message = "No hay solicitudes para mostrar" }) => (
   <div className="p-12 text-center">
     <FileText
       size={40}
       className={`mx-auto ${darkMode ? "text-gray-600" : "text-gray-300"} mb-3`}
     />
     <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
-      No hay solicitudes para mostrar
+      {message}
     </p>
-    <button
-      onClick={onNew}
-      className="mt-4 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors inline-flex items-center gap-2"
-    >
-      <Plus size={16} />
-      Crear primera solicitud
-    </button>
+    {onNew && (
+      <button
+        onClick={onNew}
+        className="mt-4 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors inline-flex items-center gap-2"
+      >
+        <Plus size={16} />
+        Crear primera solicitud
+      </button>
+    )}
   </div>
 );
 
@@ -187,15 +193,15 @@ const ANOS_OPERANDO = [
 
 const ESTATUS_COLORES = {
   Pendiente: "bg-amber-50 text-amber-700 border-amber-200",
-  "Pre-Aprobado": "bg-blue-50 text-blue-700 border-blue-200", // Color diferente para Pre-Aprobado
-  Aprobado: "bg-emerald-50 text-emerald-700 border-emerald-200", // Aprobado final
+  "Pre-Aprobado": "bg-blue-50 text-blue-700 border-blue-200",
+  Aprobado: "bg-emerald-50 text-emerald-700 border-emerald-200",
   Rechazado: "bg-red-50 text-red-700 border-red-200",
 };
 
 const ESTATUS_ICONOS = {
   Pendiente: Clock,
-  "Pre-Aprobado": Clock, // Reloj para Pre-Aprobado
-  Aprobado: CheckCircle, // Check para Aprobado final
+  "Pre-Aprobado": Clock,
+  Aprobado: CheckCircle,
   Rechazado: XCircle,
 };
 
@@ -246,6 +252,10 @@ const SolicitudesPersona = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [activeTab, setActiveTab] = useState(() => {
+    const user = usuarioAPI.getCurrentUser();
+    return user?.id_rol_usu === 1 ? "mis-solicitudes" : "todas";
+  });
 
   // Estados de datos
   const [clasificaciones, setClasificaciones] = useState([]);
@@ -253,8 +263,14 @@ const SolicitudesPersona = () => {
   const [sectoresUnicos, setSectoresUnicos] = useState([]);
   const [actividadesPorSector, setActividadesPorSector] = useState({});
 
-  const [solicitudes, setSolicitudes] = useState([]);
-  const [loadingSolicitudes, setLoadingSolicitudes] = useState(false);
+  // TABLA 1: Solicitudes del usuario logueado (solo id_rol_usu = 1)
+  const [misSolicitudes, setMisSolicitudes] = useState([]);
+  const [loadingMisSolicitudes, setLoadingMisSolicitudes] = useState(false);
+
+  // TABLA 2: Todas las solicitudes (GET ALL)
+  const [todasSolicitudes, setTodasSolicitudes] = useState([]);
+  const [loadingTodasSolicitudes, setLoadingTodasSolicitudes] = useState(false);
+
   const [currentUser, setCurrentUser] = useState(null);
 
   // Estados de modal y acciones
@@ -316,7 +332,13 @@ const SolicitudesPersona = () => {
   useEffect(() => {
     cargarUsuarioYPersona();
     cargarClasificaciones();
-    cargarSolicitudes();
+    
+    const user = usuarioAPI.getCurrentUser();
+    if (user?.id_rol_usu === 1) {
+      cargarMisSolicitudes();
+    } else {
+      cargarTodasSolicitudes();
+    }
   }, []);
 
   // ===== FUNCIONES DE CARGA DE DATOS =====
@@ -403,44 +425,102 @@ const SolicitudesPersona = () => {
     }
   };
 
-  const cargarSolicitudes = async () => {
-    setLoadingSolicitudes(true);
+  // ===== TABLA 1: Cargar solicitudes del usuario logueado (solo id_rol_usu = 1) =====
+  const cargarMisSolicitudes = async () => {
+    setLoadingMisSolicitudes(true);
     try {
       const usuarioLogueado = usuarioAPI.getCurrentUser();
-      if (usuarioLogueado?.cedula_usuario) {
-        const response = await SolicitudAPI.getByCedula(
-          usuarioLogueado.cedula_usuario,
-        );
+      if (!usuarioLogueado?.cedula_usuario) {
+        setMisSolicitudes([]);
+        return;
+      }
 
-        if (response?.success && response.data) {
-          const solicitudesFormateadas = response.data.map((sol) => ({
-            id: sol.id_solicitud,
-            fechaSolicitud: sol.fecha_solicitud,
-            emprendimiento: sol.nombre_emprendimiento || "Sin especificar",
-            rifEmprendimiento: sol.cedula_emprendimiento || sol.cedula_persona,
-            montoSolicitado: parseFloat(sol.monto_solicitado) || 0,
-            estatus: sol.estatus || "Pendiente",
-            motivo_rechazo: sol.motivo_rechazo,
-            destino: sol.solicitud,
-            analista: "Por asignar",
-            clasificacion:
-              sol.sector && sol.actividad
-                ? `${sol.sector} - ${sol.actividad}`
-                : "No especificada",
-            anos_experiencia: sol.anos_experiencia || "No especificado",
-            direccion_emprendimiento:
-              sol.direccion_empredimiento || "No especificada",
-          }));
-          setSolicitudes(solicitudesFormateadas);
-        } else {
-          setSolicitudes([]);
-        }
+      if (usuarioLogueado.id_rol_usu !== 1) {
+        setMisSolicitudes([]);
+        return;
+      }
+
+      const cedula = usuarioLogueado.cedula_usuario.toString().trim();
+      if (!cedula) {
+        setMisSolicitudes([]);
+        return;
+      }
+
+      const response = await SolicitudAPI.getByCedula(cedula);
+
+      if (response?.success && response.data) {
+        const solicitudesFormateadas = response.data.map((sol) => ({
+          id: sol.id_solicitud,
+          fechaSolicitud: sol.fecha_solicitud,
+          emprendimiento: sol.nombre_emprendimiento || "Sin especificar",
+          rifEmprendimiento: sol.cedula_emprendimiento || sol.cedula_persona,
+          montoSolicitado: parseFloat(sol.monto_solicitado) || 0,
+          estatus: sol.estatus || "Pendiente",
+          motivo_rechazo: sol.motivo_rechazo,
+          destino: sol.solicitud,
+          analista: sol.analista || "Por asignar",
+          clasificacion: sol.sector && sol.actividad
+            ? `${sol.sector} - ${sol.actividad}`
+            : sol.clasificacion || "No especificada",
+          anos_experiencia: sol.anos_experiencia || "No especificado",
+          direccion_emprendimiento: sol.direccion_empredimiento || "No especificada",
+          cedula_persona: sol.cedula_persona,
+        }));
+        
+        setMisSolicitudes(solicitudesFormateadas);
+      } else {
+        setMisSolicitudes([]);
       }
     } catch (error) {
-      console.error("Error cargando solicitudes:", error);
-      setSolicitudes([]);
+      console.error('Error cargando mis solicitudes:', error);
+      setMisSolicitudes([]);
     } finally {
-      setLoadingSolicitudes(false);
+      setLoadingMisSolicitudes(false);
+    }
+  };
+
+  // ===== TABLA 2: Cargar todas las solicitudes (GET ALL) =====
+  const cargarTodasSolicitudes = async () => {
+    setLoadingTodasSolicitudes(true);
+    try {
+      const response = await SolicitudAPI.getAll();
+
+      if (response?.success && response.data) {
+        const solicitudesFormateadas = response.data.map((sol) => ({
+          id: sol.id_solicitud,
+          fechaSolicitud: sol.fecha_solicitud,
+          emprendimiento: sol.nombre_emprendimiento || "Sin especificar",
+          rifEmprendimiento: sol.cedula_emprendimiento || sol.cedula_persona,
+          montoSolicitado: parseFloat(sol.monto_solicitado) || 0,
+          estatus: sol.estatus || "Pendiente",
+          motivo_rechazo: sol.motivo_rechazo,
+          destino: sol.solicitud,
+          analista: sol.analista || "Por asignar",
+          clasificacion: sol.sector && sol.actividad
+            ? `${sol.sector} - ${sol.actividad}`
+            : sol.clasificacion || "No especificada",
+          anos_experiencia: sol.anos_experiencia || "No especificado",
+          direccion_emprendimiento: sol.direccion_empredimiento || "No especificada",
+          cedula_persona: sol.cedula_persona,
+          nombre_solicitante: sol.nombre_solicitante || "No especificado",
+          id_rol_usu: sol.id_rol_usu || null,
+        }));
+        
+        setTodasSolicitudes(solicitudesFormateadas);
+      } else {
+        setTodasSolicitudes([]);
+      }
+    } catch (error) {
+      console.error('Error cargando todas las solicitudes:', error);
+      Swal.fire({
+        icon: "error",
+        title: "Error al cargar solicitudes",
+        text: "No se pudieron cargar todas las solicitudes. Por favor, intenta nuevamente.",
+        confirmButtonColor: "#4F46E5",
+      });
+      setTodasSolicitudes([]);
+    } finally {
+      setLoadingTodasSolicitudes(false);
     }
   };
 
@@ -632,6 +712,16 @@ const SolicitudesPersona = () => {
       return;
     }
 
+    if (usuarioLogueado.id_rol_usu !== 1) {
+      Swal.fire({
+        icon: "warning",
+        title: "Acceso denegado",
+        text: "Solo los emprendedores pueden crear solicitudes",
+        confirmButtonColor: "#4F46E5",
+      });
+      return;
+    }
+
     setShowModal(true);
     setCurrentStep(1);
     setErrors({});
@@ -679,7 +769,16 @@ const SolicitudesPersona = () => {
       return;
     }
 
-    // Marcar todos los campos como tocados y validar
+    if (usuarioLogueado.id_rol_usu !== 1) {
+      Swal.fire({
+        icon: "warning",
+        title: "Acceso denegado",
+        text: "Solo los emprendedores pueden crear solicitudes",
+        confirmButtonColor: "#4F46E5",
+      });
+      return;
+    }
+
     const allFields = [
       "solicitud",
       "monto_solicitado",
@@ -777,9 +876,10 @@ const SolicitudesPersona = () => {
           : "No especificada",
         anos_experiencia: formData.anos_experiencia,
         direccion_emprendimiento: formData.direccion_empredimiento,
+        cedula_persona: usuarioLogueado.cedula_usuario,
       };
 
-      setSolicitudes([nuevaSolicitudLocal, ...solicitudes]);
+      setMisSolicitudes([nuevaSolicitudLocal, ...misSolicitudes]);
       setShowModal(false);
 
       Swal.fire({
@@ -803,63 +903,118 @@ const SolicitudesPersona = () => {
     }
   };
 
-  const handleVerDetalle = (solicitudId) => {
-    const solicitud = solicitudes.find((s) => s.id === solicitudId);
-    if (solicitud) {
-      setSelectedSolicitud(solicitud);
-      setShowDetailModal(true);
+  const handleVerDetalle = async (solicitudId) => {
+    try {
+      let solicitud = misSolicitudes.find((s) => s.id === solicitudId);
+      
+      if (!solicitud) {
+        solicitud = todasSolicitudes.find((s) => s.id === solicitudId);
+      }
+      
+      if (!solicitud) {
+        const response = await SolicitudAPI.getById(solicitudId);
+        if (response.success && response.data) {
+          const data = response.data;
+          solicitud = {
+            id: data.id_solicitud,
+            fechaSolicitud: data.fecha_solicitud,
+            emprendimiento: data.nombre_emprendimiento || "Sin especificar",
+            rifEmprendimiento: data.cedula_emprendimiento || data.cedula_persona,
+            montoSolicitado: parseFloat(data.monto_solicitado) || 0,
+            estatus: data.estatus || "Pendiente",
+            motivo_rechazo: data.motivo_rechazo,
+            destino: data.solicitud,
+            analista: "Por asignar",
+            clasificacion: data.sector && data.actividad
+              ? `${data.sector} - ${data.actividad}`
+              : "No especificada",
+            anos_experiencia: data.anos_experiencia || "No especificado",
+            direccion_emprendimiento: data.direccion_empredimiento || "No especificada",
+            cedula_persona: data.cedula_persona,
+          };
+        }
+      }
+
+      if (solicitud) {
+        setSelectedSolicitud(solicitud);
+        setShowDetailModal(true);
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "No se pudo obtener la información de la solicitud",
+          confirmButtonColor: "#4F46E5",
+        });
+      }
+    } catch (error) {
+      console.error("Error al obtener detalle:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo cargar el detalle de la solicitud",
+        confirmButtonColor: "#4F46E5",
+      });
     }
   };
 
   const handleAprobarSolicitud = async (solicitudId) => {
-  const result = await Swal.fire({
-    icon: "question",
-    title: "Confirmar pre-aprobación",
-    text: "¿Estás seguro de pre-aprobar esta solicitud?",
-    showCancelButton: true,
-    confirmButtonColor: "#4F46E5",
-    cancelButtonColor: "#6B7280",
-    confirmButtonText: "Sí, pre-aprobar",
-    cancelButtonText: "Cancelar",
-  });
-
-  if (!result.isConfirmed) return;
-
-  setUpdatingStatus(true);
-  try {
-    const response = await SolicitudAPI.updateEstatus(
-      solicitudId,
-      "Pre-Aprobado", // Cambiado de "Aprobado" a "Pre-Aprobado"
-      null,
-    );
-    if (response.success) {
-      setSolicitudes((prev) =>
-        prev.map((sol) =>
-          sol.id === solicitudId
-            ? { ...sol, estatus: "Pre-Aprobado", motivo_rechazo: null } // Cambiado a Pre-Aprobado
-            : sol,
-        ),
-      );
-      Swal.fire({
-        icon: "success",
-        title: "¡Pre-aprobada!",
-        text: "Solicitud pre-aprobada exitosamente",
-        confirmButtonColor: "#4F46E5",
-        timer: 3000,
-        timerProgressBar: true,
-      });
-    }
-  } catch (error) {
-    Swal.fire({
-      icon: "error",
-      title: "Error",
-      text: `Error al pre-aprobar: ${error.message}`,
+    const result = await Swal.fire({
+      icon: "question",
+      title: "Confirmar pre-aprobación",
+      text: "¿Estás seguro de pre-aprobar esta solicitud?",
+      showCancelButton: true,
       confirmButtonColor: "#4F46E5",
+      cancelButtonColor: "#6B7280",
+      confirmButtonText: "Sí, pre-aprobar",
+      cancelButtonText: "Cancelar",
     });
-  } finally {
-    setUpdatingStatus(false);
-  }
-};
+
+    if (!result.isConfirmed) return;
+
+    setUpdatingStatus(true);
+    try {
+      const response = await SolicitudAPI.updateEstatus(
+        solicitudId,
+        "Pre-Aprobado",
+        null,
+      );
+      if (response.success) {
+        setTodasSolicitudes((prev) =>
+          prev.map((sol) =>
+            sol.id === solicitudId
+              ? { ...sol, estatus: "Pre-Aprobado", motivo_rechazo: null }
+              : sol,
+          ),
+        );
+        
+        if (selectedSolicitud && selectedSolicitud.id === solicitudId) {
+          setSelectedSolicitud({
+            ...selectedSolicitud,
+            estatus: "Pre-Aprobado",
+            motivo_rechazo: null,
+          });
+        }
+        Swal.fire({
+          icon: "success",
+          title: "¡Pre-aprobada!",
+          text: "Solicitud pre-aprobada exitosamente",
+          confirmButtonColor: "#4F46E5",
+          timer: 3000,
+          timerProgressBar: true,
+        });
+      }
+    } catch (error) {
+      console.error("Error al pre-aprobar:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: `Error al pre-aprobar: ${error.message}`,
+        confirmButtonColor: "#4F46E5",
+      });
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
 
   const handleRechazarSolicitud = (solicitudId) => {
     setSelectedSolicitudId(solicitudId);
@@ -895,13 +1050,21 @@ const SolicitudesPersona = () => {
         motivoRechazo,
       );
       if (response.success) {
-        setSolicitudes((prev) =>
+        setTodasSolicitudes((prev) =>
           prev.map((sol) =>
             sol.id === selectedSolicitudId
               ? { ...sol, estatus: "Rechazado", motivo_rechazo: motivoRechazo }
               : sol,
           ),
         );
+        
+        if (selectedSolicitud && selectedSolicitud.id === selectedSolicitudId) {
+          setSelectedSolicitud({
+            ...selectedSolicitud,
+            estatus: "Rechazado",
+            motivo_rechazo: motivoRechazo,
+          });
+        }
         setShowRejectModal(false);
         setMotivoRechazo("");
         setSelectedSolicitudId(null);
@@ -916,6 +1079,7 @@ const SolicitudesPersona = () => {
         });
       }
     } catch (error) {
+      console.error("Error al rechazar:", error);
       Swal.fire({
         icon: "error",
         title: "Error",
@@ -940,18 +1104,28 @@ const SolicitudesPersona = () => {
     );
   };
 
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setSearchTerm("");
+    setStatusFilter("todos");
+  };
+
   // ===== DATOS DERIVADOS =====
 
-  const filteredSolicitudes = solicitudes.filter((solicitud) => {
-    const matchesSearch =
-      solicitud.emprendimiento
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      solicitud.id?.toString().includes(searchTerm);
-    const matchesStatus =
-      statusFilter === "todos" || solicitud.estatus === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const getFilteredData = (data) => {
+    return data.filter((solicitud) => {
+      const matchesSearch =
+        solicitud.emprendimiento
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        solicitud.id?.toString().includes(searchTerm) ||
+        (activeTab === "todas" && 
+          solicitud.nombre_solicitante?.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesStatus =
+        statusFilter === "todos" || solicitud.estatus === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  };
 
   const getStatusIcon = (estatus) => {
     const Icon = ESTATUS_ICONOS[estatus];
@@ -961,7 +1135,9 @@ const SolicitudesPersona = () => {
   const user = {
     name: currentUser?.nombre_completo || "Usuario",
     email: currentUser?.cedula_usuario || "",
-    role: currentUser?.rol === "admin" ? "Administrador" : "Emprendedor",
+    role: currentUser?.id_rol_usu === 1 ? "Emprendedor" : 
+           currentUser?.id_rol_usu === 2 ? "Analista" :
+           currentUser?.id_rol_usu === 3 ? "Administrador" : "Usuario",
     avatar: null,
   };
 
@@ -1010,184 +1186,377 @@ const SolicitudesPersona = () => {
               <h1
                 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}
               >
-                Solicitud de crédito
+                Solicitudes de crédito
               </h1>
               <p
                 className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}
               >
-                Realiza tu nueva solicitud
+                {currentUser?.id_rol_usu === 1 
+                  ? "Gestiona tus solicitudes de crédito" 
+                  : "Gestiona todas las solicitudes del sistema"}
               </p>
             </div>
 
-            {/* Filtros */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
-              <div className="relative flex-1 w-full sm:max-w-md">
-                <Search
-                  size={18}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                />
-                <input
-                  type="text"
-                  placeholder="Buscar por emprendimiento o ID..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-gray-300 rounded-lg outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 hover:border-gray-400"
-                />
+            {/* Tabs */}
+            {currentUser && (
+              <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+                {currentUser.id_rol_usu === 1 && (
+                  <button
+                    onClick={() => handleTabChange("mis-solicitudes")}
+                    className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === "mis-solicitudes"
+                        ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400"
+                        : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                    }`}
+                  >
+                    <User size={18} />
+                    Mis Solicitudes
+                    <span className={`ml-1 text-xs px-2 py-0.5 rounded-full ${
+                      darkMode ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"
+                    }`}>
+                      {misSolicitudes.length}
+                    </span>
+                  </button>
+                )}
+                
+                {currentUser.id_rol_usu !== 1 && (
+                  <button
+                    onClick={() => handleTabChange("todas")}
+                    className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === "todas"
+                        ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400"
+                        : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                    }`}
+                  >
+                    <Users size={18} />
+                    Todas las Solicitudes
+                    <span className={`ml-1 text-xs px-2 py-0.5 rounded-full ${
+                      darkMode ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"
+                    }`}>
+                      {todasSolicitudes.length}
+                    </span>
+                  </button>
+                )}
               </div>
+            )}
 
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full sm:w-auto px-4 py-2.5 text-sm bg-white border border-gray-300 rounded-lg outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 hover:border-gray-400 cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_0.75rem_center] bg-no-repeat pr-10"
+            {/* Filtros */}
+            {currentUser && (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
+                {((currentUser.id_rol_usu === 1 && activeTab === "mis-solicitudes") || 
+                  (currentUser.id_rol_usu !== 1 && activeTab === "todas")) && (
+                  <div className="relative flex-1 w-full sm:max-w-md">
+                    <Search
+                      size={18}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                    />
+                    <input
+                      type="text"
+                      placeholder={activeTab === "mis-solicitudes" 
+                        ? "Buscar por emprendimiento o ID..." 
+                        : "Buscar por solicitante, emprendimiento o ID..."
+                      }
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-gray-300 rounded-lg outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 hover:border-gray-400 dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:focus:border-indigo-400"
+                    />
+                  </div>
+                )}
+
+                {((currentUser.id_rol_usu === 1 && activeTab === "mis-solicitudes") || 
+                  (currentUser.id_rol_usu !== 1 && activeTab === "todas")) && (
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full sm:w-auto px-4 py-2.5 text-sm bg-white border border-gray-300 rounded-lg outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 hover:border-gray-400 cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_0.75rem_center] bg-no-repeat pr-10 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                  >
+                    <option value="todos">Todos los estados</option>
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="Pre-Aprobado">Pre-Aprobado</option>
+                    <option value="Aprobado">Aprobado</option>
+                    <option value="Rechazado">Rechazado</option>
+                  </select>
+                )}
+
+                {activeTab === "mis-solicitudes" && currentUser.id_rol_usu === 1 && (
+                  <button
+                    onClick={handleNuevaSolicitud}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
+                  >
+                    <Plus size={18} />
+                    <span>Nueva Solicitud</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* TABLA 1: Mis Solicitudes - Solo visible para emprendedores */}
+            {activeTab === "mis-solicitudes" && currentUser?.id_rol_usu === 1 && (
+              <div
+                className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-lg border shadow-sm overflow-hidden`}
               >
-                <option value="todos">Todos los estados</option>
-                <option value="Pendiente">Pendiente</option>
-                <option value="Pre-Aprobado">Pre-Aprobado</option>
-                <option value="Aprobado">Aprobado</option>
-                <option value="Rechazado">Rechazado</option>
-              </select>
+                {loadingMisSolicitudes ? (
+                  <div className="p-12 text-center">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-indigo-600 border-t-transparent"></div>
+                    <p className={`text-sm ${textSecondary} mt-3`}>
+                      Cargando tus solicitudes...
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {getFilteredData(misSolicitudes).length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead
+                            className={`${darkMode ? "bg-gray-700/50" : "bg-gray-50"} border-b ${darkMode ? "border-gray-700" : "border-gray-200"}`}
+                          >
+                            <tr>
+                              <th
+                                className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                              >
+                                ID
+                              </th>
+                              <th
+                                className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                              >
+                                Emprendimiento
+                              </th>
+                              <th
+                                className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                              >
+                                RIF
+                              </th>
+                              <th
+                                className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                              >
+                                Monto
+                              </th>
+                              <th
+                                className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                              >
+                                Estatus
+                              </th>
+                              <th
+                                className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                              >
+                                Acciones
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody
+                            className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-100"}`}
+                          >
+                            {getFilteredData(misSolicitudes).map((solicitud) => (
+                              <tr
+                                key={solicitud.id}
+                                className={`${darkMode ? "hover:bg-gray-700/50" : "hover:bg-gray-50"} transition-colors`}
+                              >
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <span
+                                    className={`text-sm font-mono ${textPrimary}`}
+                                  >
+                                    {solicitud.id}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span
+                                    className={`text-sm font-medium ${textPrimary}`}
+                                  >
+                                    {solicitud.emprendimiento}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className={`text-sm ${textSecondary}`}>
+                                    {solicitud.rifEmprendimiento}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <span
+                                    className={`text-sm font-medium ${textPrimary}`}
+                                  >
+                                    {formatMonto(solicitud.montoSolicitado)}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${ESTATUS_COLORES[solicitud.estatus] || "bg-gray-50 text-gray-700 border-gray-200"}`}
+                                  >
+                                    {getStatusIcon(solicitud.estatus)}
+                                    {solicitud.estatus}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <div className="flex items-center gap-2">
+                                    <ActionButton
+                                      icon={Eye}
+                                      onClick={() => handleVerDetalle(solicitud.id)}
+                                      tooltip="Ver detalles"
+                                      darkMode={darkMode}
+                                    />
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <EmptyState 
+                        onNew={handleNuevaSolicitud} 
+                        darkMode={darkMode}
+                        message="No tienes solicitudes creadas"
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
-              <button
-                onClick={handleNuevaSolicitud}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
+            {/* TABLA 2: Todas las Solicitudes - Solo visible para analistas y administradores */}
+            {activeTab === "todas" && currentUser?.id_rol_usu !== 1 && (
+              <div
+                className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-lg border shadow-sm overflow-hidden`}
               >
-                <Plus size={18} />
-                <span>Nueva Solicitud</span>
-              </button>
-            </div>
-
-            {/* Tabla */}
-            <div
-              className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-lg border shadow-sm overflow-hidden`}
-            >
-              {loadingSolicitudes ? (
-                <div className="p-12 text-center">
-                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-indigo-600 border-t-transparent"></div>
-                  <p className={`text-sm ${textSecondary} mt-3`}>
-                    Cargando solicitudes...
-                  </p>
-                </div>
-              ) : filteredSolicitudes.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead
-                      className={`${darkMode ? "bg-gray-700/50" : "bg-gray-50"} border-b ${darkMode ? "border-gray-700" : "border-gray-200"}`}
-                    >
-                      <tr>
-                        <th
-                          className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
-                        >
-                          ID
-                        </th>
-                        <th
-                          className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
-                        >
-                          Emprendimiento
-                        </th>
-                        <th
-                          className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
-                        >
-                          RIF
-                        </th>
-                        <th
-                          className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
-                        >
-                          Monto
-                        </th>
-                        <th
-                          className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
-                        >
-                          Estatus
-                        </th>
-                        <th
-                          className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
-                        >
-                          Acciones
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody
-                      className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-100"}`}
-                    >
-                      {filteredSolicitudes.map((solicitud) => (
-                        <tr
-                          key={solicitud.id}
-                          className={`${darkMode ? "hover:bg-gray-700/50" : "hover:bg-gray-50"} transition-colors`}
-                        >
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span
-                              className={`text-sm font-mono ${textPrimary}`}
-                            >
-                              {solicitud.id}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`text-sm font-medium ${textPrimary}`}
-                            >
-                              {solicitud.emprendimiento}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`text-sm ${textSecondary}`}>
-                              {solicitud.rifEmprendimiento}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span
-                              className={`text-sm font-medium ${textPrimary}`}
-                            >
-                              {formatMonto(solicitud.montoSolicitado)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${ESTATUS_COLORES[solicitud.estatus] || "bg-gray-50 text-gray-700 border-gray-200"}`}
-                            >
-                              {getStatusIcon(solicitud.estatus)}
-                              {solicitud.estatus}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <ActionButton
-                                icon={Eye}
-                                onClick={() => handleVerDetalle(solicitud.id)}
-                                tooltip="Ver detalles"
-                                darkMode={darkMode}
-                              />
-{/* Botón Pre-Aprobar: solo visible para Pendiente */}
-    {solicitud.estatus === "Pendiente" && (
-      <ActionButton
-        icon={CheckCircle}
-        onClick={() => handleAprobarSolicitud(solicitud.id)}
-        tooltip="Pre-Aprobar"
-        variant="success"
-        darkMode={darkMode}
-      />
-    )}
-
-{/* Botón Rechazar: solo visible para Pendiente */}
-{solicitud.estatus === "Pendiente" && (
-  <ActionButton
-    icon={XCircle}
-    onClick={() => handleRechazarSolicitud(solicitud.id)}
-    tooltip="Rechazar"
-    variant="danger"
-    darkMode={darkMode}
-  />
-)}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <EmptyState onNew={handleNuevaSolicitud} darkMode={darkMode} />
-              )}
-            </div>
+                {loadingTodasSolicitudes ? (
+                  <div className="p-12 text-center">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-indigo-600 border-t-transparent"></div>
+                    <p className={`text-sm ${textSecondary} mt-3`}>
+                      Cargando todas las solicitudes...
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {getFilteredData(todasSolicitudes).length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead
+                            className={`${darkMode ? "bg-gray-700/50" : "bg-gray-50"} border-b ${darkMode ? "border-gray-700" : "border-gray-200"}`}
+                          >
+                            <tr>
+                              <th
+                                className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                              >
+                                ID
+                              </th>
+                              <th
+                                className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                              >
+                                Solicitante
+                              </th>
+                              <th
+                                className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                              >
+                                Emprendimiento
+                              </th>
+                              <th
+                                className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                              >
+                                Monto
+                              </th>
+                              <th
+                                className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                              >
+                                Estatus
+                              </th>
+                              <th
+                                className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}
+                              >
+                                Acciones
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody
+                            className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-100"}`}
+                          >
+                            {getFilteredData(todasSolicitudes).map((solicitud) => (
+                              <tr
+                                key={solicitud.id}
+                                className={`${darkMode ? "hover:bg-gray-700/50" : "hover:bg-gray-50"} transition-colors`}
+                              >
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <span
+                                    className={`text-sm font-mono ${textPrimary}`}
+                                  >
+                                    {solicitud.id}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span
+                                    className={`text-sm font-medium ${textPrimary}`}
+                                  >
+                                    {solicitud.nombre_solicitante || solicitud.cedula_persona}
+                                    {solicitud.id_rol_usu === 1 && (
+                                      <span className="ml-1.5 text-xs px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full">
+                                        Emprendedor
+                                      </span>
+                                    )}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span
+                                    className={`text-sm ${textPrimary}`}
+                                  >
+                                    {solicitud.emprendimiento}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <span
+                                    className={`text-sm font-medium ${textPrimary}`}
+                                  >
+                                    {formatMonto(solicitud.montoSolicitado)}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${ESTATUS_COLORES[solicitud.estatus] || "bg-gray-50 text-gray-700 border-gray-200"}`}
+                                  >
+                                    {getStatusIcon(solicitud.estatus)}
+                                    {solicitud.estatus}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <div className="flex items-center gap-2">
+                                    <ActionButton
+                                      icon={Eye}
+                                      onClick={() => handleVerDetalle(solicitud.id)}
+                                      tooltip="Ver detalles"
+                                      darkMode={darkMode}
+                                    />
+                                    {solicitud.estatus === "Pendiente" && (
+                                      <ActionButton
+                                        icon={CheckCircle}
+                                        onClick={() => handleAprobarSolicitud(solicitud.id)}
+                                        tooltip="Pre-Aprobar"
+                                        variant="success"
+                                        darkMode={darkMode}
+                                      />
+                                    )}
+                                    {solicitud.estatus === "Pendiente" && (
+                                      <ActionButton
+                                        icon={XCircle}
+                                        onClick={() => handleRechazarSolicitud(solicitud.id)}
+                                        tooltip="Rechazar"
+                                        variant="danger"
+                                        darkMode={darkMode}
+                                      />
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <EmptyState 
+                        darkMode={darkMode}
+                        message="No hay solicitudes en el sistema"
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Modal Nueva Solicitud */}
@@ -1234,6 +1603,11 @@ const SolicitudesPersona = () => {
                   >
                     Solicitante:{" "}
                     {persona.nombreCompleto || currentUser?.cedula_usuario}
+                    {currentUser?.id_rol_usu === 1 && (
+                      <span className="ml-2 text-xs px-2 py-0.5 bg-green-200 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full">
+                        Emprendedor
+                      </span>
+                    )}
                   </p>
                 </div>
 
@@ -1692,9 +2066,9 @@ const SolicitudesPersona = () => {
                     </div>
                   )}
 
-                {/* Botones de acción */}
+                {/* Botones de acción - SOLO VISIBLE PARA NO EMPRENDEDORES */}
                 <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  {selectedSolicitud.estatus === "Pendiente" && (
+                  {currentUser?.id_rol_usu !== 1 && selectedSolicitud.estatus === "Pendiente" && (
                     <>
                       <button
                         onClick={() => {
@@ -1704,7 +2078,7 @@ const SolicitudesPersona = () => {
                         className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 active:bg-emerald-800 transition-colors flex items-center justify-center gap-2 shadow-sm"
                       >
                         <CheckCircle size={16} />
-                        Aprobar Solicitud
+                        Pre-Aprobar
                       </button>
                       <button
                         onClick={() => {
@@ -1714,7 +2088,7 @@ const SolicitudesPersona = () => {
                         className="w-full sm:w-auto px-4 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 active:bg-red-800 transition-colors flex items-center justify-center gap-2 shadow-sm"
                       >
                         <XCircle size={16} />
-                        Rechazar Solicitud
+                        Rechazar
                       </button>
                     </>
                   )}

@@ -25,6 +25,7 @@ class AprobacionModel {
             s.solicitud,
             s.estatus AS estatus_solicitud,
             a.id_aprobacion,
+            a.cedula_persona_id,
             a.verificacion_requisitos,
             a.estatus_aprobacion,
             a.seleccion_manejo,
@@ -99,6 +100,7 @@ class AprobacionModel {
             estatus_aprobacion:
               row.estatus_aprobacion || row.estatus || "Pendiente",
             seleccion_manejo: row.seleccion_manejo,
+            cedula_persona_id: row.cedula_persona_id,
             requisitos_expediente: requisitosExpediente,
             verificacion_requisitos: verificacionRequisitos,
           };
@@ -170,6 +172,7 @@ class AprobacionModel {
           a.id_aprobacion,
           a.verificacion_requisitos,
           a.estatus_aprobacion,
+          a.cedula_persona_id,
           a.seleccion_manejo,
           ins.estatus_inspeccion,
           ins.id_inspeccion
@@ -241,6 +244,7 @@ class AprobacionModel {
         id_aprobacion: row.id_aprobacion,
         estatus_aprobacion: row.estatus_aprobacion || row.estatus || "Pendiente",
         seleccion_manejo: row.seleccion_manejo,
+        cedula_persona_id: row.cedula_persona_id,
         estatus_inspeccion: row.estatus_inspeccion,
         id_inspeccion: row.id_inspeccion,
         requisitos_expediente: requisitosExpediente,
@@ -286,24 +290,27 @@ class AprobacionModel {
       requisitos,
       estatus,
       seleccion_manejo,
+      cedula_persona_id,
       observaciones,
       id_inspeccion,
       estatus_aprobacion,
       estatus_inspeccion,
     } = data;
 
+    console.log('📥 MODELO - DATOS RECIBIDOS:');
+    console.log('cedula_persona_id:', cedula_persona_id);
+    console.log('tipo:', typeof cedula_persona_id);
+    console.log('id_expediente:', id_expediente);
+
+    // 👇 VALIDACIÓN EN EL MODELO (SIN TRIM)
+    if (!cedula_persona_id || cedula_persona_id === '') {
+      throw new Error('cedula_persona_id es requerido y no puede estar vacío');
+    }
+
     const client = await pool.connect();
 
     try {
       await client.query("BEGIN");
-
-      console.log("=== DATOS RECIBIDOS EN VERIFICAR REQUISITOS ===");
-      console.log("id_expediente:", id_expediente);
-      console.log("estatus_inspeccion recibido:", estatus_inspeccion);
-      console.log("estatus_aprobacion recibido:", estatus_aprobacion);
-      console.log("seleccion_manejo:", seleccion_manejo);
-      console.log("id_inspeccion:", id_inspeccion);
-      console.log("==============================================");
 
       // 1. ACTUALIZAR TABLA APROBACION
       const existente = await client.query(
@@ -332,21 +339,39 @@ class AprobacionModel {
                estatus_aprobacion = $2,
                seleccion_manejo = $3,
                id_inspeccion = COALESCE($4, id_inspeccion),
+               cedula_persona_id = $5,
                updated_at = CURRENT_TIMESTAMP
-           WHERE id_expediente = $5`,
-          [requisitosJSON, estatus_aprobacion || estatus, seleccion_manejo, idInspeccionFinal, id_expediente],
+           WHERE id_expediente = $6`,
+          [
+            requisitosJSON, 
+            estatus_aprobacion || estatus, 
+            seleccion_manejo, 
+            idInspeccionFinal, 
+            cedula_persona_id,
+            id_expediente
+          ],
         );
+        console.log("✅ Aprobación actualizada con cedula_persona_id:", cedula_persona_id);
       } else {
         await client.query(
           `INSERT INTO aprobacion (
             id_expediente, 
             id_inspeccion,
+            cedula_persona_id,
             verificacion_requisitos, 
             estatus_aprobacion, 
             seleccion_manejo
-          ) VALUES ($1, $2, $3, $4, $5)`,
-          [id_expediente, idInspeccionFinal, requisitosJSON, estatus_aprobacion || estatus, seleccion_manejo],
+          ) VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            id_expediente, 
+            idInspeccionFinal, 
+            cedula_persona_id,
+            requisitosJSON, 
+            estatus_aprobacion || estatus, 
+            seleccion_manejo
+          ],
         );
+        console.log("✅ Nueva aprobación creada con cedula_persona_id:", cedula_persona_id);
       }
 
       // 2. ACTUALIZAR TABLA EXPEDIENTE
@@ -358,6 +383,7 @@ class AprobacionModel {
          WHERE id_expediente = $3`,
         [estatus, observaciones || "", id_expediente],
       );
+      console.log("✅ Expediente actualizado");
 
       // 3. ACTUALIZAR TABLA SOLICITUD
       const expedienteInfo = await client.query(
@@ -373,54 +399,50 @@ class AprobacionModel {
            WHERE id_solicitud = $2`,
           [estatus, expedienteInfo.rows[0].id_solicitud]
         );
+        console.log("✅ Solicitud actualizada");
       }
 
       // 4. ACTUALIZAR TABLA INSPECCIÓN
-// 4. ACTUALIZAR TABLA INSPECCIÓN
-if (estatus_inspeccion) {
-  console.log("Intentando actualizar estatus_inspeccion a:", estatus_inspeccion);
-  
-  // Buscar inspección por id_inspeccion (no por id_expediente)
-  const inspeccionExistente = await client.query(
-    "SELECT id_inspeccion FROM inspeccion WHERE id_inspeccion = $1",
-    [idInspeccionFinal] // Usar id_inspeccion
-  );
-  
-  console.log("Inspección encontrada:", inspeccionExistente.rows);
-  
-  if (inspeccionExistente.rows.length > 0) {
-    // Actualizar inspección existente
-    const updateResult = await client.query(
-      `UPDATE inspeccion 
-       SET estatus_inspeccion = $1,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id_inspeccion = $2
-       RETURNING *`,
-      [estatus_inspeccion, idInspeccionFinal]
-    );
-    console.log("✅ Inspección actualizada:", updateResult.rows[0]);
-  } else {
-    // Crear nueva inspección
-    const insertResult = await client.query(
-      `INSERT INTO inspeccion (
-        id_inspeccion,
-        estatus_inspeccion,
-        created_at,
-        updated_at
-      ) VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      RETURNING *`,
-      [idInspeccionFinal, estatus_inspeccion]
-    );
-    console.log("✅ Nueva inspección creada:", insertResult.rows[0]);
-  }
-} else {
-  console.log("⚠️ No se recibió estatus_inspeccion para actualizar");
-}
+      if (estatus_inspeccion) {
+        console.log("Intentando actualizar estatus_inspeccion a:", estatus_inspeccion);
+        
+        const inspeccionExistente = await client.query(
+          "SELECT id_inspeccion FROM inspeccion WHERE id_inspeccion = $1",
+          [idInspeccionFinal]
+        );
+        
+        console.log("Inspección encontrada:", inspeccionExistente.rows);
+        
+        if (inspeccionExistente.rows.length > 0) {
+          const updateResult = await client.query(
+            `UPDATE inspeccion 
+             SET estatus_inspeccion = $1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id_inspeccion = $2
+             RETURNING *`,
+            [estatus_inspeccion, idInspeccionFinal]
+          );
+          console.log("✅ Inspección actualizada:", updateResult.rows[0]);
+        } else {
+          const insertResult = await client.query(
+            `INSERT INTO inspeccion (
+              id_inspeccion,
+              estatus_inspeccion,
+              created_at,
+              updated_at
+            ) VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            RETURNING *`,
+            [idInspeccionFinal, estatus_inspeccion]
+          );
+          console.log("✅ Nueva inspección creada:", insertResult.rows[0]);
+        }
+      } else {
+        console.log("⚠️ No se recibió estatus_inspeccion para actualizar");
+      }
 
       await client.query("COMMIT");
       console.log("=== TRANSACCIÓN COMPLETADA EXITOSAMENTE ===");
 
-      // Retornar el expediente actualizado
       return await this.getExpedienteById(id_expediente);
     } catch (error) {
       await client.query("ROLLBACK");
@@ -451,4 +473,4 @@ if (estatus_inspeccion) {
   }
 }
 
-module.exports = AprobacionModel; 
+module.exports = AprobacionModel;

@@ -3,40 +3,37 @@ const pool = require('../config/db');
 
 class SolicitudModel {
 
-  // Agregar este método a tu SolicitudModel existente
-
-// Obtener solo solicitudes aprobadas
-static async getAprobadas() {
-  const result = await pool.query(`
-    SELECT 
-      s.*, 
-      p.nombres,
-      p.apellidos,
-      CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo,
-      p.telefono,
-      p.correo,
-      p.email,
-      p.direccion,
-      p.estado as estado_persona,
-      p.municipio,
-      p.parroquia,
-      p.tipo_persona,
-      e.id_emprendimiento,
-      e.nombre_emprendimiento,
-      e.direccion_empredimiento,
-      e.anos_experiencia,
-      e.id_clasificacion,
-      c.sector,
-      c.actividad
-    FROM solicitud s
-    INNER JOIN persona p ON s.cedula_persona = p.cedula
-    LEFT JOIN emprendimiento e ON s.id_solicitud = e.id_solicitud
-    LEFT JOIN clasificacion_emprendimiento c ON e.id_clasificacion = c.id_clasificacion
-    WHERE s.estatus = 'Pre-Aprobado'
-    ORDER BY s.id_solicitud DESC
-  `);
-  return result.rows;
-}
+  // Obtener solo solicitudes aprobadas
+  static async getAprobadas() {
+    const result = await pool.query(`
+      SELECT 
+        s.*, 
+        p.nombres,
+        p.apellidos,
+        CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo,
+        p.telefono,
+        p.correo,
+        p.direccion,
+        p.estado as estado_persona,
+        p.municipio,
+        p.parroquia,
+        p.tipo_persona,
+        e.id_emprendimiento,
+        e.nombre_emprendimiento,
+        e.direccion_empredimiento,
+        e.anos_experiencia,
+        e.id_clasificacion,
+        c.sector,
+        c.actividad
+      FROM solicitud s
+      INNER JOIN persona p ON s.cedula_persona = p.cedula
+      LEFT JOIN emprendimiento e ON s.id_solicitud = e.id_solicitud
+      LEFT JOIN clasificacion_emprendimiento c ON e.id_clasificacion = c.id_clasificacion
+      WHERE s.estatus = 'Pre-Aprobado'
+      ORDER BY s.id_solicitud DESC
+    `);
+    return result.rows;
+  }
   
   // Obtener todas las solicitudes con datos completos
   static async getAll() {
@@ -48,7 +45,6 @@ static async getAprobadas() {
         CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo,
         p.telefono,
         p.correo,
-        p.email,
         p.direccion,
         p.estado as estado_persona,
         p.municipio,
@@ -70,93 +66,14 @@ static async getAprobadas() {
     return result.rows;
   }
 
-  // Obtener emprendedores únicos (personas con solicitudes)
-  static async getEmprendedores() {
-    const query = `
-      WITH emprendedores_cte AS (
-        SELECT DISTINCT ON (p.cedula)
-          p.cedula,
-          p.nombres,
-          p.apellidos,
-          CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo,
-          p.telefono,
-          p.correo,
-          p.email,
-          p.direccion,
-          p.estado as estado_persona,
-          p.municipio,
-          p.parroquia,
-          p.tipo_persona,
-          COUNT(s.id_solicitud) as total_solicitudes,
-          MAX(s.created_at) as ultima_solicitud
-        FROM persona p
-        LEFT JOIN solicitud s ON p.cedula = s.cedula_persona
-        GROUP BY p.cedula, p.nombres, p.apellidos, p.telefono, 
-                 p.correo, p.email, p.direccion, p.estado, 
-                 p.municipio, p.parroquia, p.tipo_persona
-      )
-      SELECT 
-        e.*,
-        COALESCE(
-          (
-            SELECT json_agg(
-              json_build_object(
-                'id_solicitud', s2.id_solicitud,
-                'solicitud', s2.solicitud,
-                'fecha_solicitud', s2.fecha_solicitud,
-                'monto_solicitado', s2.monto_solicitado,
-                'estatus', s2.estatus,
-                'created_at', s2.created_at
-              ) ORDER BY s2.created_at DESC
-            )
-            FROM solicitud s2 
-            WHERE s2.cedula_persona = e.cedula
-          ),
-          '[]'::json
-        ) as solicitudes
-      FROM emprendedores_cte e
-      ORDER BY e.ultima_solicitud DESC NULLS LAST, e.nombre_completo ASC
-    `;
+  // Obtener solicitudes por cédula de persona - CORREGIDO
+  static async getByCedula(cedula_persona) {
+    // Asegurar que la cédula sea string
+    const cedula = String(cedula_persona).trim();
+    if (!cedula) {
+      throw new Error('Cédula no proporcionada');
+    }
     
-    const result = await pool.query(query);
-    return result.rows;
-  }
-
-  // Obtener solicitud por ID
-  static async getById(id_solicitud) {
-    const result = await pool.query(`
-      SELECT 
-        s.*, 
-        p.nombres,
-        p.apellidos,
-        CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo,
-        p.cedula,
-        p.telefono,
-        p.correo,
-        p.email,
-        p.direccion,
-        p.estado as estado_persona,
-        p.municipio,
-        p.parroquia,
-        p.tipo_persona,
-        e.id_emprendimiento,
-        e.nombre_emprendimiento,
-        e.direccion_empredimiento,
-        e.anos_experiencia,
-        e.id_clasificacion,
-        c.sector,
-        c.actividad
-      FROM solicitud s
-      INNER JOIN persona p ON s.cedula_persona = p.cedula
-      LEFT JOIN emprendimiento e ON s.id_solicitud = e.id_solicitud
-      LEFT JOIN clasificacion_emprendimiento c ON e.id_clasificacion = c.id_clasificacion
-      WHERE s.id_solicitud = $1
-    `, [id_solicitud]);
-    return result.rows[0];
-  }
-
-  // Obtener solicitudes por cédula de persona
-  static async getByCedulaPersona(cedula_persona) {
     const result = await pool.query(`
       SELECT 
         s.*,
@@ -165,7 +82,6 @@ static async getAprobadas() {
         CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo,
         p.telefono,
         p.correo,
-        p.email,
         p.direccion,
         e.id_emprendimiento,
         e.nombre_emprendimiento,
@@ -180,8 +96,33 @@ static async getAprobadas() {
       LEFT JOIN clasificacion_emprendimiento c ON e.id_clasificacion = c.id_clasificacion
       WHERE s.cedula_persona = $1
       ORDER BY s.id_solicitud DESC
-    `, [cedula_persona]);
+    `, [cedula]);
     return result.rows;
+  }
+
+  static async getById(id_solicitud) {
+    const query = `
+      SELECT 
+        s.id_solicitud,
+        s.cedula_persona,
+        s.solicitud as motivo_solicitud,
+        s.monto_solicitado,
+        s.fecha_solicitud,
+        s.estatus,
+        s.motivo_rechazo,
+        s.created_at
+      FROM solicitud s
+      WHERE s.id_solicitud = $1
+    `;
+    
+    try {
+      const result = await pool.query(query, [id_solicitud]);
+      console.log(`✅ Solicitud encontrada por ID ${id_solicitud}:`, result.rows[0] ? 'Sí' : 'No');
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('❌ Error en SolicitudModel.getById:', error);
+      throw error;
+    }
   }
 
   // Crear nueva solicitud
@@ -199,6 +140,11 @@ static async getAprobadas() {
 
   // Actualizar solicitud
   static async update(id_solicitud, data) {
+    const id = parseInt(id_solicitud);
+    if (isNaN(id)) {
+      throw new Error('ID de solicitud inválido');
+    }
+    
     const { solicitud, fecha_solicitud, monto_solicitado } = data;
     
     const result = await pool.query(
@@ -209,13 +155,18 @@ static async getAprobadas() {
         updated_at = CURRENT_TIMESTAMP
       WHERE id_solicitud = $4
       RETURNING *`,
-      [solicitud, fecha_solicitud, monto_solicitado, id_solicitud]
+      [solicitud, fecha_solicitud, monto_solicitado, id]
     );
     return result.rows[0];
   }
 
-  // Cambiar estatus de solicitud
+  // Cambiar estatus de solicitud - CORREGIDO
   static async cambiarEstatus(id_solicitud, estatus, motivo_rechazo = null) {
+    const id = parseInt(id_solicitud);
+    if (isNaN(id)) {
+      throw new Error('ID de solicitud inválido');
+    }
+    
     // Validar que el estatus sea válido
     const estatusPermitidos = ['Pendiente', 'Pre-Aprobado', 'Rechazado'];
     if (!estatusPermitidos.includes(estatus)) {
@@ -229,16 +180,21 @@ static async getAprobadas() {
         updated_at = CURRENT_TIMESTAMP
       WHERE id_solicitud = $3
       RETURNING *`,
-      [estatus, motivo_rechazo, id_solicitud]
+      [estatus, motivo_rechazo, id]
     );
     return result.rows[0];
   }
 
   // Eliminar solicitud
   static async delete(id_solicitud) {
+    const id = parseInt(id_solicitud);
+    if (isNaN(id)) {
+      throw new Error('ID de solicitud inválido');
+    }
+    
     const result = await pool.query(
       'DELETE FROM solicitud WHERE id_solicitud = $1 RETURNING *',
-      [id_solicitud]
+      [id]
     );
     return result.rows[0];
   }

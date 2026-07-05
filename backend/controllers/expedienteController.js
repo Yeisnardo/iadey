@@ -1,5 +1,3 @@
-// controllers/expedienteController.js
-
 const ExpedienteModel = require('../models/expedienteModel');
 const SolicitudModel = require('../models/solicitudModel');
 const UsuarioModel = require('../models/usuarioModel');
@@ -36,7 +34,6 @@ const expedienteController = {
         nombre_completo: `${sol.nombres || ''} ${sol.apellidos || ''}`.trim(),
         cedula: sol.cedula_persona_numero,
         telefono: sol.telefono,
-        email: sol.email,
         direccion: sol.direccion,
         
         id_emprendimiento: sol.id_emprendimiento,
@@ -57,7 +54,6 @@ const expedienteController = {
           inspector_cedula: sol.inspector_cedula,
           observaciones: sol.observaciones,
           id_requisitos: sol.id_requisitos,
-          // ✅ Incluir documentos/imágenes si existen
           documentos: sol.urls_imagenes ? JSON.parse(sol.urls_imagenes) : []
         } : null
       }));
@@ -79,7 +75,7 @@ const expedienteController = {
     }
   },
 
-  // POST /api/expediente - ACTUALIZADO para recibir URLs de ImgBB
+  // POST /api/expediente
   create: async (req, res) => {
     try {
       const {
@@ -89,10 +85,10 @@ const expedienteController = {
         codigo_expediente,
         estatus,
         observaciones,
-        urls_imagenes  // ✅ NUEVO: URLs de ImgBB
+        urls_imagenes
       } = req.body;
 
-      console.log("📋 Datos recibidos:", {
+      console.log("📋 Datos recibidos para crear expediente:", {
         id_solicitud,
         id_usuario,
         codigo_expediente,
@@ -130,7 +126,7 @@ const expedienteController = {
         });
       }
 
-      // Verificar que la solicitud existe y está aprobada
+      // ✅ Verificar que la solicitud existe y está aprobada
       const solicitud = await SolicitudModel.getById(id_solicitud);
       
       if (!solicitud) {
@@ -140,14 +136,20 @@ const expedienteController = {
         });
       }
 
-      if (solicitud.estatus !== 'Pre-Aprobado') {
+      console.log("✅ Solicitud encontrada:", {
+        id: solicitud.id_solicitud,
+        estatus: solicitud.estatus
+      });
+
+      // Verificar que la solicitud esté en estado correcto
+      if (solicitud.estatus !== 'Pre-Aprobado' && solicitud.estatus !== 'Aprobado') {
         return res.status(400).json({ 
           success: false, 
-          error: `La solicitud debe estar PRE-APROBADA. Estado actual: ${solicitud.estatus}` 
+          error: `La solicitud debe estar PRE-APROBADA o APROBADA. Estado actual: ${solicitud.estatus}` 
         });
       }
 
-      // Verificar que el usuario (inspector) existe
+      // ✅ Verificar que el usuario (inspector) existe
       const usuario = await UsuarioModel.getById(id_usuario);
       
       if (!usuario) {
@@ -156,6 +158,12 @@ const expedienteController = {
           error: `No existe el usuario/inspector con ID: ${id_usuario}` 
         });
       }
+
+      console.log("✅ Inspector encontrado:", {
+        id: usuario.id,
+        nombre: `${usuario.nombres} ${usuario.apellidos}`,
+        rol: usuario.nombre_rol
+      });
 
       // Verificar que no exista expediente previo
       const existeExpediente = await ExpedienteModel.existsBySolicitud(id_solicitud);
@@ -170,7 +178,6 @@ const expedienteController = {
       let urlsImagenesJSON = null;
       if (urls_imagenes) {
         try {
-          // Si urls_imagenes es string, parsearlo; si ya es objeto, usarlo directamente
           urlsImagenesJSON = typeof urls_imagenes === 'string' 
             ? JSON.parse(urls_imagenes) 
             : urls_imagenes;
@@ -197,7 +204,7 @@ const expedienteController = {
         observaciones: observaciones || 'Sin observaciones iniciales',
         codigo_expediente,
         estatus: estatus || 'En revisión',
-        urls_imagenes: urlsImagenesJSON  // ✅ Pasar las URLs al modelo
+        urls_imagenes: urlsImagenesJSON
       };
 
       console.log("📤 Creando expediente...");
@@ -218,7 +225,7 @@ const expedienteController = {
       });
       
     } catch (error) {
-      console.error('❌ Error en create:', error);
+      console.error('❌ Error en create expediente:', error);
       res.status(500).json({ 
         success: false, 
         error: error.message || 'Error interno del servidor al crear expediente'

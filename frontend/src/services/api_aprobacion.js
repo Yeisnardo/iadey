@@ -153,7 +153,9 @@ verificarRequisitos: async (idExpediente, datosVerificacion) => {
       seleccion_manejo: datosVerificacion.seleccion_manejo || null,
       id_inspeccion: datosVerificacion.id_inspeccion || null,
       estatus_aprobacion: datosVerificacion.estatus_aprobacion || null,  // ← AÑADIR
-      estatus_inspeccion: datosVerificacion.estatus_inspeccion || null   // ← AÑADIR
+      estatus_inspeccion: datosVerificacion.estatus_inspeccion || null,   // ← AÑADIR
+       // 👇 ADD THIS LINE - Include the cedula_persona_id
+      cedula_persona_id: datosVerificacion.cedula_persona_id || null
     };
     
     console.log('Enviando verificación al backend:', payload);

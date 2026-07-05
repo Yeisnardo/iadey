@@ -1,15 +1,17 @@
-// services/api_permisos.js - Versión actualizada
+// services/api_permisos.js - Versión completa con gestión por USUARIO
 
 import api from './api_principal';
 
 const permisosAPI = {
-  // Obtener todos los permisos (ahora desde la tabla Permisos)
+  // ========== PERMISOS ==========
+  
+  // Obtener todos los permisos del sistema
   getAllPermisos: async () => {
     try {
       const response = await api.get('/permisos');
       return { 
         success: true, 
-        data: response.data.data // Array de {id_permisos, id_roles, menu_item_id, acciones}
+        data: response.data.data
       };
     } catch (error) {
       console.error('Error en getAllPermisos:', error);
@@ -26,7 +28,7 @@ const permisosAPI = {
       const response = await api.get(`/permisos/rol/${idRol}`);
       return { 
         success: true, 
-        data: response.data.data // Permisos del rol específico
+        data: response.data.data
       };
     } catch (error) {
       console.error('Error en getPermisosByRol:', error);
@@ -37,13 +39,13 @@ const permisosAPI = {
     }
   },
 
-  // Obtener permisos de un usuario (a través de su rol)
+  // Obtener permisos de un USUARIO
   getPermisosByUsuario: async (idUsuario) => {
     try {
       const response = await api.get(`/permisos/usuario/${idUsuario}`);
       return { 
         success: true, 
-        data: response.data.data // Permisos del usuario según su rol
+        data: response.data.data
       };
     } catch (error) {
       console.error('Error en getPermisosByUsuario:', error);
@@ -54,12 +56,33 @@ const permisosAPI = {
     }
   },
 
-  // Asignar/actualizar permisos de un rol
+  // Asignar/actualizar permisos de un USUARIO
+  asignarPermisosUsuario: async (idUsuario, permisos) => {
+    try {
+      const response = await api.post(`/permisos/usuario/${idUsuario}`, { permisos });
+      return { 
+        success: true, 
+        data: response.data.data,
+        message: response.data.message
+      };
+    } catch (error) {
+      console.error('Error en asignarPermisosUsuario:', error);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'Error al asignar permisos al usuario' 
+      };
+    }
+  },
+
+  // Asignar/actualizar permisos de un ROL
   asignarPermisosRol: async (idRol, permisos) => {
     try {
-      // permisos debe ser un array de {menu_item_id, acciones}
       const response = await api.post(`/permisos/rol/${idRol}`, { permisos });
-      return { success: true, data: response.data.data };
+      return { 
+        success: true, 
+        data: response.data.data,
+        message: response.data.message
+      };
     } catch (error) {
       console.error('Error en asignarPermisosRol:', error);
       return { 
@@ -69,17 +92,56 @@ const permisosAPI = {
     }
   },
 
-  // Asignar permisos a un usuario (cambia su rol)
-  asignarPermisosUsuario: async (idUsuario, idRol) => {
+  // Eliminar todos los permisos de un usuario
+  eliminarPermisosUsuario: async (idUsuario) => {
     try {
-      // En tu estructura, los permisos se asignan mediante el rol
-      const response = await api.put(`/permisos/usuario/${idUsuario}/rol`, { id_rol: idRol });
-      return { success: true, data: response.data.data };
+      const response = await api.delete(`/permisos/usuario/${idUsuario}`);
+      return { 
+        success: true, 
+        message: response.data.message
+      };
     } catch (error) {
-      console.error('Error en asignarPermisosUsuario:', error);
+      console.error('Error en eliminarPermisosUsuario:', error);
       return { 
         success: false, 
-        error: error.response?.data?.error || 'Error al asignar permisos al usuario' 
+        error: error.response?.data?.error || 'Error al eliminar los permisos del usuario' 
+      };
+    }
+  },
+
+  // Eliminar todos los permisos de un rol
+  eliminarPermisosRol: async (idRol) => {
+    try {
+      const response = await api.delete(`/permisos/rol/${idRol}`);
+      return { 
+        success: true, 
+        message: response.data.message
+      };
+    } catch (error) {
+      console.error('Error en eliminarPermisosRol:', error);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'Error al eliminar los permisos del rol' 
+      };
+    }
+  },
+
+  // Copiar permisos de un usuario a otro
+  copiarPermisosUsuario: async (idUsuarioOrigen, idUsuarioDestino) => {
+    try {
+      const response = await api.post('/permisos/copiar', { 
+        id_usuario_origen: idUsuarioOrigen,
+        id_usuario_destino: idUsuarioDestino
+      });
+      return { 
+        success: true, 
+        message: response.data.message
+      };
+    } catch (error) {
+      console.error('Error en copiarPermisosUsuario:', error);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'Error al copiar permisos' 
       };
     }
   },
@@ -102,11 +164,15 @@ const permisosAPI = {
     }
   },
 
-  // Obtener todos los roles disponibles
+  // ========== ROLES ==========
+  
   getRoles: async () => {
     try {
       const response = await api.get('/roles');
-      return { success: true, data: response.data.data };
+      return { 
+        success: true, 
+        data: response.data.data 
+      };
     } catch (error) {
       console.error('Error en getRoles:', error);
       return { 
@@ -116,11 +182,32 @@ const permisosAPI = {
     }
   },
 
-  // Crear un nuevo rol
-  createRol: async (nombreRol) => {
+  getRolById: async (idRol) => {
     try {
-      const response = await api.post('/roles', { nombre_rol: nombreRol });
-      return { success: true, data: response.data.data };
+      const response = await api.get(`/roles/${idRol}`);
+      return { 
+        success: true, 
+        data: response.data.data 
+      };
+    } catch (error) {
+      console.error('Error en getRolById:', error);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'Error al obtener el rol' 
+      };
+    }
+  },
+
+  createRol: async (nombreRol, descripcion = '') => {
+    try {
+      const response = await api.post('/roles', { 
+        nombre_rol: nombreRol,
+        descripcion: descripcion
+      });
+      return { 
+        success: true, 
+        data: response.data.data 
+      };
     } catch (error) {
       console.error('Error en createRol:', error);
       return { 
@@ -130,11 +217,16 @@ const permisosAPI = {
     }
   },
 
-  // Actualizar un rol
-  updateRol: async (idRol, nombreRol) => {
+  updateRol: async (idRol, nombreRol, descripcion = '') => {
     try {
-      const response = await api.put(`/roles/${idRol}`, { nombre_rol: nombreRol });
-      return { success: true, data: response.data.data };
+      const response = await api.put(`/roles/${idRol}`, { 
+        nombre_rol: nombreRol,
+        descripcion: descripcion
+      });
+      return { 
+        success: true, 
+        data: response.data.data 
+      };
     } catch (error) {
       console.error('Error en updateRol:', error);
       return { 
@@ -144,16 +236,34 @@ const permisosAPI = {
     }
   },
 
-  // Eliminar un rol
   deleteRol: async (idRol) => {
     try {
       const response = await api.delete(`/roles/${idRol}`);
-      return { success: true, message: 'Rol eliminado correctamente' };
+      return { 
+        success: true, 
+        message: response.data.message 
+      };
     } catch (error) {
       console.error('Error en deleteRol:', error);
       return { 
         success: false, 
         error: error.response?.data?.error || 'Error al eliminar el rol' 
+      };
+    }
+  },
+
+  getUsuariosByRol: async (idRol) => {
+    try {
+      const response = await api.get(`/roles/${idRol}/usuarios`);
+      return { 
+        success: true, 
+        data: response.data.data 
+      };
+    } catch (error) {
+      console.error('Error en getUsuariosByRol:', error);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'Error al obtener usuarios del rol' 
       };
     }
   }

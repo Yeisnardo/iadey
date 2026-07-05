@@ -146,78 +146,83 @@ const Login_administrativo = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // pages/Login_administrativo.jsx - Parte del handleSubmit CORREGIDO
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  // Validaciones con SweetAlert
+  if (!formData.cedula_usuario || !formData.password) {
+    showValidationAlert();
+    setLoginError("Por favor completa todos los campos");
+    return;
+  }
+  
+  // Validar formato básico de cédula
+  const cedulaRegex = /^[\dVEve-]+$/;
+  if (!cedulaRegex.test(formData.cedula_usuario)) {
+    showInvalidFormatAlert();
+    setLoginError("Formato de cédula inválido");
+    return;
+  }
+  
+  setIsLoading(true);
+  setLoginError("");
+  
+  try {
+    // Usar la API real de usuarioAPI
+    const response = await usuarioAPI.login(formData.cedula_usuario, formData.password);
     
-    // Validaciones con SweetAlert
-    if (!formData.cedula_usuario || !formData.password) {
-      showValidationAlert();
-      setLoginError("Por favor completa todos los campos");
-      return;
-    }
+    console.log('Respuesta del login:', response); // Para debugging
     
-    // Validar formato básico de cédula
-    const cedulaRegex = /^[\dVEve-]+$/;
-    if (!cedulaRegex.test(formData.cedula_usuario)) {
-      showInvalidFormatAlert();
-      setLoginError("Formato de cédula inválido");
-      return;
-    }
-    
-    setIsLoading(true);
-    setLoginError("");
-    
-    try {
-      // Usar la API real de usuarioAPI
-      const response = await usuarioAPI.login(formData.cedula_usuario, formData.password);
+    if (response.success) {
+      const user = response.data;
       
-      if (response.success) {
-        const user = response.data;
-        
-        // *** MODIFICADO: Verificar que NO sea emprendedor (id_rol_usu !== 1) ***
-        if (user.id_rol_usu !== 1) {
-          // Login exitoso para personal administrativo
-          showSuccessAlert();
-          // Pequeña pausa para mostrar la alerta antes de navegar
-          setTimeout(() => {
-            navigate("/dashboard", { replace: true });
-          }, 1500);
-        } else {
-          // Usuario es emprendedor, no tiene acceso
-          usuarioAPI.logout(); // Cerrar sesión
-          showAccessDeniedAlert();
-          setLoginError("Acceso restringido. Los emprendedores no pueden acceder al panel administrativo.");
-        }
+      // *** VERIFICACIÓN MEJORADA: Validar que NO sea emprendedor (id_rol_usu !== 1) ***
+      const userRole = user.id_rol_usu || user.rol_id || user.id_rol;
+      
+      if (userRole !== 1) { // 1 = Emprendedor según tu BD
+        // Login exitoso para personal administrativo
+        showSuccessAlert();
+        setTimeout(() => {
+          navigate("/dashboard", { replace: true });
+        }, 1500);
       } else {
-        showErrorAlert(response.error || "Credenciales incorrectas");
-        setLoginError(response.error || "Credenciales incorrectas");
+        // Usuario es emprendedor, no tiene acceso
+        usuarioAPI.logout();
+        showAccessDeniedAlert();
+        setLoginError("Acceso restringido. Los emprendedores no pueden acceder al panel administrativo.");
       }
-    } catch (error) {
-      console.error("Error de login administrativo:", error);
-      
-      let errorMessage = "Error al conectar con el servidor";
-      
-      if (error.response?.status === 401) {
-        errorMessage = "Cédula o contraseña incorrecta";
-        showErrorAlert(errorMessage);
-      } else if (error.response?.status === 403) {
-        errorMessage = "Usuario inactivo o bloqueado";
-        showErrorAlert(errorMessage);
-      } else if (error.response?.status === 500) {
-        errorMessage = "Error del servidor. Intente más tarde";
-        showServerErrorAlert();
-      } else if (error.error) {
-        errorMessage = error.error;
-        showErrorAlert(errorMessage);
-      } else {
-        showErrorAlert(errorMessage);
-      }
-      
-      setLoginError(errorMessage);
-    } finally {
-      setIsLoading(false);
+    } else {
+      showErrorAlert(response.error || "Credenciales incorrectas");
+      setLoginError(response.error || "Credenciales incorrectas");
     }
-  };
+  } catch (error) {
+    console.error("Error de login administrativo:", error);
+    
+    let errorMessage = "Error al conectar con el servidor";
+    
+    if (error.response?.status === 401) {
+      errorMessage = "Cédula o contraseña incorrecta";
+      showErrorAlert(errorMessage);
+    } else if (error.response?.status === 403) {
+      errorMessage = "Usuario inactivo o bloqueado";
+      showErrorAlert(errorMessage);
+    } else if (error.response?.status === 500) {
+      errorMessage = "Error del servidor. Intente más tarde";
+      showServerErrorAlert();
+    } else if (error.error) {
+      errorMessage = error.error;
+      showErrorAlert(errorMessage);
+    } else {
+      showErrorAlert(errorMessage);
+    }
+    
+    setLoginError(errorMessage);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1a3542] to-white flex items-center justify-center p-4">

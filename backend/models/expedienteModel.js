@@ -18,7 +18,6 @@ class ExpedienteModel {
         p.nombres,
         p.apellidos,
         p.telefono,
-        p.email,
         p.direccion,
         p.estado as estado_persona,
         p.municipio,
@@ -204,6 +203,33 @@ class ExpedienteModel {
       client.release();
     }
   }
+
+  // models/solicitudModel.js
+
+static async getById(id_solicitud) {
+  const query = `
+    SELECT 
+      s.id_solicitud,
+      s.cedula_persona,
+      s.solicitud as motivo_solicitud,
+      s.monto_solicitado,
+      s.fecha_solicitud,
+      s.estatus,
+      s.motivo_rechazo,
+      s.created_at
+    FROM solicitud s
+    WHERE s.id_solicitud = $1
+  `;
+  
+  try {
+    const result = await pool.query(query, [id_solicitud]);
+    console.log(`✅ Solicitud encontrada por ID ${id_solicitud}:`, result.rows[0] ? 'Sí' : 'No');
+    return result.rows[0] || null;
+  } catch (error) {
+    console.error('❌ Error en SolicitudModel.getById:', error);
+    throw error;
+  }
+}
 
   // Obtener expediente por ID
   static async getById(id_expediente) {

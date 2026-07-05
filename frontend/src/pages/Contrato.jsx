@@ -20,6 +20,8 @@ import {
   Hourglass,
   Eye,
   Gift,
+  Users,
+  UserCheck,
 } from "lucide-react";
 
 // Componentes personalizados
@@ -52,6 +54,11 @@ const Contrato = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(8);
   const [showFilters, setShowFilters] = useState(false);
+
+  // ============================================================
+  // ESTADOS - Sección activa (Mis Contratos / Todos los Contratos)
+  // ============================================================
+  const [activeSection, setActiveSection] = useState("all"); // "my" o "all"
 
   // ============================================================
   // ESTADOS - Datos principales
@@ -88,7 +95,7 @@ const Contrato = () => {
     inicio: "",
     cierre: "",
     numero_gracias: "0",
-    frecuencia_pago_contrato: "", // NUEVO CAMPO
+    frecuencia_pago_contrato: "",
   });
   const [formErrors, setFormErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -100,7 +107,7 @@ const Contrato = () => {
   const [selectedContractForConsulta, setSelectedContractForConsulta] = useState(null);
 
   // ============================================================
-  // DATOS DEL USUARIO
+  // DATOS DEL USUARIO (simulados - reemplazar con datos reales)
   // ============================================================
   const user = {
     name: "Administrador IADEY",
@@ -112,6 +119,8 @@ const Contrato = () => {
     pendingTasks: 8,
     completedTasks: 45,
     performance: "98%",
+    // ID del usuario actual (para filtrar "Mis Contratos")
+    userId: 1, // Este valor debería venir del usuario autenticado
   };
 
   // ============================================================
@@ -329,7 +338,7 @@ const Contrato = () => {
   };
 
   // ============================================================
-  // HANDLERS - Aceptar Contrato (Pendiente por aceptar → Pendiente por desembolso)
+  // HANDLERS - Aceptar Contrato
   // ============================================================
   const aceptarContratoDirecto = async (contract) => {
     const result = await Swal.fire({
@@ -413,7 +422,7 @@ const Contrato = () => {
   };
 
   // ============================================================
-  // HANDLERS - Gestión de Contrato (Esperando contrato → Pendiente por aceptar)
+  // HANDLERS - Gestión de Contrato
   // ============================================================
   const validateForm = () => {
     const errors = {};
@@ -497,7 +506,7 @@ const Contrato = () => {
         numero_gracias: parseInt(formGestion.numero_gracias) || 0,
         inicio: formGestion.inicio,
         cierre: formGestion.cierre,
-        frecuencia_pago_contrato: formGestion.frecuencia_pago_contrato, // NUEVO CAMPO
+        frecuencia_pago_contrato: formGestion.frecuencia_pago_contrato,
       };
 
       const response = await ContratoAPI.create(contratoData);
@@ -539,7 +548,7 @@ const Contrato = () => {
                     flat: `- Bs ${formatMonto(montoBolivares.flatMonto)}`,
                     interes_porcentaje: parseFloat(formGestion.interes_porcentaje),
                     devolvimiento: parseFloat(formGestion.devolvimiento),
-                    frecuencia_pago_contrato: formGestion.frecuencia_pago_contrato, // NUEVO CAMPO
+                    frecuencia_pago_contrato: formGestion.frecuencia_pago_contrato,
                   }
                 : contract
             )
@@ -733,7 +742,9 @@ const Contrato = () => {
             interes_porcentaje: item.interes_porcentaje || null,
             devolvimiento: item.devolvimiento || null,
             numero_gracias: item.numero_gracias || 0,
-            frecuencia_pago_contrato: item.frecuencia_pago_contrato || null, // NUEVO CAMPO
+            frecuencia_pago_contrato: item.frecuencia_pago_contrato || null,
+            // Asignar un usuario creador al contrato (simulado - reemplazar con datos reales)
+            created_by: item.created_by || 1, // 1 = administrador, 2 = otro usuario, etc.
           }));
           setContractsData(dataConDefaults);
         } else {
@@ -818,7 +829,7 @@ const Contrato = () => {
         inicio: fechaInicioDefault,
         cierre: fechaCierreDefault,
         numero_gracias: graciasConfig,
-        frecuencia_pago_contrato: configuracionContrato.frecuencia_pago || "", // NUEVO CAMPO
+        frecuencia_pago_contrato: configuracionContrato.frecuencia_pago || "",
       });
       setMontoBolivares({ bruto: 0, flatMonto: 0, neto: 0 });
       setFormErrors({});
@@ -828,10 +839,21 @@ const Contrato = () => {
   // ============================================================
   // RENDER - Datos de sección y estadísticas
   // ============================================================
+  // Filtrar contratos del usuario actual para "Mis Contratos"
+  const myContracts = contractsData.filter(
+    (c) => c.created_by === user.userId
+  );
+
   const contratosActivos = contractsData.filter((c) => c.estatus === "Activo").length;
   const contratosPendientesAceptar = contractsData.filter((c) => c.estatus === "Pendiente por aceptar").length;
   const contratosPendientesDesembolso = contractsData.filter((c) => c.estatus === "Pendiente por desembolso").length;
   const contratosEsperando = contractsData.filter((c) => c.estatus === "Esperando contrato").length;
+
+  // Estadísticas para "Mis Contratos"
+  const myContratosActivos = myContracts.filter((c) => c.estatus === "Activo").length;
+  const myContratosPendientesAceptar = myContracts.filter((c) => c.estatus === "Pendiente por aceptar").length;
+  const myContratosPendientesDesembolso = myContracts.filter((c) => c.estatus === "Pendiente por desembolso").length;
+  const myContratosEsperando = myContracts.filter((c) => c.estatus === "Esperando contrato").length;
 
   const sectionData = {
     contracts: {
@@ -844,16 +866,37 @@ const Contrato = () => {
         { id: 4, title: "Esperando Contrato", value: contratosEsperando, icon: Hourglass, color: "gray", bgColor: "bg-gray-50", textColor: "text-gray-600" },
       ],
     },
+    myContracts: {
+      title: "Mis Contratos",
+      description: "Contratos creados por mí",
+      stats: [
+        { id: 1, title: "Mis Activos", value: myContratosActivos, icon: CheckCircle, color: "green", bgColor: "bg-green-50", textColor: "text-green-600" },
+        { id: 2, title: "Pend. Aceptar", value: myContratosPendientesAceptar, icon: Clock, color: "yellow", bgColor: "bg-yellow-50", textColor: "text-yellow-600" },
+        { id: 3, title: "Pend. Desembolso", value: myContratosPendientesDesembolso, icon: DollarSign, color: "orange", bgColor: "bg-orange-50", textColor: "text-orange-600" },
+        { id: 4, title: "Esperando", value: myContratosEsperando, icon: Hourglass, color: "gray", bgColor: "bg-gray-50", textColor: "text-gray-600" },
+      ],
+    }
   };
 
-  const currentData = sectionData.contracts;
+  const currentData = activeSection === "my" ? sectionData.myContracts : sectionData.contracts;
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  // Obtener los contratos a mostrar según la sección activa
+  const getContractsToShow = () => {
+    if (activeSection === "my") {
+      return myContracts;
+    }
+    return contractsData;
+  };
+
   // Filtrado y paginación
-  const filteredContracts = contractsData.filter((contract) => {
-    const searchFields = [contract.id_aprobacion?.toString(), contract.emprendedor, contract.estatus, contract.numero_contrato]
-      .join(" ")
-      .toLowerCase();
+  const filteredContracts = getContractsToShow().filter((contract) => {
+    const searchFields = [
+      contract.id_aprobacion?.toString(), 
+      contract.emprendedor, 
+      contract.estatus, 
+      contract.numero_contrato
+    ].join(" ").toLowerCase();
     const matchesSearch = searchFields.includes(searchTerm.toLowerCase());
     const matchesFilter = selectedFilter === "all" || contract.estatus?.toLowerCase() === selectedFilter.toLowerCase();
     return matchesSearch && matchesFilter;
@@ -985,7 +1028,7 @@ const Contrato = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedFilter]);
+  }, [searchTerm, selectedFilter, activeSection]);
 
   // ============================================================
   // RENDER PRINCIPAL
@@ -1023,6 +1066,59 @@ const Contrato = () => {
               <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Administración de contratos con manejo interno</p>
             </div>
 
+            {/* ============================================================ */}
+            {/* BOTONES DE SECCIÓN: Mis Contratos / Todos los Contratos */}
+            {/* ============================================================ */}
+            <div className="flex gap-3 mb-6">
+              <button
+                onClick={() => {
+                  setActiveSection("my");
+                  setSearchTerm("");
+                  setSelectedFilter("all");
+                }}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all ${
+                  activeSection === "my"
+                    ? "bg-[#2A9D8F] text-white shadow-md"
+                    : `${darkMode ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`
+                }`}
+              >
+                <UserCheck size={18} />
+                Mis Contratos
+                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                  activeSection === "my"
+                    ? "bg-white/20 text-white"
+                    : darkMode ? "bg-gray-500 text-gray-200" : "bg-gray-300 text-gray-700"
+                }`}>
+                  {myContracts.length}
+                </span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveSection("all");
+                  setSearchTerm("");
+                  setSelectedFilter("all");
+                }}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all ${
+                  activeSection === "all"
+                    ? "bg-[#2A9D8F] text-white shadow-md"
+                    : `${darkMode ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`
+                }`}
+              >
+                <Users size={18} />
+                Todos los Contratos
+                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                  activeSection === "all"
+                    ? "bg-white/20 text-white"
+                    : darkMode ? "bg-gray-500 text-gray-200" : "bg-gray-300 text-gray-700"
+                }`}>
+                  {contractsData.length}
+                </span>
+              </button>
+            </div>
+
+            {/* ============================================================ */}
+            {/* ESTADÍSTICAS DE LA SECCIÓN ACTIVA */}
+            {/* ============================================================ */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
               {currentData?.stats?.map((stat) => (
                 <div key={stat.id} className={`p-6 rounded-xl ${darkMode ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-100"} shadow-sm hover:shadow-md transition-all`}>
@@ -1039,12 +1135,20 @@ const Contrato = () => {
               ))}
             </div>
 
+            {/* ============================================================ */}
+            {/* TABLA DE CONTRATOS */}
+            {/* ============================================================ */}
             <div className={`rounded-xl ${darkMode ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-100"} shadow-sm overflow-hidden`}>
               <div className="p-6 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
-                    <h3 className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>Listado de Contratos</h3>
-                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>{filteredContracts.length} contratos encontrados</p>
+                    <h3 className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                      {activeSection === "my" ? "Mis Contratos" : "Listado de Contratos"}
+                    </h3>
+                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                      {filteredContracts.length} contratos encontrados
+                      {activeSection === "my" && " (creados por mí)"}
+                    </p>
                   </div>
                   <div className="flex items-center gap-3 w-full sm:w-auto">
                     <div className="relative flex-1 sm:flex-none">
@@ -1120,7 +1224,16 @@ const Contrato = () => {
               {!loading && !error && currentItems.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20">
                   <FileText size={48} className="text-gray-400 mb-4" />
-                  <p className={`text-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}>No se encontraron contratos</p>
+                  <p className={`text-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                    {activeSection === "my" 
+                      ? "No tienes contratos creados. Comienza gestionando un nuevo contrato."
+                      : "No se encontraron contratos"}
+                  </p>
+                  {activeSection === "my" && (
+                    <p className={`text-sm ${darkMode ? "text-gray-500" : "text-gray-400"} mt-2`}>
+                      Los contratos que crees aparecerán aquí automáticamente.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -1231,7 +1344,7 @@ const Contrato = () => {
         </main>
       </div>
 
-      {/* MODAL CONSULTA CONTRATO */}
+      {/* MODAL CONSULTA CONTRATO - (sin cambios, igual que antes) */}
       {showConsultaModal && selectedContractForConsulta && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black bg-opacity-60" onClick={() => setShowConsultaModal(false)} />
@@ -1391,7 +1504,7 @@ const Contrato = () => {
         </div>
       )}
 
-      {/* MODAL GESTIÓN DE CONTRATO */}
+      {/* MODAL GESTIÓN DE CONTRATO - (sin cambios, igual que antes) */}
       {showGestionModal && selectedContractForGestion && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50 bg-opacity-50" onClick={cerrarModalGestion} />

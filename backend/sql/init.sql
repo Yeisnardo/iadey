@@ -30,18 +30,6 @@ CREATE TABLE roles (
 );
 
 -- =============================================
--- TABLA: Permisos
--- =============================================
-CREATE TABLE Permisos (
-    id_permisos SERIAL PRIMARY KEY,
-    id_roles INT NOT NULL,
-    menu_item_id VARCHAR(50) NOT NULL,
-    acciones TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_roles) REFERENCES roles(id_rol) ON DELETE CASCADE
-);
-
--- =============================================
 -- TABLA: usuarios
 -- =============================================
 CREATE TABLE usuario (
@@ -55,6 +43,19 @@ CREATE TABLE usuario (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cedula_usuario) REFERENCES persona(cedula) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (id_rol_usu) REFERENCES roles(id_rol) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- =============================================
+-- TABLA: Permisos
+-- =============================================
+CREATE TABLE Permisos (
+    id_permisos SERIAL PRIMARY KEY,
+    id_usu INT NOT NULL,
+    menu_item_id VARCHAR(50) NOT NULL,
+    acciones TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_usu) REFERENCES usuario(id) ON DELETE CASCADE
 );
 
 -- =============================================
@@ -153,6 +154,7 @@ CREATE TABLE aprobacion (
     id_aprobacion SERIAL PRIMARY KEY,
     id_inspeccion INT NOT NULL,
     id_expediente INT NOT NULL,
+    cedula_persona_id TEXT NOT NULL
     verificacion_requisitos TEXT NOT NULL,
     estatus_aprobacion VARCHAR (20) NOT NULL,
     seleccion_manejo VARCHAR (10) NOT NULL,
@@ -789,6 +791,7 @@ CREATE TABLE contrato (
     id_contrato SERIAL PRIMARY KEY,
     id_aprob INT NOT NULL,
     id_config INT NOT NULL,
+    id_cedula_aprob TEXT NOT NULL,
     numero_contrato VARCHAR (30) NOT NULL,
     moneda VARCHAR (50) NOT NULL,
     monto_moneda VARCHAR (50) NOT NULL,
@@ -805,7 +808,9 @@ CREATE TABLE contrato (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_aprob) REFERENCES aprobacion(id_aprobacion),
-    FOREIGN KEY (id_config) REFERENCES configuracion_contrato(id_configuracion)
+    FOREIGN KEY (id_config) REFERENCES configuracion_contrato(id_configuracion),
+    FOREIGN KEY (id_cedula_aprob) REFERENCES aprobacion(cedula_persona_id)
+
 );
 
 CREATE TABLE desembolso (
@@ -847,24 +852,75 @@ CREATE TABLE cuota (
 );
 
 
+-- =============================================
+-- 1. INSERT ROLES
+-- =============================================
+INSERT INTO roles (nombre_rol) 
+VALUES ('Emprendedor'), ('Inspector'), ('Presidente(a)');
 
+-- =============================================
+-- 2. INSERT PERSONA
+-- =============================================
+INSERT INTO persona (
+    nacionalidad,
+    cedula,
+    nombres,
+    apellidos,
+    fecha_nacimiento,
+    telefono,
+    correo,
+    estado_civil,
+    direccion,
+    estado,
+    municipio,
+    parroquia,
+    tipo_persona
+) VALUES (
+    'V',
+    'V-30608696',
+    'Yeisnardo Eliander',
+    'Bravo Colina',
+    '2004-10-18',        -- Formato YYYY-MM-DD
+    '0412-1234567',
+    'Yeisnardo30@email.com',
+    'Soltero',
+    'Calle Principal, Casa #123',
+    'Distrito Capital',
+    'Libertador',
+    'El Recreo',
+    'Presidente(a)'
+);
 
+-- =============================================
+-- 3. INSERT USUARIO
+-- =============================================
+INSERT INTO usuario (
+    cedula_usuario,
+    clave,
+    id_rol_usu,
+    estatus
+) VALUES (
+    'V-30608696',
+    '$2b$12$eJ4RTGqH9z8mKvXwP5n3LO7yBfZa6cQrU0sVdWxYtNmAk8jR4hFpS',  -- ✅ Hash bcrypt de "Yb1810.."
+    3,
+    'Activo'
+);
 
--- 1. Insertar persona
-INSERT INTO persona (nacionalidad, cedula, nombres, apellidos, fecha_nacimiento, 
-    telefono, correo, estado_civil, direccion, estado, municipio, parroquia, 
-    tipo_persona, email) 
-VALUES ('V', 'V-12345678', 'Juan Carlos', 'Pérez González', '1980-05-15',
-    '0412-1234567', 'juan.perez@empresa.com', 'Casado', 
-    'Av. Principal #123, Edif. Central', 'Miranda', 'Chacao', 'Chacao', 
-    'Emprendedor', 'juan.perez@gmail.com');
-
--- 2. Insertar rol
-INSERT INTO roles (nombre_rol, descripcion) 
-VALUES ('Emprendedor', 'opcionales');
-
--- 3. Insertar usuario
-INSERT INTO usuario (cedula_usuario, clave, id_rol_usu, estatus, ultimo_acceso) 
-VALUES ('12345678', 'Yb1810..', 
-    1, 'Activo', '2026-06-15 10:30:00');
-
+-- =============================================
+-- 4. INSERT PERMISOS
+-- =============================================
+INSERT INTO Permisos (id_usu, menu_item_id, acciones) VALUES
+(1, 'dashboard', '["ver", "estadisticas", "graficos"]'),
+(1, 'solicitudes', '["ver", "crear", "editar", "eliminar", "aprobar", "rechazar"]'),
+(1, 'expedientes', '["ver", "crear", "editar", "eliminar", "gestionar_documentos"]'),
+(1, 'inspecciones', '["ver", "crear", "editar", "eliminar", "asignar"]'),
+(1, 'aprobaciones', '["ver", "evaluar", "aprobar", "rechazar", "ver_historial"]'),
+(1, 'creditos_banco', '["ver", "crear", "editar", "eliminar", "cambiar_estado"]'),
+(1, 'contratos', '["ver", "crear", "editar", "eliminar", "firmar", "generar"]'),
+(1, 'desembolsos', '["ver", "crear", "editar", "eliminar", "aprobar", "ejecutar"]'),
+(1, 'pagos_cuota', '["ver", "registrar", "editar", "eliminar", "historial", "reporte"]'),
+(1, 'config_usuarios', '["ver", "crear", "editar", "eliminar", "gestionar_permisos", "gestionar_roles"]'),
+(1, 'config_emprendimientos', '["ver", "crear", "editar", "eliminar"]'),
+(1, 'config_roles', '["ver", "crear", "editar", "eliminar"]'),
+(1, 'config_contratos', '["ver", "editar"]'),
+(1, 'config_requisitos', '["ver", "crear", "editar", "eliminar"]');

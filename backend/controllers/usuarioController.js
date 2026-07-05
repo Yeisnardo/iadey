@@ -165,70 +165,72 @@ async getRoles(req, res) {
     }
   },
 
+  
+
   // Login
-  // controllers/usuarioController.js - Método login modificado
-
 async login(req, res) {
-  try {
-    const { cedula_usuario, clave } = req.body;
-    
-    if (!cedula_usuario || !clave) {
-      return res.status(400).json({ 
+    try {
+      const { cedula_usuario, clave } = req.body;
+      
+      if (!cedula_usuario || !clave) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Cédula y contraseña son requeridos' 
+        });
+      }
+      
+      const usuario = await UsuarioModel.getByCedula(cedula_usuario);
+      
+      if (!usuario) {
+        return res.status(401).json({ 
+          success: false, 
+          error: 'Credenciales incorrectas' 
+        });
+      }
+
+      if (usuario.estatus !== 'activo') {
+        return res.status(403).json({ 
+          success: false, 
+          error: 'Usuario inactivo. Contacte al administrador.' 
+        });
+      }
+
+      const claveValida = await bcrypt.compare(clave, usuario.clave);
+      
+      if (!claveValida) {
+        return res.status(401).json({ 
+          success: false, 
+          error: 'Credenciales incorrectas' 
+        });
+      }
+
+      await UsuarioModel.updateUltimoAcceso(cedula_usuario);
+
+      // Eliminar clave de la respuesta
+      const { clave: _, ...usuarioSinClave } = usuario;
+      
+      // IMPORTANTE: Asegurar que todos los datos necesarios estén presentes
+      const usuarioRespuesta = {
+        ...usuarioSinClave,
+        id_rol_usu: usuario.id_rol_usu,
+        rol: usuario.nombre_rol || usuario.rol,
+        nombre_rol: usuario.nombre_rol || usuario.rol
+      };
+      
+      // Respuesta SIN token (solo datos del usuario)
+      res.json({ 
+        success: true, 
+        data: usuarioRespuesta
+      });
+      
+    } catch (error) {
+      console.error('Error en login:', error);
+      res.status(500).json({ 
         success: false, 
-        error: 'Cédula y contraseña son requeridos' 
+        error: 'Error interno del servidor' 
       });
     }
-    
-    const usuario = await UsuarioModel.getByCedula(cedula_usuario);
-    
-    if (!usuario) {
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Credenciales incorrectas' 
-      });
-    }
-
-    if (usuario.estatus !== 'activo') {
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Usuario inactivo' 
-      });
-    }
-
-    const claveValida = await bcrypt.compare(clave, usuario.clave);
-    
-    if (!claveValida) {
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Credenciales incorrectas' 
-      });
-    }
-
-    await UsuarioModel.updateUltimoAcceso(cedula_usuario);
-
-    // Eliminar clave de la respuesta
-    const { clave: _, ...usuarioSinClave } = usuario;
-    
-    // Asegurar que rol esté presente en la respuesta
-    const usuarioConRol = {
-      ...usuarioSinClave,
-      rol: usuario.nombre_rol || usuario.rol || usuario.id_rol_usu, // Priorizar nombre_rol
-      id_rol: usuario.id_rol_usu
-    };
-    
-    res.json({ 
-      success: true, 
-      data: usuarioConRol 
-    });
-    
-  } catch (error) {
-    console.error('Error en login:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Error interno del servidor' 
-    });
   }
-}
 };
 
 module.exports = usuarioController;

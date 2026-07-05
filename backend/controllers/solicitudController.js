@@ -3,28 +3,24 @@ const SolicitudModel = require('../models/SolicitudModel');
 
 const solicitudController = {
 
-
-  // Agregar este método a tu solicitudController existente
-
-// GET /api/solicitud/aprobadas
-getAprobadas: async (req, res) => {
-  try {
-    const solicitudes = await SolicitudModel.getAprobadas();
-    res.json({
-      success: true,
-      data: solicitudes,
-      count: solicitudes.length,
-      message: 'Solicitudes aprobadas obtenidas exitosamente'
-    });
-  } catch (error) {
-    console.error('Error en getAprobadas:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-},
-
+  // GET /api/solicitud/aprobadas
+  getAprobadas: async (req, res) => {
+    try {
+      const solicitudes = await SolicitudModel.getAprobadas();
+      res.json({
+        success: true,
+        data: solicitudes,
+        count: solicitudes.length,
+        message: 'Solicitudes aprobadas obtenidas exitosamente'
+      });
+    } catch (error) {
+      console.error('Error en getAprobadas:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  },
 
   // GET /api/solicitud
   getAll: async (req, res) => {
@@ -44,59 +40,25 @@ getAprobadas: async (req, res) => {
     }
   },
 
-  // GET /api/solicitud/emprendedores
-  getEmprendedores: async (req, res) => {
-    try {
-      const emprendedores = await SolicitudModel.getEmprendedores();
-      res.json({
-        success: true,
-        data: emprendedores,
-        message: 'Emprendedores obtenidos exitosamente'
-      });
-    } catch (error) {
-      console.error('Error en getEmprendedores:', error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  },
-
-  // GET /api/solicitud/:id
-  getById: async (req, res) => {
-    try {
-      const { id } = req.params;
-      const solicitud = await SolicitudModel.getById(id);
-      
-      if (!solicitud) {
-        return res.status(404).json({
-          success: false,
-          error: 'Solicitud no encontrada'
-        });
-      }
-      
-      res.json({
-        success: true,
-        data: solicitud
-      });
-    } catch (error) {
-      console.error('Error en getById:', error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  },
-
-  // GET /api/solicitud/cedula/:cedula
+  // GET /api/solicitud/cedula/:cedula - CORREGIDO
   getByCedula: async (req, res) => {
     try {
       const { cedula } = req.params;
-      const solicitudes = await SolicitudModel.getByCedulaPersona(cedula);
+      
+      // Validar que la cédula no esté vacía
+      if (!cedula || cedula.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          error: 'Cédula no proporcionada'
+        });
+      }
+      
+      const solicitudes = await SolicitudModel.getByCedula(cedula.trim());
       
       res.json({
         success: true,
-        data: solicitudes
+        data: solicitudes,
+        count: solicitudes.length
       });
     } catch (error) {
       console.error('Error en getByCedula:', error);
@@ -129,7 +91,17 @@ getAprobadas: async (req, res) => {
   update: async (req, res) => {
     try {
       const { id } = req.params;
-      const solicitud = await SolicitudModel.update(id, req.body);
+      
+      // Validar que el ID sea un número
+      const id_solicitud = parseInt(id);
+      if (isNaN(id_solicitud)) {
+        return res.status(400).json({
+          success: false,
+          error: 'ID de solicitud inválido'
+        });
+      }
+      
+      const solicitud = await SolicitudModel.update(id_solicitud, req.body);
       
       if (!solicitud) {
         return res.status(404).json({
@@ -152,13 +124,22 @@ getAprobadas: async (req, res) => {
     }
   },
 
-  // PUT /api/solicitud/:id/estatus
-   updateEstatus: async (req, res) => {
+  // PUT /api/solicitud/:id/estatus - CORREGIDO
+  updateEstatus: async (req, res) => {
     try {
       const { id } = req.params;
       const { estatus, motivo_rechazo } = req.body;
       
-      // Validar que el estatus sea válido - CAMBIADO a Pre-Aprobado
+      // Validar que el ID sea un número
+      const id_solicitud = parseInt(id);
+      if (isNaN(id_solicitud)) {
+        return res.status(400).json({
+          success: false,
+          error: 'ID de solicitud inválido'
+        });
+      }
+      
+      // Validar que el estatus sea válido
       const estatusPermitidos = ['Pendiente', 'Pre-Aprobado', 'Rechazado'];
       if (!estatusPermitidos.includes(estatus)) {
         return res.status(400).json({
@@ -175,7 +156,7 @@ getAprobadas: async (req, res) => {
         });
       }
       
-      const solicitud = await SolicitudModel.cambiarEstatus(id, estatus, motivo_rechazo);
+      const solicitud = await SolicitudModel.cambiarEstatus(id_solicitud, estatus, motivo_rechazo);
       
       if (!solicitud) {
         return res.status(404).json({
@@ -184,7 +165,7 @@ getAprobadas: async (req, res) => {
         });
       }
       
-      // Cambiar el mensaje según el estatus
+      // Mensaje según el estatus
       let mensaje = '';
       if (estatus === 'Pre-Aprobado') {
         mensaje = 'Solicitud pre-aprobada exitosamente';
@@ -212,7 +193,17 @@ getAprobadas: async (req, res) => {
   delete: async (req, res) => {
     try {
       const { id } = req.params;
-      const solicitud = await SolicitudModel.delete(id);
+      
+      // Validar que el ID sea un número
+      const id_solicitud = parseInt(id);
+      if (isNaN(id_solicitud)) {
+        return res.status(400).json({
+          success: false,
+          error: 'ID de solicitud inválido'
+        });
+      }
+      
+      const solicitud = await SolicitudModel.delete(id_solicitud);
       
       if (!solicitud) {
         return res.status(404).json({

@@ -94,8 +94,11 @@ const Aprobacion = () => {
   // Estados para el estatus de la solicitud de crédito y la inspección
   const [estatusCredito, setEstatusCredito] = useState("");
   const [estatusInspeccion, setEstatusInspeccion] = useState("");
+  
+  // 👇 NUEVO ESTADO PARA LA CÉDULA
+  const [cedulaPersonaId, setCedulaPersonaId] = useState("");
 
-  // Definir los pasos del progreso - NUEVO ORDEN: Requisitos → Inspección → Crédito → Tipo de Manejo
+  // Definir los pasos del progreso
   const pasosProgreso = [
     { id: 1, nombre: "Verificación de Requisitos", icono: ClipboardCheck },
     { id: 2, nombre: "Inspección de Emprendimiento", icono: SearchIcon },
@@ -138,15 +141,11 @@ const Aprobacion = () => {
     }
   };
 
-  // Función mejorada para obtener las imágenes de un requisito específico
+  // Función para obtener las imágenes de un requisito específico
   const obtenerImagenesRequisito = (aprobacion, requisitoId) => {
     if (!aprobacion || !requisitoId) {
-      console.log("⚠️ obtenerImagenesRequisito: faltan datos", { aprobacion, requisitoId });
       return [];
     }
-
-    console.log("🔍 Buscando imágenes para requisito ID:", requisitoId);
-    console.log("📦 Estructura completa de aprobacion:", JSON.stringify(aprobacion, null, 2));
 
     const parseJSON = (data) => {
       if (!data) return null;
@@ -163,12 +162,10 @@ const Aprobacion = () => {
 
     // 1. Revisar urls_imagenes en el expediente
     if (aprobacion.expediente?.urls_imagenes) {
-      console.log("📁 Revisando expediente.urls_imagenes:", aprobacion.expediente.urls_imagenes);
       let urlsImagenes = parseJSON(aprobacion.expediente.urls_imagenes);
       if (urlsImagenes) {
         const imagenesRequisito = urlsImagenes[String(requisitoId)];
         if (imagenesRequisito && (Array.isArray(imagenesRequisito) || typeof imagenesRequisito === 'string')) {
-          console.log(`✅ Imágenes encontradas en expediente.urls_imagenes[${requisitoId}]:`, imagenesRequisito);
           return Array.isArray(imagenesRequisito) ? imagenesRequisito : [imagenesRequisito];
         }
       }
@@ -176,12 +173,10 @@ const Aprobacion = () => {
 
     // 2. Revisar documentos en el expediente
     if (aprobacion.expediente?.documentos) {
-      console.log("📁 Revisando expediente.documentos:", aprobacion.expediente.documentos);
       let documentos = parseJSON(aprobacion.expediente.documentos);
       if (documentos) {
         const imagenesRequisito = documentos[String(requisitoId)];
         if (imagenesRequisito && (Array.isArray(imagenesRequisito) || typeof imagenesRequisito === 'string')) {
-          console.log(`✅ Imágenes encontradas en expediente.documentos[${requisitoId}]:`, imagenesRequisito);
           return Array.isArray(imagenesRequisito) ? imagenesRequisito : [imagenesRequisito];
         }
       }
@@ -189,63 +184,15 @@ const Aprobacion = () => {
 
     // 3. Revisar urls_imagenes directamente
     if (aprobacion.urls_imagenes) {
-      console.log("📁 Revisando urls_imagenes directo:", aprobacion.urls_imagenes);
       let urlsImagenes = parseJSON(aprobacion.urls_imagenes);
       if (urlsImagenes) {
         const imagenesRequisito = urlsImagenes[String(requisitoId)];
         if (imagenesRequisito && (Array.isArray(imagenesRequisito) || typeof imagenesRequisito === 'string')) {
-          console.log(`✅ Imágenes encontradas en urls_imagenes[${requisitoId}]:`, imagenesRequisito);
           return Array.isArray(imagenesRequisito) ? imagenesRequisito : [imagenesRequisito];
         }
       }
     }
 
-    // 4. Revisar documentos directamente
-    if (aprobacion.documentos) {
-      console.log("📁 Revisando documentos directo:", aprobacion.documentos);
-      let documentos = parseJSON(aprobacion.documentos);
-      if (documentos) {
-        const imagenesRequisito = documentos[String(requisitoId)];
-        if (imagenesRequisito && (Array.isArray(imagenesRequisito) || typeof imagenesRequisito === 'string')) {
-          console.log(`✅ Imágenes encontradas en documentos[${requisitoId}]:`, imagenesRequisito);
-          return Array.isArray(imagenesRequisito) ? imagenesRequisito : [imagenesRequisito];
-        }
-      }
-    }
-
-    // 5. Buscar recursivamente
-    const buscarRecursivo = (obj, profundidad = 0) => {
-      if (profundidad > 4 || !obj || typeof obj !== "object") return null;
-      
-      const directMatch = obj[String(requisitoId)];
-      if (directMatch && (Array.isArray(directMatch) || typeof directMatch === 'string')) {
-        return Array.isArray(directMatch) ? directMatch : [directMatch];
-      }
-      
-      for (const [key, value] of Object.entries(obj)) {
-        if (value && typeof value === "object" && !Array.isArray(value)) {
-          const resultado = buscarRecursivo(value, profundidad + 1);
-          if (resultado) return resultado;
-        }
-        if (Array.isArray(value) && value.length > 0) {
-          if (value.some(item => typeof item === 'string' && (item.startsWith('http') || item.startsWith('https')))) {
-            console.log(`🔍 Posible array de imágenes encontrado en ${key}:`, value);
-            if (key.includes(String(requisitoId)) || String(requisitoId).includes(key)) {
-              return value;
-            }
-          }
-        }
-      }
-      return null;
-    };
-
-    const resultadoBusqueda = buscarRecursivo(aprobacion);
-    if (resultadoBusqueda && resultadoBusqueda.length > 0) {
-      console.log(`✅ Imágenes encontradas mediante búsqueda recursiva:`, resultadoBusqueda);
-      return resultadoBusqueda;
-    }
-
-    console.log(`❌ No se encontraron imágenes para el requisito ID: ${requisitoId}`);
     return [];
   };
 
@@ -270,16 +217,16 @@ const Aprobacion = () => {
     }
   };
 
-  // Calcular el paso actual del progreso - NUEVO ORDEN
+  // Calcular el paso actual del progreso
   const calcularPasoActual = () => {
     const progresoRequisitos = calcularProgreso(requisitosExpediente);
     
     if (requisitosExpediente.length === 0) return 1;
-    if (progresoRequisitos < 100) return 1;           // Paso 1: Verificación de Requisitos
-    if (!estatusInspeccion) return 2;                 // Paso 2: Inspección de Emprendimiento
-    if (!estatusCredito) return 3;                    // Paso 3: Decisión Final de Crédito
-    if (!seleccionManejo) return 4;                   // Paso 4: Tipo de Manejo
-    return 4; // Completado
+    if (progresoRequisitos < 100) return 1;
+    if (!estatusInspeccion) return 2;
+    if (!estatusCredito) return 3;
+    if (!seleccionManejo) return 4;
+    return 4;
   };
 
   // Calcular el porcentaje de progreso general
@@ -287,31 +234,26 @@ const Aprobacion = () => {
     const pasoActual = calcularPasoActual();
     const progresoRequisitos = calcularProgreso(requisitosExpediente);
     
-    // Cada paso completado = 25%
     let progreso = 0;
     
-    // Paso 1: Verificación de requisitos (0-25%)
     if (pasoActual === 1) {
       progreso = (progresoRequisitos / 100) * 25;
     } 
     else {
-      progreso = 25; // Paso 1 completado
+      progreso = 25;
       
-      // Paso 2: Inspección (25-50%)
       if (pasoActual === 2) {
         progreso += estatusInspeccion ? 25 : 0;
       }
       else {
-        progreso += 25; // +25 = 50% (Paso 2 completado)
+        progreso += 25;
         
-        // Paso 3: Decisión de crédito (50-75%)
         if (pasoActual === 3) {
           progreso += estatusCredito ? 25 : 0;
         }
         else {
-          progreso += 25; // +25 = 75% (Paso 3 completado)
+          progreso += 25;
           
-          // Paso 4: Tipo de manejo (75-100%)
           if (pasoActual === 4) {
             progreso += seleccionManejo ? 25 : 0;
           }
@@ -325,20 +267,14 @@ const Aprobacion = () => {
   // Verificar si un paso está completado
   const isPasoCompletado = (pasoId) => {
     switch(pasoId) {
-      case 1: // Verificación de requisitos
+      case 1:
         return calcularProgreso(requisitosExpediente) === 100;
-      case 2: // Inspección
-        return calcularProgreso(requisitosExpediente) === 100 && 
-               estatusInspeccion !== "";
-      case 3: // Decisión final de crédito
-        return calcularProgreso(requisitosExpediente) === 100 && 
-               estatusInspeccion !== "" && 
-               estatusCredito !== "";
-      case 4: // Tipo de manejo
-        return calcularProgreso(requisitosExpediente) === 100 && 
-               estatusInspeccion !== "" && 
-               estatusCredito !== "" && 
-               seleccionManejo !== "";
+      case 2:
+        return calcularProgreso(requisitosExpediente) === 100 && estatusInspeccion !== "";
+      case 3:
+        return calcularProgreso(requisitosExpediente) === 100 && estatusInspeccion !== "" && estatusCredito !== "";
+      case 4:
+        return calcularProgreso(requisitosExpediente) === 100 && estatusInspeccion !== "" && estatusCredito !== "" && seleccionManejo !== "";
       default:
         return false;
     }
@@ -357,6 +293,11 @@ const Aprobacion = () => {
 
   // Abrir modal de verificación
   const handleOpenVerificacion = async (aprobacion) => {
+    console.log("🔍 DATOS DE APROBACIÓN RECIBIDOS:", aprobacion);
+    console.log("🔍 CÉDULA EN DATOS RECIBIDOS:", aprobacion.cedula);
+    console.log("🔍 CÉDULA PERSONA ID:", aprobacion.cedula_persona_id);
+    console.log("🔍 ID USUARIO:", aprobacion.id_usuario);
+
     setSelectedAprobacion(aprobacion);
     setObservaciones(aprobacion.observaciones || "");
     setSeleccionManejo(aprobacion.seleccion_manejo || "");
@@ -366,24 +307,42 @@ const Aprobacion = () => {
         : aprobacion.id_expediente.toString(),
     );
     
-    // Cargar estados existentes
     setEstatusCredito(aprobacion.estatus_aprobacion || "");
     setEstatusInspeccion(aprobacion.estatus_inspeccion || "");
+    
+    // 👇 INICIALIZAR LA CÉDULA CON MÚLTIPLES FUENTES
+    const cedulaInicial = 
+      aprobacion.cedula || 
+      aprobacion.cedula_persona_id || 
+      aprobacion.id_usuario || 
+      "";
+    setCedulaPersonaId(cedulaInicial);
+    console.log("📋 CÉDULA INICIAL ASIGNADA:", cedulaInicial);
     
     setLoadingRequisitos(true);
 
     try {
-      console.log("Abriendo verificación para expediente:", aprobacion.id_expediente);
-      console.log("Datos completos de aprobacion:", aprobacion);
-
       let datosCompletos = { ...aprobacion };
       
-      if (aprobacion.id_expediente && !aprobacion.expediente?.documentos) {
+      // Si no tiene cédula, intentar cargar datos completos
+      if (!aprobacion.cedula && aprobacion.id_expediente) {
+        console.log("🔄 Intentando cargar datos completos del expediente...");
         try {
-          console.log("Intentando cargar datos completos del expediente...");
           const responseExpediente = await aprobacionAPI.getById(aprobacion.id_expediente);
           if (responseExpediente.success && responseExpediente.data) {
-            console.log("Datos del expediente cargados:", responseExpediente.data);
+            console.log("📋 DATOS COMPLETOS DEL EXPEDIENTE:", responseExpediente.data);
+            
+            const cedulaCompleta = 
+              responseExpediente.data.cedula || 
+              responseExpediente.data.cedula_persona_id || 
+              responseExpediente.data.id_usuario || 
+              "";
+            
+            if (cedulaCompleta) {
+              setCedulaPersonaId(cedulaCompleta);
+              console.log("✅ CÉDULA ACTUALIZADA DESDE DATOS COMPLETOS:", cedulaCompleta);
+            }
+            
             datosCompletos = {
               ...datosCompletos,
               ...responseExpediente.data,
@@ -392,20 +351,18 @@ const Aprobacion = () => {
                 ...responseExpediente.data.expediente,
               }
             };
+            setSelectedAprobacion(datosCompletos);
           }
         } catch (err) {
           console.error("Error al cargar datos del expediente:", err);
         }
       }
 
-      setSelectedAprobacion(datosCompletos);
-
       if (
         datosCompletos.verificacion_requisitos &&
         Array.isArray(datosCompletos.verificacion_requisitos) &&
         datosCompletos.verificacion_requisitos.length > 0
       ) {
-        console.log("Usando requisitos ya verificados");
         const requisitosActualizados = datosCompletos.verificacion_requisitos.map(req => ({
           ...req,
           estado_verificacion: req.estado_verificacion || (req.verificado ? 'verificado' : 'pendiente'),
@@ -418,7 +375,6 @@ const Aprobacion = () => {
         Array.isArray(datosCompletos.requisitos_expediente) &&
         datosCompletos.requisitos_expediente.length > 0
       ) {
-        console.log("Usando requisitos del expediente");
         const requisitosConEstado = datosCompletos.requisitos_expediente.map(
           (req) => ({
             ...req,
@@ -429,7 +385,6 @@ const Aprobacion = () => {
         setRequisitosExpediente(requisitosConEstado);
       }
       else {
-        console.log("Cargando todos los requisitos");
         const requisitos = await loadTodosRequisitos();
         setRequisitosExpediente(requisitos);
       }
@@ -454,6 +409,7 @@ const Aprobacion = () => {
     setIdInspeccion("");
     setEstatusCredito("");
     setEstatusInspeccion("");
+    setCedulaPersonaId("");
   };
 
   // Cambiar el estado de verificación del requisito
@@ -478,102 +434,131 @@ const Aprobacion = () => {
   };
 
   // Guardar verificación de requisitos
-  // Guardar verificación de requisitos
-const handleSaveVerificacion = async () => {
-  if (!selectedAprobacion) {
-    alert("❌ No hay expediente seleccionado");
-    return;
-  }
-
-  // Validaciones existentes...
-  if (idInspeccion && idInspeccion.trim() !== "") {
-    if (isNaN(parseInt(idInspeccion))) {
-      alert("❌ El ID de inspección debe ser un número válido");
+  const handleSaveVerificacion = async () => {
+    if (!selectedAprobacion) {
+      alert("❌ No hay expediente seleccionado");
       return;
     }
-  }
 
-  if (!selectedAprobacion.id_expediente) {
-    alert("❌ Error: El expediente no tiene un ID válido");
-    return;
-  }
+    console.log("📋 ESTADO ACTUAL DE CÉDULA:", {
+      cedulaPersonaId: cedulaPersonaId,
+      selectedAprobacion_cedula: selectedAprobacion.cedula,
+      selectedAprobacion_cedula_persona_id: selectedAprobacion.cedula_persona_id,
+      selectedAprobacion_id_usuario: selectedAprobacion.id_usuario
+    });
 
-  const requisitosInvalidos = requisitosExpediente.some(
-    (r) => !r.id_requisito || !r.nombre,
-  );
-  if (requisitosInvalidos) {
-    alert("❌ Hay requisitos sin ID o nombre");
-    return;
-  }
+    // 👇 OBTENER CÉDULA DE MÚLTIPLES FUENTES (SIN TRIM)
+    let cedulaFinal = cedulaPersonaId;
+    
+    if (!cedulaFinal || cedulaFinal === "") {
+      cedulaFinal = selectedAprobacion.cedula || 
+                    selectedAprobacion.cedula_persona_id || 
+                    selectedAprobacion.id_usuario || 
+                    "";
+    }
+    
+    if (!cedulaFinal || cedulaFinal === "") {
+      const inputElement = document.querySelector('input[placeholder="Ingrese la cédula..."]');
+      if (inputElement) {
+        cedulaFinal = inputElement.value || "";
+      }
+    }
 
-  const requisitosSinObservacion = requisitosExpediente.filter(
-    (r) => r.estado_verificacion === 'no_valido' && !r.observacion_no_valido?.trim()
-  );
-  if (requisitosSinObservacion.length > 0) {
-    alert(`⚠️ Los siguientes requisitos están marcados como "No Válido" pero no tienen observación:\n${requisitosSinObservacion.map(r => r.nombre).join('\n')}`);
-    return;
-  }
+    console.log("📋 CÉDULA FINAL A ENVIAR:", cedulaFinal);
 
-  // Validación de decisión final
-  const progresoGeneral = calcularProgresoGeneral();
-  if (progresoGeneral === 100) {
-    if (!estatusCredito) {
-      alert("⚠️ Debe seleccionar si la solicitud de crédito es Aprobada o Rechazada");
+    if (!cedulaFinal || cedulaFinal === "") {
+      alert("⚠️ Debe ingresar la cédula del solicitante");
       return;
     }
-    if (!estatusInspeccion) {
-      alert("⚠️ Debe seleccionar si la inspección es Aprobada o Rechazada");
+
+    // Validaciones existentes (SIN TRIM)
+    if (idInspeccion && idInspeccion !== "") {
+      if (isNaN(parseInt(idInspeccion))) {
+        alert("❌ El ID de inspección debe ser un número válido");
+        return;
+      }
+    }
+
+    if (!selectedAprobacion.id_expediente) {
+      alert("❌ Error: El expediente no tiene un ID válido");
       return;
     }
-  }
 
-  setSavingRequisitos(true);
-
-  try {
-    // Preparar datos de requisitos correctamente
-    const requisitosParaEnviar = requisitosExpediente.map((req) => ({
-      id_requisito: req.id_requisito,
-      nombre: req.nombre,
-      verificado: req.estado_verificacion === 'verificado',  // ← Convertir a booleano
-      estado_verificacion: req.estado_verificacion,
-      observacion_no_valido: req.observacion_no_valido || null
-    }));
-
-    const datosVerificacion = {
-      requisitos: requisitosParaEnviar,
-      observaciones: observaciones,
-      seleccion_manejo: seleccionManejo,
-      id_inspeccion: idInspeccion && idInspeccion.trim() !== "" ? parseInt(idInspeccion) : null,
-      estatus_aprobacion: estatusCredito,  // ← Aprobado/Rechazado para crédito
-      estatus_inspeccion: estatusInspeccion || null  // ← IMPORTANTE: Enviar siempre estatus_inspeccion
-    };
-
-    console.log("📤 Enviando datos al servidor:", JSON.stringify(datosVerificacion, null, 2));
-
-    const response = await aprobacionAPI.verificarRequisitos(
-      selectedAprobacion.id_expediente,
-      datosVerificacion,
+    const requisitosInvalidos = requisitosExpediente.some(
+      (r) => !r.id_requisito || !r.nombre,
     );
+    if (requisitosInvalidos) {
+      alert("❌ Hay requisitos sin ID o nombre");
+      return;
+    }
 
-    if (response.success) {
-      alert(
-        "✅ Requisitos verificados y guardados exitosamente\n" +
-          (response.message || ""),
+    const requisitosSinObservacion = requisitosExpediente.filter(
+      (r) => r.estado_verificacion === 'no_valido' && !r.observacion_no_valido
+    );
+    if (requisitosSinObservacion.length > 0) {
+      alert(`⚠️ Los siguientes requisitos están marcados como "No Válido" pero no tienen observación:\n${requisitosSinObservacion.map(r => r.nombre).join('\n')}`);
+      return;
+    }
+
+    const progresoGeneral = calcularProgresoGeneral();
+    if (progresoGeneral === 100) {
+      if (!estatusCredito) {
+        alert("⚠️ Debe seleccionar si la solicitud de crédito es Aprobada o Rechazada");
+        return;
+      }
+      if (!estatusInspeccion) {
+        alert("⚠️ Debe seleccionar si la inspección es Aprobada o Rechazada");
+        return;
+      }
+    }
+
+    setSavingRequisitos(true);
+
+    try {
+      const requisitosParaEnviar = requisitosExpediente.map((req) => ({
+        id_requisito: req.id_requisito,
+        nombre: req.nombre,
+        verificado: req.estado_verificacion === 'verificado',
+        estado_verificacion: req.estado_verificacion,
+        observacion_no_valido: req.observacion_no_valido || null
+      }));
+
+      const datosVerificacion = {
+        requisitos: requisitosParaEnviar,
+        observaciones: observaciones || "",
+        seleccion_manejo: seleccionManejo || null,
+        id_inspeccion: idInspeccion && idInspeccion !== "" ? parseInt(idInspeccion) : null,
+        estatus_aprobacion: estatusCredito || "Pendiente",
+        estatus_inspeccion: estatusInspeccion || null,
+        cedula_persona_id: cedulaFinal
+      };
+
+      console.log("📤 ENVIANDO DATOS AL SERVIDOR:", JSON.stringify(datosVerificacion, null, 2));
+
+      const response = await aprobacionAPI.verificarRequisitos(
+        selectedAprobacion.id_expediente,
+        datosVerificacion,
       );
-      handleCloseModals();
-      loadAprobaciones();
-    } else {
-      alert("❌ Error: " + (response.error || "Error desconocido"));
+
+      if (response.success) {
+        alert(
+          "✅ Requisitos verificados y guardados exitosamente\n" +
+            (response.message || ""),
+        );
+        handleCloseModals();
+        loadAprobaciones();
+      } else {
+        alert("❌ Error: " + (response.error || "Error desconocido"));
+      }
+    } catch (err) {
+      console.error("Error al guardar:", err);
+      alert(
+        `❌ Error al guardar la verificación de requisitos: ${err.message}`,
+      );
+    } finally {
+      setSavingRequisitos(false);
     }
-  } catch (err) {
-    console.error("Error al guardar:", err);
-    alert(
-      `❌ Error al guardar la verificación de requisitos: ${err.message}`,
-    );
-  } finally {
-    setSavingRequisitos(false);
-  }
-};
+  };
 
   // Calcular progreso de verificación
   const calcularProgreso = (requisitos) => {
@@ -760,7 +745,6 @@ const handleSaveVerificacion = async () => {
           animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
         
-        /* Estilos para scroll en modales */
         .modal-scroll-content {
           scrollbar-width: thin;
           scrollbar-color: #CBD5E0 transparent;
@@ -794,7 +778,6 @@ const handleSaveVerificacion = async () => {
           background-color: #718096;
         }
 
-        /* Estilos legacy para compatibilidad */
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
           height: 6px;
@@ -954,8 +937,7 @@ const handleSaveVerificacion = async () => {
                 <p
                   className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-600"}`}
                 >
-                  Aprobados
-                </p>
+                  Aprobados                </p>
               </div>
 
               <div
@@ -1268,7 +1250,7 @@ const handleSaveVerificacion = async () => {
               style={{ maxHeight: '90vh' }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* ========== HEADER FIJO ========== */}
+              {/* HEADER FIJO */}
               <div
                 className={`flex-shrink-0 flex items-center justify-between px-6 py-4 border-b ${
                   darkMode ? "border-gray-700" : "border-gray-100"
@@ -1300,7 +1282,7 @@ const handleSaveVerificacion = async () => {
                 </button>
               </div>
 
-              {/* ========== BARRA DE PROGRESO GENERAL ========== */}
+              {/* BARRA DE PROGRESO GENERAL */}
               <div className={`flex-shrink-0 px-6 py-4 border-b ${darkMode ? "border-gray-700" : "border-gray-100"}`}>
                 <div className="mb-4">
                   <div className="flex justify-between items-center mb-2">
@@ -1312,7 +1294,6 @@ const handleSaveVerificacion = async () => {
                     </span>
                   </div>
                   
-                  {/* Barra de progreso */}
                   <div className={`w-full h-3 rounded-full ${darkMode ? "bg-gray-700" : "bg-gray-200"} overflow-hidden`}>
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-[#264653] to-[#2A9D8F] transition-all duration-500 ease-out"
@@ -1321,7 +1302,6 @@ const handleSaveVerificacion = async () => {
                   </div>
                 </div>
 
-                {/* Pasos del progreso - NUEVO ORDEN */}
                 <div className="grid grid-cols-4 gap-2">
                   {pasosProgreso.map((paso) => {
                     const IconoPaso = paso.icono;
@@ -1396,12 +1376,12 @@ const handleSaveVerificacion = async () => {
                 </div>
               </div>
 
-              {/* ========== CONTENIDO CON SCROLL - NUEVO ORDEN DE SECCIONES ========== */}
+              {/* CONTENIDO CON SCROLL */}
               <div 
                 className="flex-1 overflow-y-auto px-6 py-5 modal-scroll-content"
                 style={{ minHeight: 0 }}
               >
-                {/* Sección 1: Información del Solicitante */}
+                {/* Sección 1: Información del Solicitante CON CAMPO DE CÉDULA EDITABLE */}
                 <div className="mb-8">
                   <h3
                     className={`text-lg font-semibold mb-3 ${darkMode ? "text-white" : "text-gray-900"}`}
@@ -1452,21 +1432,58 @@ const handleSaveVerificacion = async () => {
                       </div>
                     </div>
 
+                    {/* 👇 CAMPO DE CÉDULA EDITABLE */}
                     <div className="flex items-center gap-3">
-                      <Clock
-                        size={18}
-                        className={darkMode ? "text-gray-400" : "text-gray-500"}
-                      />
-                      <div>
+                      <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-900/20">
+                        <User size={18} className="text-purple-600" />
+                      </div>
+                      <div className="flex-1">
                         <p
                           className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}
                         >
-                          Fecha de Solicitud
+                          Cédula / ID Persona <span className="text-red-500">*</span>
                         </p>
-                        <p
-                          className={`font-medium ${darkMode ? "text-white" : "text-gray-900"}`}
-                        >
-                          {formatDate(selectedAprobacion.created_at)}
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={cedulaPersonaId}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setCedulaPersonaId(value);
+                              console.log("✏️ Cédula actualizada:", value);
+                            }}
+                            placeholder="Ingrese la cédula..."
+                            className={`w-full px-3 py-1.5 text-sm rounded-lg border ${
+                              darkMode
+                                ? "bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500"
+                                : "bg-white border-gray-200 placeholder-gray-400 focus:border-purple-500"
+                            } focus:ring-1 focus:ring-purple-500 transition-colors`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const cedulaAuto = 
+                                selectedAprobacion.cedula || 
+                                selectedAprobacion.cedula_persona_id || 
+                                selectedAprobacion.id_usuario || 
+                                "";
+                              if (cedulaAuto) {
+                                setCedulaPersonaId(cedulaAuto);
+                                console.log("✅ Cédula autocompletada:", cedulaAuto);
+                                alert(`✅ Cédula automática: ${cedulaAuto}`);
+                              } else {
+                                alert("⚠️ No se encontró una cédula automática");
+                              }
+                            }}
+                            className="px-3 py-1.5 text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap"
+                            title="Auto-completar cédula"
+                          >
+                            <RefreshCw size={14} />
+                            Auto
+                          </button>
+                        </div>
+                        <p className={`text-xs mt-1 ${darkMode ? "text-gray-400" : "text-gray-400"}`}>
+                          💡 Ingrese manualmente o use el botón "Auto" para autocompletar
                         </p>
                       </div>
                     </div>
@@ -1488,7 +1505,6 @@ const handleSaveVerificacion = async () => {
                     )}
                   </div>
 
-                  {/* Barra de Progreso de Requisitos */}
                   <div className="mb-4">
                     <div className="flex justify-between items-center mb-2">
                       <span
@@ -1515,7 +1531,6 @@ const handleSaveVerificacion = async () => {
                     </div>
                   </div>
 
-                  {/* Tabla de requisitos */}
                   {loadingRequisitos ? (
                     <div className="text-center py-8">
                       <Loader
@@ -1585,11 +1600,9 @@ const handleSaveVerificacion = async () => {
                                     : ""
                                 }`}
                               >
-                                {/* COLUMNA 1: Opciones de verificación */}
                                 <td className="px-4 py-3 align-top">
                                   <div className="space-y-3">
                                     <div className="flex flex-col gap-2">
-                                      {/* Opción 1: Verificado */}
                                       <label
                                         className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
                                           requisito.estado_verificacion === 'verificado'
@@ -1646,7 +1659,6 @@ const handleSaveVerificacion = async () => {
                                         </div>
                                       </label>
 
-                                      {/* Opción 2: Requisito No Válido */}
                                       <label
                                         className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
                                           requisito.estado_verificacion === 'no_valido'
@@ -1699,7 +1711,6 @@ const handleSaveVerificacion = async () => {
                                       </label>
                                     </div>
 
-                                    {/* Campo de observación */}
                                     {requisito.estado_verificacion === 'no_valido' && (
                                       <div className="ml-8 animate-fadeIn">
                                         <label className={`block text-xs font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
@@ -1716,7 +1727,7 @@ const handleSaveVerificacion = async () => {
                                               : 'bg-white border-gray-200 placeholder-gray-400 focus:border-red-500'
                                           } focus:ring-1 focus:ring-red-500 transition-colors`}
                                         />
-                                        {!requisito.observacion_no_valido?.trim() && (
+                                        {!requisito.observacion_no_valido && (
                                           <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                                             ⚠️ Este campo es obligatorio para requisitos no válidos
                                           </p>
@@ -1726,7 +1737,6 @@ const handleSaveVerificacion = async () => {
                                   </div>
                                 </td>
 
-                                {/* COLUMNA 2: Imágenes del requisito */}
                                 <td className="px-4 py-3 align-top">
                                   {imagenesRequisito.length > 0 ? (
                                     <div>
@@ -2035,7 +2045,7 @@ const handleSaveVerificacion = async () => {
                   </div>
                 </div>
 
-                {/* Sección 5: Tipo de Manejo - PASO 4 (ÚLTIMO) */}
+                {/* Sección 5: Tipo de Manejo - PASO 4 */}
                 <div className="mb-8">
                   <div className="flex items-center justify-between mb-3">
                     <h3
@@ -2155,7 +2165,6 @@ const handleSaveVerificacion = async () => {
                   />
                 </div>
 
-                {/* ID de Inspección (oculto) */}
                 <input
                   type="hidden"
                   value={idInspeccion}
@@ -2169,10 +2178,21 @@ const handleSaveVerificacion = async () => {
                   darkMode ? "border-gray-700" : "border-gray-100"
                 }`}
               >
-                <div className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
-                  {calcularProgresoGeneral() === 100
-                    ? "✅ Todos los pasos completados"
-                    : `⚠️ Completado: ${calcularProgresoGeneral()}%`}
+                <div className="flex items-center gap-4">
+                  <div className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                    {calcularProgresoGeneral() === 100
+                      ? "✅ Todos los pasos completados"
+                      : `⚠️ Completado: ${calcularProgresoGeneral()}%`}
+                  </div>
+                  <div className={`text-xs px-3 py-1 rounded-full ${
+                    cedulaPersonaId && cedulaPersonaId !== ""
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                  }`}>
+                    {cedulaPersonaId && cedulaPersonaId !== "" 
+                      ? `✅ Cédula: ${cedulaPersonaId}` 
+                      : "⚠️ Cédula requerida"}
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -2231,7 +2251,6 @@ const handleSaveVerificacion = async () => {
               style={{ maxHeight: '85vh' }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header fijo */}
               <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
                 <div>
                   <h3 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-900"}`}>
@@ -2249,7 +2268,6 @@ const handleSaveVerificacion = async () => {
                 </button>
               </div>
 
-              {/* Contenido con scroll */}
               <div 
                 className="flex-1 overflow-y-auto px-6 py-6 modal-scroll-content"
                 style={{ minHeight: 0 }}
@@ -2326,7 +2344,6 @@ const handleSaveVerificacion = async () => {
                 </div>
               </div>
 
-              {/* Footer fijo */}
               <div className="flex-shrink-0 flex justify-end px-6 py-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={handleCloseModals}

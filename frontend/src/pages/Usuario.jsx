@@ -1,4 +1,4 @@
-// pages/Usuario.jsx - Versión Adaptada a Estructura Real de BD
+// pages/Usuario.jsx - Versión Completa con Gestión de Permisos por USUARIO en 2 Pasos
 
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -60,15 +60,11 @@ import permisosAPI from '../services/api_permisos';
 // ESTRUCTURA DE MENÚ Y PERMISOS (Basada en tu BD)
 // ============================================================================
 
-// Reemplazar ESTRUCTURA_MENU en Usuario.jsx con esto:
-
-// pages/Usuario.jsx - Reemplazar ESTRUCTURA_MENU
-
 const ESTRUCTURA_MENU = {
   panel: {
     nombre: "Panel General",
     icono: "LayoutDashboard",
-    menu_item_id: "dashboard", // ✅ Cambiado para coincidir con la BD
+    menu_item_id: "dashboard",
     ruta: "/Dashboard",
     seccion: "principal",
     acciones_disponibles: ["ver", "estadisticas", "graficos"]
@@ -76,7 +72,7 @@ const ESTRUCTURA_MENU = {
   solicitud_credito: {
     nombre: "Solicitud de Crédito",
     icono: "FileCheck",
-    menu_item_id: "solicitudes", // ✅ Cambiado para coincidir con la BD
+    menu_item_id: "solicitudes",
     ruta: "/Solicitud",
     seccion: "operaciones",
     acciones_disponibles: ["ver", "crear", "editar", "eliminar", "aprobar", "rechazar"]
@@ -84,7 +80,7 @@ const ESTRUCTURA_MENU = {
   expediente: {
     nombre: "Expediente",
     icono: "FolderOpen",
-    menu_item_id: "expedientes", // ✅ Cambiado para coincidir con la BD
+    menu_item_id: "expedientes",
     ruta: "/Expediente",
     seccion: "operaciones",
     acciones_disponibles: ["ver", "crear", "editar", "eliminar", "gestionar_documentos"]
@@ -92,7 +88,7 @@ const ESTRUCTURA_MENU = {
   inspeccion: {
     nombre: "Inspección",
     icono: "ClipboardCheck",
-    menu_item_id: "inspecciones", // ✅ Cambiado para coincidir con la BD
+    menu_item_id: "inspecciones",
     ruta: "/Inspeccion",
     seccion: "operaciones",
     acciones_disponibles: ["ver", "crear", "editar", "eliminar", "asignar"]
@@ -100,7 +96,7 @@ const ESTRUCTURA_MENU = {
   aprobacion: {
     nombre: "Aprobación",
     icono: "Handshake",
-    menu_item_id: "aprobaciones", // ✅ Cambiado para coincidir con la BD
+    menu_item_id: "aprobaciones",
     ruta: "/aprobacion",
     seccion: "operaciones",
     acciones_disponibles: ["ver", "evaluar", "aprobar", "rechazar", "ver_historial"]
@@ -108,7 +104,7 @@ const ESTRUCTURA_MENU = {
   credito_banco: {
     nombre: "Crédito a Banco",
     icono: "Landmark",
-    menu_item_id: "creditos_banco", // ✅ Cambiado para coincidir con la BD
+    menu_item_id: "creditos_banco",
     ruta: "/Bancarios",
     seccion: "financiero",
     acciones_disponibles: ["ver", "crear", "editar", "eliminar", "cambiar_estado"]
@@ -116,7 +112,7 @@ const ESTRUCTURA_MENU = {
   contrato: {
     nombre: "Contrato",
     icono: "FileSignature",
-    menu_item_id: "contratos", // ✅ Cambiado para coincidir con la BD
+    menu_item_id: "contratos",
     ruta: "/Contrato",
     seccion: "financiero",
     acciones_disponibles: ["ver", "crear", "editar", "eliminar", "firmar", "generar"]
@@ -124,7 +120,7 @@ const ESTRUCTURA_MENU = {
   desembolso: {
     nombre: "Desembolso",
     icono: "Banknote",
-    menu_item_id: "desembolsos", // ✅ Cambiado para coincidir con la BD
+    menu_item_id: "desembolsos",
     ruta: "/Desembolso",
     seccion: "financiero",
     acciones_disponibles: ["ver", "crear", "editar", "eliminar", "aprobar", "ejecutar"]
@@ -132,7 +128,7 @@ const ESTRUCTURA_MENU = {
   pago_cuota: {
     nombre: "Pago de Cuota",
     icono: "CreditCard",
-    menu_item_id: "pagos_cuota", // ✅ Cambiado para coincidir con la BD
+    menu_item_id: "pagos_cuota",
     ruta: "/Cuota",
     seccion: "financiero",
     acciones_disponibles: ["ver", "registrar", "editar", "eliminar", "historial", "reporte"]
@@ -202,7 +198,11 @@ const ICON_MAP = {
   Banknote: Banknote,
   CreditCard: CreditCard,
   Settings: Settings,
-  Database: Database
+  Database: Database,
+  LayoutDashboard: Home,
+  Users: Users,
+  Building: Home,
+  FileText: FileCheck
 };
 
 const Usuario = () => {
@@ -234,9 +234,14 @@ const Usuario = () => {
   const [usuarios, setUsuarios] = useState([]);
 
   // Estados para permisos
-  const [permisosRolActual, setPermisosRolActual] = useState([]); // Permisos del rol en edición
-  const [permisosSeleccionados, setPermisosSeleccionados] = useState({}); // { menu_item_id: [acciones] }
+  const [permisosUsuarioActual, setPermisosUsuarioActual] = useState([]);
+  const [permisosSeleccionados, setPermisosSeleccionados] = useState({});
   const [filtroPermisos, setFiltroPermisos] = useState("");
+  
+  // Estados para gestión de permisos en 2 pasos
+  const [modulosActivos, setModulosActivos] = useState({});
+  const [moduloSeleccionado, setModuloSeleccionado] = useState(null);
+  const [accionesModuloActual, setAccionesModuloActual] = useState([]);
   
   // Dominios de correo
   const dominiosCorreo = [
@@ -559,6 +564,7 @@ const Usuario = () => {
       if (response.success) {
         const usuariosFormateados = response.data.map(usuario => ({
           ...usuario,
+          id_persona: usuario.id_persona || usuario.persona?.id || usuario.id,
           nombre_completo: usuario.nombre_completo || `${usuario.nombres || ''} ${usuario.apellidos || ''}`.trim(),
           email: usuario.email || usuario.correo,
           telefono: usuario.telefono || usuario.persona?.telefono,
@@ -685,7 +691,7 @@ const Usuario = () => {
   };
 
   // ============================================================================
-  // GESTIÓN DE PERMISOS (Adaptado a tu BD)
+  // GESTIÓN DE PERMISOS POR USUARIO - FLUJO DE 2 PASOS
   // ============================================================================
 
   const handleManagePermissions = async (user) => {
@@ -693,96 +699,151 @@ const Usuario = () => {
     setModalMode("permissions");
     setLoading(true);
     setFiltroPermisos("");
+    setModuloSeleccionado(null);
+    setAccionesModuloActual([]);
     
     try {
-      // Cargar permisos actuales del ROL del usuario
-      const response = await permisosAPI.getPermisosByRol(user.id_rol_usu);
+      const response = await permisosAPI.getPermisosByUsuario(user.id);
       
       if (response.success) {
-        setPermisosRolActual(response.data);
+        setPermisosUsuarioActual(response.data);
         
-        // Inicializar selección basada en los permisos actuales del rol
+        const modulosActivosInicial = {};
         const seleccionInicial = {};
         
-        // Inicializar todos los menús sin permisos
         Object.keys(ESTRUCTURA_MENU).forEach(menuKey => {
+          modulosActivosInicial[menuKey] = false;
           seleccionInicial[menuKey] = [];
         });
         
-        // Marcar los permisos que ya tiene el rol
         response.data.forEach(permiso => {
-          if (seleccionInicial[permiso.menu_item_id]) {
-            const acciones = permiso.acciones_array || 
-              (permiso.acciones ? permiso.acciones.split(',').map(a => a.trim()) : []);
-            seleccionInicial[permiso.menu_item_id] = acciones;
+          const menuKey = Object.keys(ESTRUCTURA_MENU).find(
+            key => ESTRUCTURA_MENU[key].menu_item_id === permiso.menu_item_id
+          );
+          
+          if (menuKey) {
+            modulosActivosInicial[menuKey] = true;
+            
+            if (permiso.acciones === '*') {
+              seleccionInicial[menuKey] = [...ESTRUCTURA_MENU[menuKey].acciones_disponibles];
+            } else {
+              seleccionInicial[menuKey] = permiso.acciones.split(',').map(a => a.trim());
+            }
           }
         });
         
+        setModulosActivos(modulosActivosInicial);
         setPermisosSeleccionados(seleccionInicial);
       }
     } catch (err) {
-      console.error("Error cargando permisos del rol:", err);
-      setError("Error al cargar los permisos del rol");
+      console.error("Error cargando permisos del usuario:", err);
+      setError("Error al cargar los permisos del usuario");
     } finally {
       setLoading(false);
       setModalOpen(true);
     }
   };
 
-  const handleToggleAccion = (menuKey, accion) => {
-    setPermisosSeleccionados(prev => {
-      const nuevasAcciones = [...(prev[menuKey] || [])];
-      const index = nuevasAcciones.indexOf(accion);
+  const handleToggleModulo = (menuKey) => {
+    setModulosActivos(prev => {
+      const nuevoEstado = !prev[menuKey];
       
-      if (index >= 0) {
-        nuevasAcciones.splice(index, 1);
+      if (!nuevoEstado) {
+        setPermisosSeleccionados(prevPermisos => ({
+          ...prevPermisos,
+          [menuKey]: []
+        }));
+        
+        if (moduloSeleccionado === menuKey) {
+          setModuloSeleccionado(null);
+          setAccionesModuloActual([]);
+        }
       } else {
-        nuevasAcciones.push(accion);
+        setPermisosSeleccionados(prevPermisos => ({
+          ...prevPermisos,
+          [menuKey]: [...ESTRUCTURA_MENU[menuKey].acciones_disponibles]
+        }));
       }
       
-      return { ...prev, [menuKey]: nuevasAcciones };
+      return { ...prev, [menuKey]: nuevoEstado };
     });
   };
 
-  const handleToggleTodasAcciones = (menuKey) => {
-    setPermisosSeleccionados(prev => {
-      const menu = ESTRUCTURA_MENU[menuKey];
-      const accionesActuales = prev[menuKey] || [];
-      const todasSeleccionadas = menu.acciones_disponibles.every(a => accionesActuales.includes(a));
-      
-      return {
-        ...prev,
-        [menuKey]: todasSeleccionadas ? [] : [...menu.acciones_disponibles]
-      };
-    });
-  };
-
-  const handleSeleccionarTodosPermisos = () => {
-    const todosSeleccionados = Object.values(permisosSeleccionados).every(
-      (acciones, key) => acciones.length === ESTRUCTURA_MENU[key]?.acciones_disponibles.length
-    );
+  const handleSeleccionarModulo = (menuKey) => {
+    if (!modulosActivos[menuKey]) return;
     
-    if (todosSeleccionados) {
-      // Deseleccionar todo
-      const vacio = {};
-      Object.keys(ESTRUCTURA_MENU).forEach(key => { vacio[key] = []; });
-      setPermisosSeleccionados(vacio);
-    } else {
-      // Seleccionar todo
-      const completo = {};
-      Object.entries(ESTRUCTURA_MENU).forEach(([key, menu]) => {
-        completo[key] = [...menu.acciones_disponibles];
-      });
-      setPermisosSeleccionados(completo);
-    }
+    setModuloSeleccionado(menuKey);
+    setAccionesModuloActual([...permisosSeleccionados[menuKey]]);
   };
 
-  const getTotalSeleccionados = () => {
-    return Object.values(permisosSeleccionados).reduce((sum, acciones) => sum + acciones.length, 0);
+  const handleToggleAccion = (accion) => {
+    if (!moduloSeleccionado) return;
+    
+    setAccionesModuloActual(prev => {
+      const nuevasAcciones = prev.includes(accion)
+        ? prev.filter(a => a !== accion)
+        : [...prev, accion];
+      
+      setPermisosSeleccionados(prevPermisos => ({
+        ...prevPermisos,
+        [moduloSeleccionado]: nuevasAcciones
+      }));
+      
+      return nuevasAcciones;
+    });
   };
 
-  const getTotalDisponibles = () => {
-    return Object.values(ESTRUCTURA_MENU).reduce((sum, menu) => sum + menu.acciones_disponibles.length, 0);
+  const handleSeleccionarTodasAcciones = () => {
+    if (!moduloSeleccionado) return;
+    
+    const todasAcciones = [...ESTRUCTURA_MENU[moduloSeleccionado].acciones_disponibles];
+    setAccionesModuloActual(todasAcciones);
+    setPermisosSeleccionados(prev => ({
+      ...prev,
+      [moduloSeleccionado]: todasAcciones
+    }));
+  };
+
+  const handleDeseleccionarTodasAcciones = () => {
+    if (!moduloSeleccionado) return;
+    
+    setAccionesModuloActual([]);
+    setPermisosSeleccionados(prev => ({
+      ...prev,
+      [moduloSeleccionado]: []
+    }));
+  };
+
+  const handleActivarTodos = () => {
+    const todosActivos = {};
+    const todosPermisos = {};
+    
+    Object.keys(ESTRUCTURA_MENU).forEach(key => {
+      todosActivos[key] = true;
+      todosPermisos[key] = [...ESTRUCTURA_MENU[key].acciones_disponibles];
+    });
+    
+    setModulosActivos(todosActivos);
+    setPermisosSeleccionados(todosPermisos);
+  };
+
+  const handleDesactivarTodos = () => {
+    const todosInactivos = {};
+    const sinPermisos = {};
+    
+    Object.keys(ESTRUCTURA_MENU).forEach(key => {
+      todosInactivos[key] = false;
+      sinPermisos[key] = [];
+    });
+    
+    setModulosActivos(todosInactivos);
+    setPermisosSeleccionados(sinPermisos);
+    setModuloSeleccionado(null);
+    setAccionesModuloActual([]);
+  };
+
+  const getModulosActivosCount = () => {
+    return Object.values(modulosActivos).filter(Boolean).length;
   };
 
   const handleGuardarPermisos = async () => {
@@ -790,29 +851,38 @@ const Usuario = () => {
       setLoading(true);
       setError(null);
       
-      // Convertir selección a formato que espera la API
-      const permisosFormateados = Object.entries(permisosSeleccionados)
-        .filter(([_, acciones]) => acciones.length > 0)
-        .map(([menuKey, acciones]) => ({
-          menu_item_id: menuKey,
-          acciones: acciones.join(',')
-        }));
+      const permisosParaBD = [];
       
-      // Actualizar permisos del ROL del usuario
-      const response = await permisosAPI.asignarPermisosRol(selectedUser.id_rol_usu, permisosFormateados);
+      Object.entries(modulosActivos).forEach(([menuKey, estaActivo]) => {
+        if (estaActivo) {
+          const menuItemId = ESTRUCTURA_MENU[menuKey].menu_item_id;
+          const acciones = permisosSeleccionados[menuKey] || [];
+          
+          if (acciones.length > 0) {
+            const todasAcciones = ESTRUCTURA_MENU[menuKey].acciones_disponibles;
+            const tieneTodas = todasAcciones.every(a => acciones.includes(a));
+            
+            permisosParaBD.push({
+              menu_item_id: menuItemId,
+              acciones: tieneTodas ? '*' : acciones.join(',')
+            });
+          }
+        }
+      });
+      
+      const response = await permisosAPI.asignarPermisosUsuario(
+        selectedUser.id,
+        permisosParaBD
+      );
       
       if (response.success) {
-        const nombreRol = rolesDB.find(r => r.id_rol === selectedUser.id_rol_usu)?.nombre_rol || '';
-        setSuccessMessage(`Permisos actualizados correctamente para el rol "${nombreRol}"`);
+        setSuccessMessage(`Permisos actualizados correctamente para el usuario "${selectedUser.nombre_completo}"`);
         setModalOpen(false);
         setTimeout(() => setSuccessMessage(null), 3000);
-      } else {
-        throw new Error(response.error);
       }
     } catch (err) {
       console.error("Error guardando permisos:", err);
       setError(err.message || "Error al guardar los permisos");
-      setTimeout(() => setError(null), 5000);
     } finally {
       setLoading(false);
     }
@@ -865,7 +935,7 @@ const Usuario = () => {
   };
 
   // ============================================================================
-  // GUARDADO DE USUARIO
+  // GUARDADO DE USUARIO - CORREGIDO CON fecha_nacimiento
   // ============================================================================
   
   const handleSaveUser = async () => {
@@ -882,23 +952,33 @@ const Usuario = () => {
       const cedulaFormateada = `${formData.nacionalidad.toUpperCase()}-${formData.cedula}`;
       const correoFinal = formData.correo || (formData.correo_local && formData.correo_dominio ? `${formData.correo_local}@${formData.correo_dominio}` : "");
       
+      // Datos de persona - INCLUYENDO fecha_nacimiento
+      const personaData = {
+        nacionalidad: formData.nacionalidad,
+        cedula: cedulaFormateada,
+        nombres: formData.nombres,
+        apellidos: formData.apellidos,
+        fecha_nacimiento: formData.fecha_nacimiento || null,
+        telefono: formData.telefono || null,
+        correo: correoFinal,
+        estado_civil: formData.estado_civil || null,
+        direccion: formData.direccion || null,
+        estado: formData.estado || null,
+        municipio: formData.municipio || null,
+        parroquia: formData.parroquia || null,
+        tipo_persona: formData.tipo_persona,
+      };
+      
       if (modalMode === "create") {
-        const personaData = {
-          nacionalidad: formData.nacionalidad, cedula: cedulaFormateada,
-          nombres: formData.nombres, apellidos: formData.apellidos,
-          fecha_nacimiento: formData.fecha_nacimiento || null,
-          telefono: formData.telefono || null, correo: correoFinal,
-          estado_civil: formData.estado_civil || null, direccion: formData.direccion || null,
-          estado: formData.estado || null, municipio: formData.municipio || null,
-          parroquia: formData.parroquia || null, tipo_persona: formData.tipo_persona,
-        };
-        
+        // CREACIÓN: Guardar persona y luego usuario
         const personaResponse = await personaAPI.createPersona(personaData);
         if (!personaResponse.success) throw new Error(personaResponse.error || "Error al crear la persona");
         
         const usuarioData = {
-          cedula_usuario: cedulaFormateada, clave: formData.clave,
-          id_rol_usu: parseInt(formData.id_rol_usu), estatus: "activo"
+          cedula_usuario: cedulaFormateada,
+          clave: formData.clave,
+          id_rol_usu: parseInt(formData.id_rol_usu),
+          estatus: "activo"
         };
         
         const usuarioResponse = await usuarioAPI.createUsuario(usuarioData);
@@ -907,17 +987,10 @@ const Usuario = () => {
         setSuccessMessage(`Usuario ${formData.nombres} ${formData.apellidos} creado exitosamente`);
         
       } else if (modalMode === "edit" && selectedUser) {
-        const personaData = {
-          nacionalidad: formData.nacionalidad, cedula: cedulaFormateada,
-          nombres: formData.nombres, apellidos: formData.apellidos,
-          fecha_nacimiento: formData.fecha_nacimiento || null,
-          telefono: formData.telefono || null, correo: correoFinal,
-          estado_civil: formData.estado_civil || null, direccion: formData.direccion || null,
-          estado: formData.estado || null, municipio: formData.municipio || null,
-          parroquia: formData.parroquia || null, tipo_persona: formData.tipo_persona,
-        };
+        // EDICIÓN: Actualizar persona (CON fecha_nacimiento)
+        const personaId = selectedUser.id_persona || selectedUser.persona?.id || selectedUser.id;
         
-        await personaAPI.updatePersona(selectedUser.persona?.id || selectedUser.id, personaData);
+        await personaAPI.updatePersona(personaId, personaData);
         
         const usuarioData = {
           id_rol_usu: parseInt(formData.id_rol_usu),
@@ -1010,17 +1083,16 @@ const Usuario = () => {
   const getErrorMessage = (fieldName) => fieldErrors[fieldName];
 
   // ============================================================================
-  // RENDERIZADO - MODAL DE PERMISOS (Adaptado a estructura menu_item_id + acciones)
+  // RENDERIZADO - MODAL DE PERMISOS EN 2 PASOS
   // ============================================================================
   
   const renderPermissionsModal = () => {
-    const totalSeleccionados = getTotalSeleccionados();
-    const totalDisponibles = getTotalDisponibles();
-    const todosSeleccionados = totalSeleccionados === totalDisponibles;
+    const modulosActivosCount = getModulosActivosCount();
+    const totalModulos = Object.keys(ESTRUCTURA_MENU).length;
     
     return (
       <div className="space-y-6">
-        {/* Cabecera del usuario y su rol */}
+        {/* Cabecera del usuario */}
         <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#264653] to-[#2A9D8F] flex items-center justify-center text-white font-bold text-lg">
@@ -1035,106 +1107,227 @@ const Usuario = () => {
               </p>
               <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
                 <Shield size={12} className="inline mr-1" />
-                Los permisos se asignan al rol. Todos los usuarios con este rol heredarán estos permisos.
+                Configurando permisos individuales para este usuario.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Barra de búsqueda y acciones globales */}
+        {/* Barra de acciones global */}
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-            <input
-              type="text"
-              placeholder="Buscar módulo..."
-              value={filtroPermisos}
-              onChange={(e) => setFiltroPermisos(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2 rounded-lg border ${
-                darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-200 placeholder-gray-500'
-              } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
-            />
-          </div>
           <div className="flex items-center gap-3">
+            <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              <strong>{modulosActivosCount}</strong> de {totalModulos} módulos activos
+            </span>
+          </div>
+          <div className="flex gap-2">
             <button
-              onClick={handleSeleccionarTodosPermisos}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm ${
+              onClick={handleActivarTodos}
+              className={`px-3 py-1.5 rounded-lg text-sm border ${
                 darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}
             >
-              {todosSeleccionados ? <CheckSquare size={16} /> : <Square size={16} />}
-              {todosSeleccionados ? 'Deseleccionar todo' : 'Seleccionar todo'}
+              Activar Todos
             </button>
-            <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              {totalSeleccionados} de {totalDisponibles} seleccionados
-            </span>
+            <button
+              onClick={handleDesactivarTodos}
+              className={`px-3 py-1.5 rounded-lg text-sm border ${
+                darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              Desactivar Todos
+            </button>
           </div>
         </div>
 
-        {/* Grid de módulos con sus acciones */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[450px] overflow-y-auto p-2">
-          {Object.entries(ESTRUCTURA_MENU)
-            .filter(([_, menu]) => 
-              !filtroPermisos || menu.nombre.toLowerCase().includes(filtroPermisos.toLowerCase())
-            )
-            .map(([menuKey, menu]) => {
-              const IconComponent = ICON_MAP[menu.icono] || Settings;
-              const accionesSeleccionadas = permisosSeleccionados[menuKey] || [];
-              const todasSeleccionadas = menu.acciones_disponibles.every(a => accionesSeleccionadas.includes(a));
-              const algunasSeleccionadas = menu.acciones_disponibles.some(a => accionesSeleccionadas.includes(a));
+        {/* Layout de 2 columnas: Módulos | Acciones */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* COLUMNA 1: PASO 1 - Lista de Módulos */}
+          <div className={`rounded-lg border ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
+            <div className={`p-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+              <h3 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                📋 Paso 1: Seleccionar Módulos
+              </h3>
+              <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                Activa los módulos a los que tendrá acceso este usuario
+              </p>
+            </div>
+            <div className="p-4 space-y-2 max-h-96 overflow-y-auto">
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                <input
+                  type="text"
+                  placeholder="Buscar módulo..."
+                  value={filtroPermisos}
+                  onChange={(e) => setFiltroPermisos(e.target.value)}
+                  className={`w-full pl-10 pr-4 py-2 rounded-lg border text-sm ${
+                    darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-200 placeholder-gray-500'
+                  } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
+                />
+              </div>
               
-              return (
-                <div 
-                  key={menuKey}
-                  className={`rounded-lg border p-4 ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}
-                >
-                  {/* Cabecera del módulo */}
-                  <div 
-                    className="flex items-center justify-between mb-3 cursor-pointer"
-                    onClick={() => handleToggleTodasAcciones(menuKey)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <IconComponent size={20} className="text-[#2A9D8F]" />
-                      <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                        {menu.nombre}
-                      </h4>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {algunasSeleccionadas && !todasSeleccionadas && (
-                        <span className="text-xs text-gray-500">Parcial</span>
-                      )}
-                      <div className={`w-5 h-5 rounded border flex items-center justify-center ${
-                        todasSeleccionadas 
-                          ? 'bg-[#2A9D8F] border-[#2A9D8F] text-white' 
-                          : darkMode ? 'border-gray-500' : 'border-gray-300'
-                      }`}>
-                        {todasSeleccionadas && <CheckSquare size={14} />}
+              {Object.entries(ESTRUCTURA_MENU)
+                .filter(([_, menu]) => 
+                  !filtroPermisos || menu.nombre.toLowerCase().includes(filtroPermisos.toLowerCase())
+                )
+                .map(([menuKey, menu]) => {
+                  const IconComponent = ICON_MAP[menu.icono] || Settings;
+                  const estaActivo = modulosActivos[menuKey];
+                  const estaSeleccionado = moduloSeleccionado === menuKey;
+                  const accionesCount = permisosSeleccionados[menuKey]?.length || 0;
+                  const totalAcciones = menu.acciones_disponibles.length;
+                  
+                  return (
+                    <div
+                      key={menuKey}
+                      onClick={() => handleSeleccionarModulo(menuKey)}
+                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all border ${
+                        estaSeleccionado
+                          ? darkMode 
+                            ? 'border-[#2A9D8F] bg-[#2A9D8F]/10 ring-1 ring-[#2A9D8F]' 
+                            : 'border-[#2A9D8F] bg-[#2A9D8F]/5 ring-1 ring-[#2A9D8F]'
+                          : estaActivo
+                            ? darkMode ? 'border-gray-600 bg-gray-700' : 'border-gray-200 bg-gray-50'
+                            : darkMode ? 'border-gray-700 bg-gray-800 opacity-60' : 'border-gray-200 bg-white opacity-60'
+                      }`}
+                    >
+                      {/* Toggle de activación */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleModulo(menuKey);
+                        }}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
+                          estaActivo ? 'bg-[#2A9D8F]' : 'bg-gray-300 dark:bg-gray-600'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            estaActivo ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                      
+                      <IconComponent size={20} className={estaActivo ? 'text-[#2A9D8F]' : 'text-gray-400'} />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium truncate ${estaActivo ? (darkMode ? 'text-white' : 'text-gray-800') : 'text-gray-500'}`}>
+                          {menu.nombre}
+                        </p>
+                        {estaActivo && (
+                          <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            {accionesCount}/{totalAcciones} acciones
+                          </p>
+                        )}
                       </div>
+                      {estaActivo && (
+                        <ChevronRight size={16} className={`flex-shrink-0 ${estaSeleccionado ? 'text-[#2A9D8F]' : 'text-gray-400'}`} />
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+
+          {/* COLUMNA 2: PASO 2 - Acciones del Módulo Seleccionado */}
+          <div className={`rounded-lg border ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
+            <div className={`p-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+              <h3 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                ⚙️ Paso 2: Gestionar Acciones
+              </h3>
+              <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                {moduloSeleccionado 
+                  ? `Configurando acciones para: ${ESTRUCTURA_MENU[moduloSeleccionado].nombre}`
+                  : 'Selecciona un módulo activo de la izquierda para gestionar sus acciones'}
+              </p>
+            </div>
+            
+            <div className="p-4">
+              {!moduloSeleccionado ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Settings size={48} className="text-gray-300 dark:text-gray-600 mb-4" />
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    👈 Selecciona un módulo de la lista para configurar sus permisos específicos
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Cabecera del módulo seleccionado */}
+                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const IconComponent = ICON_MAP[ESTRUCTURA_MENU[moduloSeleccionado].icono] || Settings;
+                          return <IconComponent size={20} className="text-[#2A9D8F]" />;
+                        })()}
+                        <h4 className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                          {ESTRUCTURA_MENU[moduloSeleccionado].nombre}
+                        </h4>
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                        accionesModuloActual.length === ESTRUCTURA_MENU[moduloSeleccionado].acciones_disponibles.length
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
+                          : accionesModuloActual.length > 0
+                            ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200'
+                            : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200'
+                      }`}>
+                        {accionesModuloActual.length}/{ESTRUCTURA_MENU[moduloSeleccionado].acciones_disponibles.length} acciones
+                      </span>
+                    </div>
+                    
+                    {/* Acciones rápidas */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSeleccionarTodasAcciones}
+                        className={`text-xs px-2 py-1 rounded border ${
+                          darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-600' : 'border-gray-200 text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        Seleccionar Todas
+                      </button>
+                      <button
+                        onClick={handleDeseleccionarTodasAcciones}
+                        className={`text-xs px-2 py-1 rounded border ${
+                          darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-600' : 'border-gray-200 text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        Deseleccionar Todas
+                      </button>
                     </div>
                   </div>
                   
-                  {/* Lista de acciones/permisos */}
-                  <div className="space-y-1.5">
-                    {menu.acciones_disponibles.map((accion) => {
-                      const seleccionada = accionesSeleccionadas.includes(accion);
+                  {/* Lista de acciones */}
+                  <div className="space-y-2 max-h-72 overflow-y-auto">
+                    {ESTRUCTURA_MENU[moduloSeleccionado].acciones_disponibles.map((accion) => {
+                      const seleccionada = accionesModuloActual.includes(accion);
                       const nombreAccion = accion.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                       
                       return (
-                        <label 
+                        <label
                           key={accion}
-                          className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
-                            seleccionada 
-                              ? darkMode ? 'bg-[#2A9D8F]/20' : 'bg-[#2A9D8F]/10'
-                              : darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
+                          className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors border ${
+                            seleccionada
+                              ? darkMode
+                                ? 'border-[#2A9D8F] bg-[#2A9D8F]/20'
+                                : 'border-[#2A9D8F] bg-[#2A9D8F]/10'
+                              : darkMode
+                                ? 'border-gray-700 hover:bg-gray-700'
+                                : 'border-gray-200 hover:bg-gray-50'
                           }`}
                         >
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                            seleccionada 
+                              ? 'bg-[#2A9D8F] border-[#2A9D8F]' 
+                              : darkMode ? 'border-gray-500' : 'border-gray-300'
+                          }`}>
+                            {seleccionada && <CheckCircle size={14} className="text-white" />}
+                          </div>
                           <input
                             type="checkbox"
                             checked={seleccionada}
-                            onChange={() => handleToggleAccion(menuKey, accion)}
-                            className="w-4 h-4 rounded border-gray-300 text-[#2A9D8F] focus:ring-[#2A9D8F]"
+                            onChange={() => handleToggleAccion(accion)}
+                            className="hidden"
                           />
-                          <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          <span className={`text-sm ${seleccionada ? (darkMode ? 'text-white font-medium' : 'text-gray-800 font-medium') : (darkMode ? 'text-gray-400' : 'text-gray-600')}`}>
                             {nombreAccion}
                           </span>
                         </label>
@@ -1142,17 +1335,46 @@ const Usuario = () => {
                     })}
                   </div>
                 </div>
-              );
-            })}
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Resumen final */}
-        {totalSeleccionados > 0 && (
-          <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              <strong>{totalSeleccionados} permisos seleccionados</strong> de {totalDisponibles} disponibles
-              {todosSeleccionados && " (Acceso completo al sistema)"}
-            </p>
+        {modulosActivosCount > 0 && (
+          <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+            <h4 className={`font-medium mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+              📊 Resumen de Permisos
+            </h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {Object.entries(ESTRUCTURA_MENU)
+                .filter(([key]) => modulosActivos[key])
+                .map(([key, menu]) => {
+                  const acciones = permisosSeleccionados[key] || [];
+                  const tieneTodas = acciones.length === menu.acciones_disponibles.length;
+                  
+                  return (
+                    <div key={key} className={`p-3 rounded-lg border ${darkMode ? 'bg-gray-600 border-gray-500' : 'bg-white border-gray-200'}`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        {(() => {
+                          const IconComponent = ICON_MAP[menu.icono] || Settings;
+                          return <IconComponent size={14} className={tieneTodas ? 'text-green-500' : 'text-[#2A9D8F]'} />;
+                        })()}
+                        <p className={`text-xs font-medium truncate ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+                          {menu.nombre}
+                        </p>
+                      </div>
+                      <p className={`text-xs ml-6 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {tieneTodas 
+                          ? '✅ Acceso completo' 
+                          : acciones.length === 0
+                            ? '⚠️ Sin acciones'
+                            : `⚡ ${acciones.length} acción(es)`}
+                      </p>
+                    </div>
+                  );
+                })}
+            </div>
           </div>
         )}
       </div>
@@ -1160,7 +1382,7 @@ const Usuario = () => {
   };
 
   // ============================================================================
-  // RENDERIZADO - MODAL FORMULARIO (Simplificado para enfocarnos en permisos)
+  // RENDERIZADO - MODAL FORMULARIO
   // ============================================================================
   
   const renderFormModal = () => (
@@ -1206,6 +1428,35 @@ const Usuario = () => {
           {hasError('apellidos') && <p className="text-xs text-red-500 mt-1">{getErrorMessage('apellidos')}</p>}
         </div>
         
+        {/* Fecha de Nacimiento - AHORA VISIBLE Y FUNCIONAL */}
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Fecha de Nacimiento</label>
+          <div className="relative">
+            <Calendar size={18} className="absolute left-3 top-3 text-gray-400" />
+            <input 
+              type="date" 
+              name="fecha_nacimiento" 
+              value={formData.fecha_nacimiento} 
+              onChange={handleChange} 
+              onBlur={handleBlur}
+              className={`w-full pl-10 pr-3 py-2 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${hasError('fecha_nacimiento') ? 'border-red-500' : ''}`}
+            />
+          </div>
+          {hasError('fecha_nacimiento') && <p className="text-xs text-red-500 mt-1">{getErrorMessage('fecha_nacimiento')}</p>}
+        </div>
+        
+        {/* Teléfono */}
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Teléfono</label>
+          <div className="relative">
+            <Phone size={18} className="absolute left-3 top-3 text-gray-400" />
+            <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} onBlur={handleBlur}
+              className={`w-full pl-10 pr-3 py-2 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${hasError('telefono') ? 'border-red-500' : ''}`}
+              placeholder="0412-1234567" />
+          </div>
+          {hasError('telefono') && <p className="text-xs text-red-500 mt-1">{getErrorMessage('telefono')}</p>}
+        </div>
+        
         {/* Correo */}
         <div className="col-span-2">
           <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Correo Electrónico *</label>
@@ -1227,10 +1478,20 @@ const Usuario = () => {
           </div>
           {hasError('correo') && <p className="text-xs text-red-500 mt-1"><AlertCircle size={12} className="inline" /> {getErrorMessage('correo')}</p>}
           {formData.correo && !hasError('correo') && (
-            <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-xs text-green-600"><CheckCircle size={14} className="inline" /> Correo: <strong>{formData.correo}</strong></p>
+            <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <p className="text-xs text-green-600 dark:text-green-400"><CheckCircle size={14} className="inline" /> Correo: <strong>{formData.correo}</strong></p>
             </div>
           )}
+        </div>
+        
+        {/* Estado Civil */}
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Estado Civil</label>
+          <select name="estado_civil" value={formData.estado_civil} onChange={handleChange}
+            className={`w-full px-4 py-2 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}>
+            <option value="">Seleccionar</option>
+            {estadosCiviles.map(e => <option key={e} value={e}>{e}</option>)}
+          </select>
         </div>
         
         {/* Rol */}
@@ -1244,10 +1505,50 @@ const Usuario = () => {
           {hasError('id_rol_usu') && <p className="text-xs text-red-500 mt-1">{getErrorMessage('id_rol_usu')}</p>}
         </div>
 
-        {/* Estado */}
+        {/* Dirección */}
+        <div className="col-span-2">
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Dirección</label>
+          <input type="text" name="direccion" value={formData.direccion} onChange={handleChange}
+            className={`w-full px-4 py-2 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
+            placeholder="Dirección de residencia" />
+        </div>
+
+        {/* Estado (geográfico) */}
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Estado</label>
+          <select name="estado" value={formData.estado} onChange={handleChange}
+            className={`w-full px-4 py-2 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}>
+            <option value="Yaracuy">Yaracuy</option>
+          </select>
+        </div>
+
+        {/* Municipio */}
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Municipio</label>
+          <select name="municipio" value={formData.municipio} onChange={handleChange}
+            className={`w-full px-4 py-2 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}>
+            <option value="">Seleccionar municipio</option>
+            {municipiosYaracuy.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+
+        {/* Parroquia */}
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Parroquia</label>
+          <select name="parroquia" value={formData.parroquia} onChange={handleChange}
+            className={`w-full px-4 py-2 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] ${hasError('parroquia') ? 'border-red-500' : ''}`}>
+            <option value="">Seleccionar parroquia</option>
+            {formData.municipio && parroquiasPorMunicipio[formData.municipio]?.map(p => 
+              <option key={p} value={p}>{p}</option>
+            )}
+          </select>
+          {hasError('parroquia') && <p className="text-xs text-red-500 mt-1">{getErrorMessage('parroquia')}</p>}
+        </div>
+
+        {/* Estado del usuario (solo edición) */}
         {modalMode === "edit" ? (
           <div>
-            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Estado</label>
+            <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Estado del Usuario</label>
             <select name="estatus" value={formData.estatus} onChange={handleChange}
               className={`w-full px-4 py-2 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}>
               <option value="activo">Activo</option>
@@ -1288,7 +1589,7 @@ const Usuario = () => {
                     return (
                       <div key={key} className="flex items-center gap-2 text-xs">
                         <div className={`w-3 h-3 rounded-full ${valid ? 'bg-green-500' : 'border-2 border-gray-300'}`} />
-                        <span className={valid ? "text-green-600" : "text-gray-500"}>{labels[key]}</span>
+                        <span className={valid ? "text-green-600 dark:text-green-400" : "text-gray-500"}>{labels[key]}</span>
                       </div>
                     );
                   })}
@@ -1355,13 +1656,13 @@ const Usuario = () => {
           <div className="p-4 md:p-6 mt-16">
             {/* Mensajes */}
             {successMessage && (
-              <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg flex justify-between items-center">
+              <div className="mb-4 p-4 bg-green-100 dark:bg-green-900/20 border border-green-400 dark:border-green-800 text-green-700 dark:text-green-400 rounded-lg flex justify-between items-center">
                 <span><CheckCircle size={20} className="inline mr-2" />{successMessage}</span>
                 <button onClick={() => setSuccessMessage(null)}><X size={20} /></button>
               </div>
             )}
             {error && (
-              <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg flex justify-between items-center">
+              <div className="mb-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg flex justify-between items-center">
                 <span><AlertCircle size={20} className="inline mr-2" />{error}</span>
                 <button onClick={() => setError(null)}><X size={20} /></button>
               </div>
@@ -1464,92 +1765,117 @@ const Usuario = () => {
                       </tr>
                     </thead>
                     <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
-                      {paginatedUsuarios.map(usuario => (
-                        <tr key={usuario.id} className={`${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} transition-colors`}>
-                          <td className="px-4 py-3"><input type="checkbox" checked={selectedRows.includes(usuario.id)}
-                            onChange={() => setSelectedRows(prev => prev.includes(usuario.id) ? prev.filter(id => id !== usuario.id) : [...prev, usuario.id])}
-                            className="rounded border-gray-300 text-[#2A9D8F]" /></td>
-                          <td className="px-4 py-3">
-                            <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{usuario.nombre_completo}</div>
-                            <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{usuario.cedula_usuario}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{usuario.email}</div>
-                            <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{usuario.telefono}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                              {usuario.rol || getNombreRol(usuario.id_rol_usu)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-1 text-xs rounded-full ${getEstadoBadge(usuario.estatus)}`}>{getEstadoTexto(usuario.estatus)}</span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{formatDateTime(usuario.ultimo_acceso)}</div>
-                            <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Registro: {formatDate(usuario.created_at)}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-center gap-1 flex-wrap">
-                              {[
-                                { icon: Eye, color: 'text-[#2A9D8F]', title: 'Ver detalles', onClick: () => handleViewUser(usuario) },
-                                { icon: Edit, color: 'text-blue-500', title: 'Editar', onClick: () => handleEditUser(usuario) },
-                                { icon: ShieldCheck, color: 'text-purple-500', title: 'Gestionar permisos', onClick: () => handleManagePermissions(usuario) },
-                                { icon: Key, color: 'text-orange-500', title: 'Restablecer contraseña', onClick: () => handleResetPassword(usuario) },
-                                { icon: usuario.estatus === "activo" ? Lock : Unlock, color: usuario.estatus === "activo" ? 'text-orange-500' : 'text-green-500', title: usuario.estatus === "activo" ? "Desactivar" : "Activar", onClick: () => handleToggleStatus(usuario) },
-                                { icon: Trash2, color: 'text-red-500', title: 'Eliminar', onClick: () => handleDeleteUser(usuario) },
-                              ].map((btn, i) => (
-                                <button key={i} onClick={btn.onClick}
-                                  className={`p-1 rounded-lg ${darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'} transition-colors`} title={btn.title}>
-                                  <btn.icon size={18} className={btn.color} />
-                                </button>
-                              ))}
+                      {paginatedUsuarios.length === 0 ? (
+                        <tr>
+                          <td colSpan="7" className="px-4 py-12 text-center">
+                            <div className="flex flex-col items-center">
+                              <Users size={48} className="text-gray-300 dark:text-gray-600 mb-4" />
+                              <p className={`text-lg font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No se encontraron usuarios</p>
+                              <p className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>Intenta ajustar los filtros de búsqueda</p>
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        paginatedUsuarios.map(usuario => (
+                          <tr key={usuario.id} className={`${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} transition-colors`}>
+                            <td className="px-4 py-3"><input type="checkbox" checked={selectedRows.includes(usuario.id)}
+                              onChange={() => setSelectedRows(prev => prev.includes(usuario.id) ? prev.filter(id => id !== usuario.id) : [...prev, usuario.id])}
+                              className="rounded border-gray-300 text-[#2A9D8F]" /></td>
+                            <td className="px-4 py-3">
+                              <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{usuario.nombre_completo}</div>
+                              <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{usuario.cedula_usuario}</div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{usuario.email}</div>
+                              <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{usuario.telefono || 'No registrado'}</div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                {usuario.rol || getNombreRol(usuario.id_rol_usu)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 text-xs rounded-full ${getEstadoBadge(usuario.estatus)}`}>{getEstadoTexto(usuario.estatus)}</span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{formatDateTime(usuario.ultimo_acceso)}</div>
+                              <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Registro: {formatDate(usuario.created_at)}</div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-center gap-1 flex-wrap">
+                                <button onClick={() => handleViewUser(usuario)}
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Ver detalles">
+                                  <Eye size={18} className="text-[#2A9D8F]" />
+                                </button>
+                                <button onClick={() => handleEditUser(usuario)}
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Editar">
+                                  <Edit size={18} className="text-blue-500" />
+                                </button>
+                                <button onClick={() => handleManagePermissions(usuario)}
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Gestionar permisos">
+                                  <ShieldCheck size={18} className="text-purple-500" />
+                                </button>
+                                <button onClick={() => handleResetPassword(usuario)}
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Restablecer contraseña">
+                                  <Key size={18} className="text-orange-500" />
+                                </button>
+                                <button onClick={() => handleToggleStatus(usuario)}
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title={usuario.estatus === "activo" ? "Desactivar" : "Activar"}>
+                                  {usuario.estatus === "activo" ? <Lock size={18} className="text-orange-500" /> : <Unlock size={18} className="text-green-500" />}
+                                </button>
+                                <button onClick={() => handleDeleteUser(usuario)}
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Eliminar">
+                                  <Trash2 size={18} className="text-red-500" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
 
                 {/* Paginación */}
-                <div className={`px-4 py-3 flex items-center justify-between border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>Mostrar</span>
-                    <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                      className={`px-2 py-1 rounded border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'}`}>
-                      {[5, 10, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
-                    </select>
-                    <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>registros</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>
-                      {startIndex + 1}-{Math.min(startIndex + rowsPerPage, sortedUsuarios.length)} de {sortedUsuarios.length}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="p-1"><ChevronsLeft size={18} /></button>
-                      <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1"><ChevronLeft size={18} /></button>
-                      <span className={`px-3 py-1 text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>Página {currentPage} de {totalPages || 1}</span>
-                      <button onClick={() => setCurrentPage(p => Math.min(totalPages || 1, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="p-1"><ChevronRight size={18} /></button>
-                      <button onClick={() => setCurrentPage(totalPages || 1)} disabled={currentPage === totalPages || totalPages === 0} className="p-1"><ChevronsRight size={18} /></button>
+                {paginatedUsuarios.length > 0 && (
+                  <div className={`px-4 py-3 flex items-center justify-between border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>Mostrar</span>
+                      <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                        className={`px-2 py-1 rounded border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'}`}>
+                        {[5, 10, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                      <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>registros</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>
+                        {startIndex + 1}-{Math.min(startIndex + rowsPerPage, sortedUsuarios.length)} de {sortedUsuarios.length}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="p-1 disabled:opacity-50"><ChevronsLeft size={18} /></button>
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1 disabled:opacity-50"><ChevronLeft size={18} /></button>
+                        <span className={`px-3 py-1 text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>Página {currentPage} de {totalPages || 1}</span>
+                        <button onClick={() => setCurrentPage(p => Math.min(totalPages || 1, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="p-1 disabled:opacity-50"><ChevronRight size={18} /></button>
+                        <button onClick={() => setCurrentPage(totalPages || 1)} disabled={currentPage === totalPages || totalPages === 0} className="p-1 disabled:opacity-50"><ChevronsRight size={18} /></button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
             {/* Modal */}
             {modalOpen && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className={`rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl`}>
-                  <div className={`p-6 border-b sticky top-0 ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
+                <div className={`rounded-xl w-full max-h-[90vh] overflow-y-auto ${modalMode === "permissions" ? 'max-w-6xl' : 'max-w-4xl'} ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl`}>
+                  <div className={`p-6 border-b sticky top-0 z-10 ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
                     <div className="flex justify-between items-center">
                       <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                         {modalMode === "create" && "Crear Nuevo Usuario"}
                         {modalMode === "edit" && "Editar Usuario"}
                         {modalMode === "view" && "Detalles del Usuario"}
                         {modalMode === "resetPassword" && "Restablecer Contraseña"}
-                        {modalMode === "permissions" && `Gestionar Permisos del Rol - ${selectedUser?.rol || getNombreRol(selectedUser?.id_rol_usu)}`}
+                        {modalMode === "permissions" && "Gestionar Permisos del Usuario"}
                       </h2>
                       <button onClick={() => setModalOpen(false)} className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}><X size={20} /></button>
                     </div>
@@ -1577,26 +1903,43 @@ const Usuario = () => {
                             ['Fecha Registro', formatDate(selectedUser.created_at)],
                             ['Último Acceso', formatDateTime(selectedUser.ultimo_acceso)],
                           ].map(([label, value], i) => (
-                            <div key={i}>
-                              <label className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{label}</label>
-                              <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{value}</p>
+                            <div key={i} className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                              <label className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{label}</label>
+                              <p className={`font-medium mt-1 ${darkMode ? 'text-white' : 'text-gray-800'}`}>{value}</p>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
+                    
+                    {modalMode === "resetPassword" && selectedUser && (
+                      <div className="space-y-4">
+                        <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                            ¿Está seguro de restablecer la contraseña para el usuario <strong>{selectedUser.nombre_completo}</strong>?
+                          </p>
+                          <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Se generará una contraseña temporal que el usuario deberá cambiar en su próximo inicio de sesión.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {(modalMode === "create" || modalMode === "edit" || modalMode === "permissions") && (
+                  {(modalMode === "create" || modalMode === "edit" || modalMode === "permissions" || modalMode === "resetPassword") && (
                     <div className={`p-6 border-t flex justify-end gap-3 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
                       <button onClick={() => setModalOpen(false)}
                         className={`px-4 py-2 rounded-lg border ${darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
                         Cancelar
                       </button>
-                      <button onClick={modalMode === "permissions" ? handleGuardarPermisos : handleSaveUser} disabled={loading}
+                      <button 
+                        onClick={modalMode === "permissions" ? handleGuardarPermisos : modalMode === "resetPassword" ? handleConfirmResetPassword : handleSaveUser} 
+                        disabled={loading}
                         className="px-4 py-2 rounded-lg bg-[#2A9D8F] text-white hover:bg-[#264653] disabled:opacity-50 flex items-center gap-2">
                         {loading && <Loader2 size={18} className="animate-spin" />}
-                        {modalMode === "permissions" ? "Guardar Permisos" : modalMode === "create" ? "Crear Usuario" : "Guardar Cambios"}
+                        {modalMode === "permissions" ? "Guardar Permisos" : 
+                         modalMode === "resetPassword" ? "Restablecer Contraseña" :
+                         modalMode === "create" ? "Crear Usuario" : "Guardar Cambios"}
                       </button>
                     </div>
                   )}

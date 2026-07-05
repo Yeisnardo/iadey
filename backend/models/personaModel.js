@@ -30,19 +30,19 @@ class PersonaModel {
     const {
       nacionalidad, cedula, nombres, apellidos, fecha_nacimiento,
       telefono, correo, estado_civil, direccion, estado, municipio,
-      parroquia, tipo_persona, email
+      parroquia, tipo_persona
     } = data;
 
     const result = await pool.query(
       `INSERT INTO persona (
         nacionalidad, cedula, nombres, apellidos, fecha_nacimiento,
         telefono, correo, estado_civil, direccion, estado, municipio,
-        parroquia, tipo_persona, email
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        parroquia, tipo_persona
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *`,
       [nacionalidad, cedula, nombres, apellidos, fecha_nacimiento,
        telefono, correo, estado_civil, direccion, estado, municipio,
-       parroquia, tipo_persona, email]
+       parroquia, tipo_persona]
     );
     return result.rows[0];
   }
@@ -52,19 +52,19 @@ class PersonaModel {
     const {
       nacionalidad, nombres, apellidos, fecha_nacimiento,
       telefono, correo, estado_civil, direccion, estado, municipio,
-      parroquia, tipo_persona, email
+      parroquia, tipo_persona
     } = data;
 
     const result = await pool.query(
       `UPDATE persona SET
         nacionalidad = $1, nombres = $2, apellidos = $3, fecha_nacimiento = $4,
         telefono = $5, correo = $6, estado_civil = $7, direccion = $8,
-        estado = $9, municipio = $10, parroquia = $11, tipo_persona = $12,
-        email = $13, updated_at = CURRENT_TIMESTAMP
+        estado = $9, municipio = $10, parroquia = $11, tipo_persona = $12
+        , updated_at = CURRENT_TIMESTAMP
       WHERE id = $14 RETURNING *`,
       [nacionalidad, nombres, apellidos, fecha_nacimiento, telefono,
        correo, estado_civil, direccion, estado, municipio, parroquia,
-       tipo_persona, email, id]
+       tipo_persona, id]
     );
     return result.rows[0];
   }

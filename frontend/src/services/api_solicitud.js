@@ -3,18 +3,14 @@ import api from './api_principal';
 
 const SolicitudAPI = {
 
-
-
-
   // Obtener todas las solicitudes
   getAll: async () => {
     try {
       const response = await api.get('/solicitud');
       console.log('Respuesta solicitudes:', response.data);
       
-      // Normalizar la respuesta
       if (response.data.success) {
-        return response.data; // { success: true, data: [...] }
+        return response.data;
       }
       return response.data;
     } catch (error) {
@@ -23,37 +19,17 @@ const SolicitudAPI = {
     }
   },
 
-  // Obtener emprendedores
-  getEmprendedores: async () => {
-    try {
-      const response = await api.get('/solicitud/emprendedores');
-      console.log('Respuesta emprendedores:', response.data);
-      
-      if (response.data.success) {
-        return response.data;
-      }
-      return response.data;
-    } catch (error) {
-      console.error('Error en getEmprendedores:', error);
-      throw error.response?.data || { error: 'Error al obtener emprendedores' };
-    }
-  },
-
-  // Obtener solicitud por id_solicitud
-  getById: async (id_solicitud) => {
-    try {
-      const response = await api.get(`/solicitud/${id_solicitud}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error en getById:', error);
-      throw error.response?.data || { error: 'Error al obtener la solicitud' };
-    }
-  },
-
-  // Obtener solicitud por cédula de persona
+  // Obtener solicitud por cédula de persona - CORREGIDO
   getByCedula: async (cedula_persona) => {
     try {
-      const response = await api.get(`/solicitud/cedula/${cedula_persona}`);
+      // Asegurar que la cédula sea string
+      const cedula = String(cedula_persona).trim();
+      if (!cedula) {
+        throw new Error('Cédula no proporcionada');
+      }
+      
+      const response = await api.get(`/solicitud/cedula/${encodeURIComponent(cedula)}`);
+      console.log('Respuesta getByCedula:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error en getByCedula:', error);
@@ -75,7 +51,12 @@ const SolicitudAPI = {
   // Actualizar solicitud por id_solicitud
   update: async (id_solicitud, solicitudData) => {
     try {
-      const response = await api.put(`/solicitud/${id_solicitud}`, solicitudData);
+      const id = parseInt(id_solicitud);
+      if (isNaN(id)) {
+        throw new Error('ID de solicitud inválido');
+      }
+      
+      const response = await api.put(`/solicitud/${id}`, solicitudData);
       return response.data;
     } catch (error) {
       console.error('Error en update:', error);
@@ -86,7 +67,15 @@ const SolicitudAPI = {
   // Cambiar estatus de solicitud
   updateEstatus: async (id_solicitud, estatus, motivo_rechazo = null) => {
     try {
-      const response = await api.put(`/solicitud/${id_solicitud}/estatus`, { estatus, motivo_rechazo });
+      const id = parseInt(id_solicitud);
+      if (isNaN(id)) {
+        throw new Error('ID de solicitud inválido');
+      }
+      
+      const response = await api.put(`/solicitud/${id}/estatus`, { 
+        estatus, 
+        motivo_rechazo 
+      });
       return response.data;
     } catch (error) {
       console.error('Error en updateEstatus:', error);
@@ -97,7 +86,12 @@ const SolicitudAPI = {
   // Eliminar solicitud por id_solicitud
   delete: async (id_solicitud) => {
     try {
-      const response = await api.delete(`/solicitud/${id_solicitud}`);
+      const id = parseInt(id_solicitud);
+      if (isNaN(id)) {
+        throw new Error('ID de solicitud inválido');
+      }
+      
+      const response = await api.delete(`/solicitud/${id}`);
       return response.data;
     } catch (error) {
       console.error('Error en delete:', error);
