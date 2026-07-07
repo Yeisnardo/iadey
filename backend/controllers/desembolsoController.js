@@ -18,6 +18,40 @@ const desembolsoController = {
         }
     },
 
+    // Obtener desembolsos por cédula
+    async getByCedula(req, res) {
+        try {
+            const { cedula } = req.params;
+            
+            if (!cedula) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'La cédula es requerida'
+                });
+            }
+
+            const desembolsos = await DesembolsoModel.getByCedula(cedula);
+            
+            if (desembolsos.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: `No se encontraron desembolsos para la cédula: ${cedula}`
+                });
+            }
+
+            res.json({
+                success: true,
+                data: desembolsos
+            });
+        } catch (error) {
+            console.error('Error en getByCedula:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Error al obtener desembolsos por cédula'
+            });
+        }
+    },
+
     // Obtener contratos pendientes por desembolso
     async getContratosPendientes(req, res) {
         try {
@@ -80,7 +114,7 @@ const desembolsoController = {
                 });
             }
             
-            // Verificar que el contrato existe
+            // Verificar que el contrato existe y obtener sus datos
             const contrato = await DesembolsoModel.getById(desembolsoData.id_cont);
             
             if (!contrato) {
@@ -98,12 +132,13 @@ const desembolsoController = {
                 });
             }
             
-            // Crear el desembolso
+            // Crear el desembolso con la cédula del contrato
             const resultado = await DesembolsoModel.create({
                 id_cont: desembolsoData.id_cont,
                 capture_desembolso: desembolsoData.capture_desembolso,
                 fecha_desembolso: desembolsoData.fecha_desembolso,
-                estatus_desembolso: 'Pendiente'
+                estatus_desembolso: 'Pendiente',
+                cedula_desembolso: contrato.id_cedula_aprob // Tomar la cédula del contrato
             });
             
             res.json({
@@ -125,7 +160,7 @@ const desembolsoController = {
     async confirmarPago(req, res) {
         try {
             const { id } = req.params;
-            const { fecha_confirmacion} = req.body;
+            const { fecha_confirmacion, capture_confirmacion } = req.body;
 
             if (!fecha_confirmacion) {
                 return res.status(400).json({
@@ -153,6 +188,7 @@ const desembolsoController = {
 
             const pagoData = {
                 fecha_confirmacion,
+                capture_confirmacion: capture_confirmacion || null
             };
 
             const resultado = await DesembolsoModel.confirmarPago(id, pagoData);

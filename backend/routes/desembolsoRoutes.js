@@ -11,6 +11,9 @@ router.get('/contratos-pendientes', desembolsoController.getContratosPendientes)
 // GET /api/desembolso/verificar/:id_cont - Verificar si existe desembolso
 router.get('/verificar/:id_cont', desembolsoController.verificarDesembolso);
 
+// GET /api/desembolso/cedula/:cedula - Obtener desembolsos por cédula
+router.get('/cedula/:cedula', desembolsoController.getByCedula);
+
 // POST /api/desembolso - Crear nuevo desembolso
 router.post('/', desembolsoController.create);
 

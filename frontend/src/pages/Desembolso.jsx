@@ -22,7 +22,10 @@ import {
   FileImage,
   Trash2,
   Hourglass,
-  PlusCircle
+  PlusCircle,
+  Users,
+  UserCheck,
+  CreditCard
 } from "lucide-react";
 
 // Componentes personalizados
@@ -31,6 +34,7 @@ import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
 import DesembolsoAPI from '../services/api_desembolso';
 import { uploadToImgBB } from '../services/imgbbService';
+import usuarioAPI from '../services/api_usuario';
 
 const Desembolso = () => {
   const navigate = useNavigate();
@@ -51,6 +55,7 @@ const Desembolso = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [currentPageMis, setCurrentPageMis] = useState(1);
   const [itemsPerPage] = useState(8);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -58,7 +63,9 @@ const Desembolso = () => {
   // ESTADOS - Datos principales (DESEMBOLSOS)
   // ============================================================
   const [disbursementsData, setDisbursementsData] = useState([]);
+  const [misDisbursementsData, setMisDisbursementsData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMis, setLoadingMis] = useState(false);
   const [error, setError] = useState(null);
 
   // ============================================================
@@ -70,6 +77,7 @@ const Desembolso = () => {
   const [formDesembolso, setFormDesembolso] = useState({
     id_cont: "",
     fecha_desembolso: new Date().toISOString().split("T")[0],
+    cedula_desembolso: "",
   });
   const [formErrors, setFormErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -97,19 +105,29 @@ const Desembolso = () => {
   const [loadingContratos, setLoadingContratos] = useState(false);
 
   // ============================================================
-  // DATOS DEL USUARIO
+  // ESTADOS - Rol del usuario
   // ============================================================
-  const user = {
-    name: "Administrador IADEY",
-    email: "admin@iadey.gob.ve",
-    role: "Administrador",
+  const [userRole, setUserRole] = useState(null);
+
+  // ============================================================
+  // DATOS DEL USUARIO - OBTENIDOS DEL API DE USUARIO
+  // ============================================================
+  const [user, setUser] = useState({
+    id: null,
+    name: "",
+    email: "",
+    role: "",
     avatar: null,
-    department: "Gestión de Créditos",
-    joinDate: "Enero 2024",
-    pendingTasks: 8,
-    completedTasks: 45,
-    performance: "98%",
-  };
+    department: "",
+    joinDate: "",
+    pendingTasks: 0,
+    completedTasks: 0,
+    performance: "",
+    cedula: "",
+    nombres: "",
+    apellidos: "",
+    nombre_completo: "",
+  });
 
   // ============================================================
   // CONFIGURACIÓN DE ESTADOS
@@ -187,12 +205,57 @@ const Desembolso = () => {
     }
   };
 
+  // Obtener desembolsos del usuario por cédula (SOLO PARA ROL 1)
+  const fetchMisDesembolsos = async () => {
+    // Solo cargar si el rol es 1
+    if (userRole !== 1) {
+      console.log('⚠️ Usuario sin permisos para ver "Mis Desembolsos"');
+      setMisDisbursementsData([]);
+      setLoadingMis(false);
+      return;
+    }
+
+    if (!user.cedula) {
+      console.warn('⚠️ No hay cédula de usuario disponible');
+      setMisDisbursementsData([]);
+      setLoadingMis(false);
+      return;
+    }
+
+    try {
+      setLoadingMis(true);
+      console.log(`🔍 Buscando desembolsos para la cédula: ${user.cedula}`);
+      
+      const response = await DesembolsoAPI.getByCedula(user.cedula);
+      
+      console.log('📊 Respuesta de desembolsos por cédula:', response.data);
+      
+      if (response.data.success) {
+        setMisDisbursementsData(response.data.data || []);
+        console.log(`✅ Encontrados ${response.data.data?.length || 0} desembolsos para la cédula ${user.cedula}`);
+      } else {
+        setMisDisbursementsData([]);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching mis desembolsos:', error);
+      
+      if (error.response?.status === 404) {
+        console.log('ℹ️ No se encontraron desembolsos para esta cédula');
+        setMisDisbursementsData([]);
+      } else {
+        console.warn('⚠️ No se pudieron cargar tus desembolsos:', error.message);
+        setMisDisbursementsData([]);
+      }
+    } finally {
+      setLoadingMis(false);
+    }
+  };
+
   // Obtener contratos pendientes por desembolso
   const fetchContratosPendientes = async () => {
     try {
       setLoadingContratos(true);
-      // Asumiendo que tienes un endpoint para obtener contratos pendientes
-      const response = await DesembolsoAPI.getAll();
+      const response = await DesembolsoAPI.getContratosPendientes();
       if (response.data.success) {
         setContratosPendientes(response.data.data);
       }
@@ -212,7 +275,7 @@ const Desembolso = () => {
   // Verificar si un contrato ya tiene desembolso
   const verificarDesembolsoExistente = async (id_cont) => {
     try {
-      const response = await DesembolsoAPI.getAll(`/verificar/${id_cont}`);
+      const response = await DesembolsoAPI.verificarDesembolso(id_cont);
       return response.data.existe;
     } catch (error) {
       console.error('Error verificando desembolso:', error);
@@ -221,101 +284,108 @@ const Desembolso = () => {
   };
 
   // ============================================================
-// HANDLERS - Confirmar Desembolso Directo (desde el modal de detalle)
-// ============================================================
-const confirmarDesembolsoDirecto = async (disbursement) => {
-  const result = await Swal.fire({
-    title: 'Verifica ',
-    icon: 'question',
-    showDenyButton: true,      // Botón Rechazar
-    showCancelButton: true,    // Botón Cerrar/Cancelar
-    confirmButtonColor: '#15c933',
-    denyButtonColor: '#e2230a',
-    cancelButtonColor: '#8b8d91',
-    confirmButtonText: 'Confirmar',
-    denyButtonText: 'Rechazar',      // Texto del botón Rechazar
-    cancelButtonText: ' Cerrar',      // Texto del botón Cerrar
-    reverseButtons: false,
-    background: darkMode ? '#1f2937' : '#ffffff',
-    color: darkMode ? '#f3f4f6' : '#1f2937'
-  });
-
-  if (result.isDenied) {
-    // Usuario quiere adjuntar comprobante - abrimos el modal de confirmación
-    setSelectedDisbursement(disbursement);
-    setShowConfirmacionModal(true);
-    setConfirmacionImage(null);
-    setConfirmacionPreview(null);
-    return;
-  }
-
-  if (!result.isConfirmed) return;
-
-  // Confirmar sin comprobante
-  setConfirmando(true);
-  
-  Swal.fire({
-    title: 'Confirmando desembolso...',
-    allowOutsideClick: false,
-    didOpen: () => {
-      Swal.showLoading();
-    }
-  });
-
-  try {
-    const confirmacionData = {
-      fecha_confirmacion: new Date().toISOString().split("T")[0],
-      capture_confirmacion: null // Sin comprobante
-    };
-
-    const response = await DesembolsoAPI.confirmarPago(disbursement.id_desembolso, confirmacionData);
-    
-    if (response.data.success) {
-      setDisbursementsData(prev => 
-        prev.map(d => 
-          d.id_desembolso === disbursement.id_desembolso 
-            ? { ...d, ...response.data.data }
-            : d
-        )
-      );
-      
-      Swal.fire({
-        title: '¡Desembolso confirmado! 🎉',
-        text: 'El desembolso ha sido confirmado exitosamente.',
-        icon: 'success',
-        confirmButtonColor: '#2A9D8F',
-        confirmButtonText: 'Continuar',
-        timer: 3000,
-        timerProgressBar: true
-      });
-
-      setNotifications((prev) => [
-        { 
-          id: Date.now(), 
-          text: `✅ Desembolso #${disbursement.id_desembolso} confirmado exitosamente`, 
-          time: "Ahora", 
-          read: false,
-          type: "success"
-        },
-        ...prev,
-      ]);
-
-      await fetchDesembolsos();
-    } else {
-      throw new Error(response.data.error || "Error al confirmar desembolso");
-    }
-  } catch (error) {
-    console.error('Error confirmando desembolso:', error);
-    Swal.fire({
-      title: 'Error al confirmar desembolso',
-      text: error.response?.data?.error || error.message || 'Ocurrió un error inesperado',
-      icon: 'error',
-      confirmButtonColor: '#d33'
+  // HANDLERS - Confirmar Desembolso Directo
+  // ============================================================
+  const confirmarDesembolsoDirecto = async (disbursement) => {
+    const result = await Swal.fire({
+      title: 'Verifica ',
+      icon: 'question',
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonColor: '#15c933',
+      denyButtonColor: '#e2230a',
+      cancelButtonColor: '#8b8d91',
+      confirmButtonText: 'Confirmar',
+      denyButtonText: 'Rechazar',
+      cancelButtonText: ' Cerrar',
+      reverseButtons: false,
+      background: darkMode ? '#1f2937' : '#ffffff',
+      color: darkMode ? '#f3f4f6' : '#1f2937'
     });
-  } finally {
-    setConfirmando(false);
-  }
-};
+
+    if (result.isDenied) {
+      setSelectedDisbursement(disbursement);
+      setShowConfirmacionModal(true);
+      setConfirmacionImage(null);
+      setConfirmacionPreview(null);
+      return;
+    }
+
+    if (!result.isConfirmed) return;
+
+    setConfirmando(true);
+    
+    Swal.fire({
+      title: 'Confirmando desembolso...',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    try {
+      const confirmacionData = {
+        fecha_confirmacion: new Date().toISOString().split("T")[0],
+        capture_confirmacion: null
+      };
+
+      const response = await DesembolsoAPI.confirmarPago(disbursement.id_desembolso, confirmacionData);
+      
+      if (response.data.success) {
+        setDisbursementsData(prev => 
+          prev.map(d => 
+            d.id_desembolso === disbursement.id_desembolso 
+              ? { ...d, ...response.data.data }
+              : d
+          )
+        );
+        
+        setMisDisbursementsData(prev => 
+          prev.map(d => 
+            d.id_desembolso === disbursement.id_desembolso 
+              ? { ...d, ...response.data.data }
+              : d
+          )
+        );
+        
+        Swal.fire({
+          title: '¡Desembolso confirmado! 🎉',
+          text: 'El desembolso ha sido confirmado exitosamente.',
+          icon: 'success',
+          confirmButtonColor: '#2A9D8F',
+          confirmButtonText: 'Continuar',
+          timer: 3000,
+          timerProgressBar: true
+        });
+
+        setNotifications((prev) => [
+          { 
+            id: Date.now(), 
+            text: `✅ Desembolso #${disbursement.id_desembolso} confirmado exitosamente`, 
+            time: "Ahora", 
+            read: false,
+            type: "success"
+          },
+          ...prev,
+        ]);
+
+        await fetchDesembolsos();
+        await fetchMisDesembolsos();
+      } else {
+        throw new Error(response.data.error || "Error al confirmar desembolso");
+      }
+    } catch (error) {
+      console.error('Error confirmando desembolso:', error);
+      Swal.fire({
+        title: 'Error al confirmar desembolso',
+        text: error.response?.data?.error || error.message || 'Ocurrió un error inesperado',
+        icon: 'error',
+        confirmButtonColor: '#d33'
+      });
+    } finally {
+      setConfirmando(false);
+    }
+  };
 
   // ============================================================
   // HANDLERS - Crear Desembolso
@@ -324,7 +394,8 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
   const abrirModalCrear = () => {
     setFormDesembolso({
       id_cont: "",
-      fecha_desembolso: new Date().toISOString().split("T")[0]
+      fecha_desembolso: new Date().toISOString().split("T")[0],
+      cedula_desembolso: user.cedula || ""
     });
     setCaptureImage(null);
     setCapturePreview(null);
@@ -341,6 +412,7 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
     setFormDesembolso({
       id_cont: contrato.id_contrato,
       fecha_desembolso: new Date().toISOString().split("T")[0],
+      cedula_desembolso: user.cedula || contrato.id_cedula_aprob || ""
     });
     setShowContratosModal(false);
     setShowCrearModal(true);
@@ -393,7 +465,6 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
   const registrarDesembolso = async () => {
     if (!validateForm()) return;
 
-    // Verificar si ya existe desembolso
     const existe = await verificarDesembolsoExistente(formDesembolso.id_cont);
     if (existe) {
       Swal.fire({
@@ -412,6 +483,8 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
           <div style="background: ${darkMode ? '#374151' : '#f8f9fa'}; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
             <p style="margin: 5px 0;"><strong>📄 ID Contrato:</strong> ${formDesembolso.id_cont}</p>
             <p style="margin: 5px 0;"><strong>📅 Fecha Desembolso:</strong> ${formatDate(formDesembolso.fecha_desembolso)}</p>
+            <p style="margin: 5px 0;"><strong>🪪 Cédula:</strong> ${formDesembolso.cedula_desembolso || 'No asignada'}</p>
+            <p style="margin: 5px 0;"><strong>👤 Usuario:</strong> ${user.nombre_completo || user.name || 'No especificado'}</p>
           </div>
           <p style="color: #e67e22; font-size: 13px; text-align: center;">⚠️ Una vez registrado, el desembolso quedará pendiente de confirmación.</p>
         </div>
@@ -440,12 +513,11 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
     });
 
     try {
-      // 🆕 1. Subir imagen a ImgBB primero
       let imageUrl = null;
       if (captureImage) {
         try {
           const uploadResult = await uploadToImgBB(captureImage);
-          imageUrl = uploadResult.url; // URL de la imagen en ImgBB
+          imageUrl = uploadResult.url;
           console.log('✅ Imagen subida a ImgBB:', imageUrl);
         } catch (uploadError) {
           console.error('Error al subir imagen a ImgBB:', uploadError);
@@ -453,25 +525,32 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
         }
       }
 
-      // 🆕 2. Enviar datos del desembolso con la URL de la imagen
       const desembolsoData = {
         id_cont: formDesembolso.id_cont,
         fecha_desembolso: formDesembolso.fecha_desembolso,
         estatus_desembolso: 'Pendiente',
-        capture_desembolso: imageUrl // URL de ImgBB en lugar del archivo
+        capture_desembolso: imageUrl,
+        usuario_id: user.id,
+        cedula_desembolso: formDesembolso.cedula_desembolso || user.cedula
       };
 
       const response = await DesembolsoAPI.create(desembolsoData);
       
       if (response.data.success) {
         const newDesembolso = response.data.data;
+        
         setDisbursementsData(prev => [newDesembolso, ...prev]);
+        
+        if (newDesembolso.cedula_desembolso === user.cedula) {
+          setMisDisbursementsData(prev => [newDesembolso, ...prev]);
+        }
         
         Swal.fire({
           title: '¡Desembolso registrado! 🎉',
           html: `
             Se ha registrado el desembolso exitosamente.<br/>
             <strong>Estado:</strong> Pendiente de confirmación<br/>
+            <strong>Cédula:</strong> ${formDesembolso.cedula_desembolso || 'No asignada'}<br/>
             Se notificará cuando sea confirmado.
           `,
           icon: 'success',
@@ -495,6 +574,7 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
         setShowCrearModal(false);
         resetFormDesembolso();
         await fetchDesembolsos();
+        await fetchMisDesembolsos();
       } else {
         throw new Error(response.data.error || "Error al registrar desembolso");
       }
@@ -516,6 +596,7 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
     setFormDesembolso({
       id_cont: "",
       fecha_desembolso: new Date().toISOString().split("T")[0],
+      cedula_desembolso: user.cedula || ""
     });
     setCaptureImage(null);
     setCapturePreview(null);
@@ -567,6 +648,7 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
           <p><strong>ID Desembolso:</strong> #${selectedDisbursement.id_desembolso}</p>
           <p><strong>ID Contrato:</strong> ${selectedDisbursement.id_cont}</p>
           <p><strong>Emprendedor:</strong> ${selectedDisbursement.emprendedor || 'No especificado'}</p>
+          <p><strong>Cédula:</strong> ${selectedDisbursement.cedula_desembolso || selectedDisbursement.id_cedula_aprob || 'No asignada'}</p>
           <p><strong>Monto:</strong> ${formatMonto(selectedDisbursement.monto)} ${getMonedaNombre(selectedDisbursement.moneda)}</p>
           <p><strong>Fecha Desembolso:</strong> ${formatDate(selectedDisbursement.fecha_desembolso)}</p>
         </div>
@@ -594,7 +676,6 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
     });
 
     try {
-      // 🆕 Subir imagen de confirmación a ImgBB si existe
       let confirmacionUrl = null;
       if (confirmacionImage) {
         try {
@@ -607,7 +688,6 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
         }
       }
 
-      // 🆕 Enviar datos con URLs de ImgBB
       const confirmacionData = {
         fecha_confirmacion: new Date().toISOString().split("T")[0],
         capture_confirmacion: confirmacionUrl
@@ -617,6 +697,14 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
       
       if (response.data.success) {
         setDisbursementsData(prev => 
+          prev.map(d => 
+            d.id_desembolso === selectedDisbursement.id_desembolso 
+              ? { ...d, ...response.data.data }
+              : d
+          )
+        );
+        
+        setMisDisbursementsData(prev => 
           prev.map(d => 
             d.id_desembolso === selectedDisbursement.id_desembolso 
               ? { ...d, ...response.data.data }
@@ -646,6 +734,7 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
         setShowConfirmacionModal(false);
         setSelectedDisbursement(null);
         await fetchDesembolsos();
+        await fetchMisDesembolsos();
       } else {
         throw new Error(response.data.error || "Error al confirmar desembolso");
       }
@@ -673,12 +762,80 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
   // ============================================================
   // EFECTOS
   // ============================================================
+  
+  // Cargar datos del usuario al montar el componente
   useEffect(() => {
-    fetchDesembolsos();
+    const loadUserData = () => {
+      const currentUser = usuarioAPI.getCurrentUser();
+      console.log('Usuario logueado:', currentUser);
+      
+      if (currentUser) {
+        // Guardar el rol del usuario
+        const roleId = currentUser.id_rol_usu || currentUser.rol_id || null;
+        setUserRole(roleId);
+        console.log('Rol del usuario:', roleId);
+        
+        setUser({
+          id: currentUser.id || currentUser.id_usuario,
+          name: currentUser.nombre_completo || currentUser.nombres || 'Usuario',
+          email: currentUser.email || currentUser.correo || '',
+          role: currentUser.nombre_rol || currentUser.rol || 'Usuario',
+          avatar: null,
+          department: currentUser.departamento || '',
+          joinDate: currentUser.fecha_registro || 'Fecha no disponible',
+          pendingTasks: 0,
+          completedTasks: 0,
+          performance: '',
+          cedula: currentUser.cedula_usuario || currentUser.cedula || '',
+          nombres: currentUser.nombres || '',
+          apellidos: currentUser.apellidos || '',
+          nombre_completo: currentUser.nombre_completo || `${currentUser.nombres || ''} ${currentUser.apellidos || ''}`.trim(),
+        });
+      }
+    };
+    
+    loadUserData();
+    
+    // Escuchar cambios en la autenticación
+    const handleAuthChange = () => {
+      loadUserData();
+    };
+    
+    window.addEventListener('authChange', handleAuthChange);
+    
+    return () => {
+      window.removeEventListener('authChange', handleAuthChange);
+    };
   }, []);
+
+  // Cargar desembolsos cuando el usuario tenga cédula
+  useEffect(() => {
+    const loadData = async () => {
+      if (user.cedula) {
+        await fetchDesembolsos();
+        // Solo cargar "Mis Desembolsos" si el rol es 1
+        if (userRole === 1) {
+          await fetchMisDesembolsos();
+        }
+      }
+    };
+    
+    loadData();
+  }, [user.cedula, userRole]);
+
+  // Efecto para recargar "Mis Desembolsos" cuando cambia el rol
+  useEffect(() => {
+    if (userRole === 1 && user.cedula) {
+      fetchMisDesembolsos();
+    } else {
+      setMisDisbursementsData([]);
+      setLoadingMis(false);
+    }
+  }, [userRole]);
 
   useEffect(() => {
     setCurrentPage(1);
+    setCurrentPageMis(1);
   }, [searchTerm, selectedFilter]);
 
   useEffect(() => {
@@ -695,9 +852,11 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
   // ============================================================
   // RENDER - Datos de sección y estadísticas
   // ============================================================
+  
   const desembolsosPendientes = disbursementsData.filter(d => d.estatus_desembolso === "Pendiente").length;
   const desembolsosConfirmados = disbursementsData.filter(d => d.estatus_desembolso === "Confirmado").length;
   const totalDesembolsos = disbursementsData.length;
+  const misDesembolsosCount = userRole === 1 ? misDisbursementsData.length : 0;
 
   const sectionData = {
     disbursements: {
@@ -707,38 +866,13 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
         { id: 1, title: "Total Desembolsos", value: totalDesembolsos, icon: DollarSign, color: "blue", bgColor: "bg-blue-50", textColor: "text-blue-600" },
         { id: 2, title: "Desembolsos Pendientes", value: desembolsosPendientes, icon: Hourglass, color: "yellow", bgColor: "bg-yellow-50", textColor: "text-yellow-600" },
         { id: 3, title: "Desembolsos Confirmados", value: desembolsosConfirmados, icon: CheckCircle, color: "green", bgColor: "bg-green-50", textColor: "text-green-600" },
+        { id: 4, title: "Mis Desembolsos", value: misDesembolsosCount, icon: UserCheck, color: "purple", bgColor: "bg-purple-50", textColor: "text-purple-600" },
       ],
     },
   };
 
   const currentData = sectionData.disbursements;
   const unreadCount = notifications.filter((n) => !n.read).length;
-
-  // Filtrado y paginación
-  const filteredDisbursements = disbursementsData.filter((disbursement) => {
-    const searchFields = [
-      disbursement.id_desembolso?.toString(), 
-      disbursement.id_cont?.toString(),
-      disbursement.emprendedor || '',
-      disbursement.numero_contrato || '',
-    ].join(" ").toLowerCase();
-    
-    const matchesSearch = searchFields.includes(searchTerm.toLowerCase());
-    
-    let matchesFilter = true;
-    if (selectedFilter === "pendientes") {
-      matchesFilter = disbursement.estatus_desembolso === "Pendiente";
-    } else if (selectedFilter === "confirmados") {
-      matchesFilter = disbursement.estatus_desembolso === "Confirmado";
-    }
-    
-    return matchesSearch && matchesFilter;
-  });
-
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredDisbursements.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredDisbursements.length / itemsPerPage);
 
   // ============================================================
   // RENDER - Componentes de UI
@@ -762,31 +896,206 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
     );
   };
 
-  const getActionButtons = (disbursement) => {
-    const actions = [];
-    
-    actions.push(
-      <button
-        key="ver"
-        onClick={() => verDetalleDesembolso(disbursement)}
-        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-blue-500 hover:bg-blue-600 text-white"
-      >
-        <Eye size={14} /> Ver Detalle
-      </button>
-    );
-    
-    return <div className="flex items-center justify-center gap-2 flex-wrap">{actions}</div>;
-  };
-
   const handleLogout = () => {
-    localStorage.removeItem("usuario");
-    localStorage.removeItem("rememberToken");
-    window.dispatchEvent(new Event("authChange"));
+    usuarioAPI.logout();
     navigate("/login");
   };
 
   const markAsRead = (id) => {
     setNotifications(notifications.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  };
+
+  // ============================================================
+  // FUNCIÓN PARA RENDERIZAR UNA TABLA DE DESEMBOLSOS
+  // ============================================================
+  const renderDisbursementTable = (data, title, emptyMessage, currentPageState, setCurrentPageState, loadingState = false, isMisDesembolsos = false) => {
+    const filteredData = data.filter((disbursement) => {
+      const searchFields = [
+        disbursement.id_desembolso?.toString(), 
+        disbursement.id_cont?.toString(),
+        disbursement.emprendedor || '',
+        disbursement.numero_contrato || '',
+        disbursement.cedula_desembolso || '',
+        disbursement.id_cedula_aprob || '',
+      ].join(" ").toLowerCase();
+      
+      const matchesSearch = searchFields.includes(searchTerm.toLowerCase());
+      
+      let matchesFilter = true;
+      if (selectedFilter === "pendientes") {
+        matchesFilter = disbursement.estatus_desembolso === "Pendiente";
+      } else if (selectedFilter === "confirmados") {
+        matchesFilter = disbursement.estatus_desembolso === "Confirmado";
+      }
+      
+      return matchesSearch && matchesFilter;
+    });
+
+    const indexOfLastItem = currentPageState * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+    if (loadingState) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 size={48} className="animate-spin text-[#2A9D8F] mb-4" />
+          <p className={`text-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Cargando {title.toLowerCase()}...</p>
+        </div>
+      );
+    }
+
+    if (error && data.length === 0 && title === "todos los desembolsos") {
+      return (
+        <div className="flex flex-col items-center justify-center py-20">
+          <AlertCircle size={48} className="text-red-500 mb-4" />
+          <p className={`text-lg font-medium ${darkMode ? "text-red-400" : "text-red-600"} mb-2`}>Error al cargar los datos</p>
+          <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"} mb-4`}>{error}</p>
+          <button onClick={() => fetchDesembolsos()} className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg hover:bg-[#238b7e] transition-colors">
+            Reintentar
+          </button>
+        </div>
+      );
+    }
+
+    if (currentItems.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20">
+          <DollarSign size={48} className="text-gray-400 mb-4" />
+          <p className={`text-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}>{emptyMessage}</p>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className={`${darkMode ? "bg-gray-700/50" : "bg-gray-50"}`}>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">ID Desembolso</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">ID Contrato</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Emprendedor</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Cédula</th>
+                <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Monto</th>
+                <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Fecha</th>
+                <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Estado</th>
+                <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-200"}`}>
+              {currentItems.map((disbursement) => (
+                <tr key={disbursement.id_desembolso} className={`${darkMode ? "hover:bg-gray-700/50" : "hover:bg-gray-50"} transition-colors`}>
+                  <td className="px-6 py-4 text-sm font-semibold text-[#2A9D8F]">
+                    #{disbursement.id_desembolso}
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    {disbursement.id_cont}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-full ${darkMode ? "bg-gray-700" : "bg-blue-50"}`}>
+                        <User size={16} className={darkMode ? "text-gray-300" : "text-blue-600"} />
+                      </div>
+                      <div>
+                        <div className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>
+                          {disbursement.emprendedor || 'No especificado'}
+                        </div>
+                        {disbursement.numero_contrato && (
+                          <div className="text-xs text-gray-500">N° {disbursement.numero_contrato}</div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <CreditCard size={14} className="text-gray-400" />
+                      <span>{disbursement.cedula_desembolso || disbursement.id_cedula_aprob || 'No asignada'}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <div>
+                      <span className="font-bold">{formatMonto(disbursement.monto)}</span>
+                      <span className="text-xs ml-1">{getMonedaNombre(disbursement.moneda)}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-center text-sm">
+                    {formatDate(disbursement.fecha_desembolso)}
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    {getStatusComponent(disbursement)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center justify-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => verDetalleDesembolso(disbursement)}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-blue-500 hover:bg-blue-600 text-white"
+                      >
+                        <Eye size={14} /> Ver Detalle
+                      </button>
+                      
+                      {/* MOSTRAR BOTÓN DE CONFIRMAR SOLO SI:
+                          - Es "Mis Desembolsos" 
+                          - El rol del usuario es 1
+                          - El estado del desembolso es "Pendiente"
+                      */}
+                      {isMisDesembolsos && 
+                       userRole === 1 && 
+                       disbursement.estatus_desembolso === "Pendiente" && (
+                        <button
+                          onClick={() => confirmarDesembolsoDirecto(disbursement)}
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-emerald-500 hover:bg-emerald-600 text-white"
+                        >
+                          <CheckCircle size={14} /> Confirmar
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {totalPages > 1 && (
+          <div className={`px-6 py-4 border-t ${darkMode ? "border-gray-700" : "border-gray-200"}`}>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                Mostrando {indexOfFirstItem + 1} - {Math.min(indexOfLastItem, filteredData.length)} de {filteredData.length} {title.toLowerCase()}
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setCurrentPageState((prev) => Math.max(prev - 1, 1))} 
+                  disabled={currentPageState === 1} 
+                  className={`p-2 rounded-lg border ${currentPageState === 1 ? (darkMode ? "border-gray-600 text-gray-600 cursor-not-allowed" : "border-gray-200 text-gray-300 cursor-not-allowed") : (darkMode ? "border-gray-600 text-gray-400 hover:bg-gray-700" : "border-gray-200 text-gray-600 hover:bg-gray-50")}`}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((page) => (
+                  <button 
+                    key={page} 
+                    onClick={() => setCurrentPageState(page)} 
+                    className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${currentPageState === page ? "bg-[#2A9D8F] text-white" : (darkMode ? "text-gray-400 hover:bg-gray-700 border border-gray-600" : "text-gray-600 hover:bg-gray-100 border border-gray-200")}`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                {totalPages > 5 && (
+                  <span className="text-gray-400">...</span>
+                )}
+                <button 
+                  onClick={() => setCurrentPageState((prev) => Math.min(prev + 1, totalPages))} 
+                  disabled={currentPageState === totalPages} 
+                  className={`p-2 rounded-lg border ${currentPageState === totalPages ? (darkMode ? "border-gray-600 text-gray-600 cursor-not-allowed" : "border-gray-200 text-gray-300 cursor-not-allowed") : (darkMode ? "border-gray-600 text-gray-400 hover:bg-gray-700" : "border-gray-200 text-gray-600 hover:bg-gray-50")}`}
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
   };
 
   // ============================================================
@@ -821,12 +1130,11 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
                 <ChevronRight size={14} />
                 <span className={darkMode ? "text-gray-300" : "text-gray-700"}>Gestión de Desembolsos</span>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center flex-wrap gap-4">
                 <div>
                   <h1 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>Gestión de Desembolsos</h1>
                   <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Administración de desembolsos a emprendedores</p>
                 </div>
-                {/* Botón para crear nuevo desembolso */}
                 <button
                   onClick={abrirModalSeleccionarContrato}
                   className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all"
@@ -837,7 +1145,8 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+            {/* Estadísticas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
               {currentData?.stats?.map((stat) => (
                 <div key={stat.id} className={`p-6 rounded-xl ${darkMode ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-100"} shadow-sm hover:shadow-md transition-all`}>
                   <div className="flex items-center justify-between mb-4">
@@ -853,19 +1162,16 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
               ))}
             </div>
 
-            <div className={`rounded-xl ${darkMode ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-100"} shadow-sm overflow-hidden`}>
-              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            {/* Filtros */}
+            <div className={`rounded-xl ${darkMode ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-100"} shadow-sm overflow-hidden mb-6`}>
+              <div className="p-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div>
-                    <h3 className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>Listado de Desembolsos</h3>
-                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>{filteredDisbursements.length} desembolsos encontrados</p>
-                  </div>
-                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <div className="flex items-center gap-4 w-full sm:w-auto">
                     <div className="relative flex-1 sm:flex-none">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                       <input
                         type="text"
-                        placeholder="Buscar por ID, contrato, emprendedor..."
+                        placeholder="Buscar por ID, contrato, emprendedor, cédula..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className={`w-full sm:w-80 pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-200"} focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] text-sm`}
@@ -874,6 +1180,11 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
                     <button onClick={() => setShowFilters(!showFilters)} className={`p-2.5 rounded-lg border ${showFilters ? "bg-[#2A9D8F] text-white" : darkMode ? "border-gray-600 text-gray-400 hover:bg-gray-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
                       <Filter size={18} />
                     </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                      {disbursementsData.length} desembolsos totales
+                    </span>
                   </div>
                 </div>
 
@@ -908,124 +1219,64 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
                   </div>
                 )}
               </div>
-
-              {loading && (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <Loader2 size={48} className="animate-spin text-[#2A9D8F] mb-4" />
-                  <p className={`text-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Cargando desembolsos...</p>
-                </div>
-              )}
-
-              {error && !loading && (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <AlertCircle size={48} className="text-red-500 mb-4" />
-                  <p className={`text-lg font-medium ${darkMode ? "text-red-400" : "text-red-600"} mb-2`}>Error al cargar los datos</p>
-                  <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"} mb-4`}>{error}</p>
-                  <button onClick={() => fetchDesembolsos()} className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg hover:bg-[#238b7e] transition-colors">
-                    Reintentar
-                  </button>
-                </div>
-              )}
-
-              {!loading && !error && currentItems.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <DollarSign size={48} className="text-gray-400 mb-4" />
-                  <p className={`text-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}>No hay desembolsos registrados</p>
-                  <button
-                    onClick={abrirModalSeleccionarContrato}
-                    className="mt-4 px-6 py-2 bg-[#2A9D8F] text-white rounded-lg hover:bg-[#238b7e] transition-colors"
-                  >
-                    Registrar primer desembolso
-                  </button>
-                </div>
-              )}
-
-              {!loading && !error && currentItems.length > 0 && (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className={`${darkMode ? "bg-gray-700/50" : "bg-gray-50"}`}>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">ID Desembolso</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">ID Contrato</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Emprendedor</th>
-                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Monto</th>
-                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Fecha</th>
-                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Estado</th>
-                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-200"}`}>
-                        {currentItems.map((disbursement) => (
-                          <tr key={disbursement.id_desembolso} className={`${darkMode ? "hover:bg-gray-700/50" : "hover:bg-gray-50"} transition-colors`}>
-                            <td className="px-6 py-4 text-sm font-semibold text-[#2A9D8F]">
-                              #{disbursement.id_desembolso}
-                            </td>
-                            <td className="px-6 py-4 text-sm">
-                              {disbursement.id_cont}
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-full ${darkMode ? "bg-gray-700" : "bg-blue-50"}`}>
-                                  <User size={16} className={darkMode ? "text-gray-300" : "text-blue-600"} />
-                                </div>
-                                <div>
-                                  <div className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>
-                                    {disbursement.emprendedor || 'No especificado'}
-                                  </div>
-                                  {disbursement.numero_contrato && (
-                                    <div className="text-xs text-gray-500">N° {disbursement.numero_contrato}</div>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <div>
-                                <span className="font-bold">{formatMonto(disbursement.monto)}</span>
-                                <span className="text-xs ml-1">{getMonedaNombre(disbursement.moneda)}</span>
-                              </div>
-                             </td>
-                            <td className="px-6 py-4 text-center text-sm">
-                              {formatDate(disbursement.fecha_desembolso)}
-                             </td>
-                            <td className="px-6 py-4 text-center">
-                              {getStatusComponent(disbursement)}
-                             </td>
-                            <td className="px-6 py-4">
-                              {getActionButtons(disbursement)}
-                             </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className={`px-6 py-4 border-t ${darkMode ? "border-gray-700" : "border-gray-200"}`}>
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <div className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-                        Mostrando {indexOfFirstItem + 1} - {Math.min(indexOfLastItem, filteredDisbursements.length)} de {filteredDisbursements.length} desembolsos
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))} disabled={currentPage === 1} className={`p-2 rounded-lg border ${currentPage === 1 ? (darkMode ? "border-gray-600 text-gray-600 cursor-not-allowed" : "border-gray-200 text-gray-300 cursor-not-allowed") : (darkMode ? "border-gray-600 text-gray-400 hover:bg-gray-700" : "border-gray-200 text-gray-600 hover:bg-gray-50")}`}>
-                          <ChevronLeft size={16} />
-                        </button>
-                        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((page) => (
-                          <button key={page} onClick={() => setCurrentPage(page)} className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? "bg-[#2A9D8F] text-white" : (darkMode ? "text-gray-400 hover:bg-gray-700 border border-gray-600" : "text-gray-600 hover:bg-gray-100 border border-gray-200")}`}>
-                            {page}
-                          </button>
-                        ))}
-                        {totalPages > 5 && (
-                          <span className="text-gray-400">...</span>
-                        )}
-                        <button onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className={`p-2 rounded-lg border ${currentPage === totalPages ? (darkMode ? "border-gray-600 text-gray-600 cursor-not-allowed" : "border-gray-200 text-gray-300 cursor-not-allowed") : (darkMode ? "border-gray-600 text-gray-400 hover:bg-gray-700" : "border-gray-200 text-gray-600 hover:bg-gray-50")}`}>
-                          <ChevronRight size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
             </div>
+
+            {/* SECCIÓN 1: MIS DESEMBOLSOS - SOLO PARA ROL 1 */}
+            {userRole === 1 && (
+              <div className={`rounded-xl ${darkMode ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-100"} shadow-sm overflow-hidden mb-6`}>
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
+                  <UserCheck size={20} className="text-[#2A9D8F]" />
+                  <h3 className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                    Mis Desembolsos
+                  </h3>
+                  <span className={`ml-auto text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                    {misDisbursementsData.length} registros
+                  </span>
+                  {user.cedula && (
+                    <span className={`text-xs px-2 py-1 rounded-full ${darkMode ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"}`}>
+                      Cédula: {user.cedula}
+                    </span>
+                  )}
+                  <span className={`text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-700`}>
+                    🔑 Rol Administrador
+                  </span>
+                </div>
+                {renderDisbursementTable(
+                  misDisbursementsData, 
+                  "mis desembolsos", 
+                  user.cedula ? "No tienes desembolsos registrados con tu cédula" : "No hay cédula de usuario configurada",
+                  currentPageMis,
+                  setCurrentPageMis,
+                  loadingMis,
+                  true // Es "Mis Desembolsos" - permite mostrar botón de confirmar
+                )}
+              </div>
+            )}
+
+            {/* SECCIÓN 2: TODOS LOS DESEMBOLSOS - SOLO PARA ROLES DIFERENTES DE 1 */}
+            {userRole !== 1 && (
+              <div className={`rounded-xl ${darkMode ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-100"} shadow-sm overflow-hidden`}>
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
+                  <Users size={20} className="text-[#2A9D8F]" />
+                  <h3 className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                    Todos los Desembolsos
+                  </h3>
+                  <span className={`ml-auto text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                    {disbursementsData.length} registros
+                  </span>
+                </div>
+                {renderDisbursementTable(
+                  disbursementsData, 
+                  "todos los desembolsos", 
+                  "No hay desembolsos registrados",
+                  currentPage,
+                  setCurrentPage,
+                  loading,
+                  false // No es "Mis Desembolsos"
+                )}
+              </div>
+            )}
+
           </div>
           <Footer darkMode={darkMode} />
         </main>
@@ -1059,14 +1310,31 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
                       ID del Contrato <span className="text-red-500">*</span>
                     </label>
                     <input
-                      type="text"
+                      type="number"
                       value={formDesembolso.id_cont}
                       onChange={(e) => handleInputChange("id_cont", e.target.value)}
                       className={`w-full px-4 py-2.5 rounded-lg border ${formErrors.id_cont ? "border-red-500 focus:ring-red-500" : (darkMode ? "border-gray-600 focus:ring-[#2A9D8F]" : "border-gray-200 focus:ring-[#2A9D8F]")} ${darkMode ? "bg-gray-700 text-white" : "bg-white"} focus:outline-none focus:ring-2 text-sm`}
                       placeholder="Ej: 1, 2, 3..."
-                      type="number"
+                      readOnly
                     />
                     {formErrors.id_cont && <p className="mt-1 text-xs text-red-500">{formErrors.id_cont}</p>}
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                      Cédula del Emprendedor
+                    </label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input
+                        type="text"
+                        value={formDesembolso.cedula_desembolso}
+                        onChange={(e) => handleInputChange("cedula_desembolso", e.target.value)}
+                        className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? "border-gray-600 focus:ring-[#2A9D8F]" : "border-gray-200 focus:ring-[#2A9D8F]"} ${darkMode ? "bg-gray-700 text-white" : "bg-white"} focus:outline-none focus:ring-2 text-sm`}
+                        placeholder="Cédula del emprendedor"
+                        readOnly
+                      />
+                    </div>
                   </div>
 
                   <div>
@@ -1202,6 +1470,10 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
                       <p>{selectedDisbursement.emprendedor || 'No especificado'}</p>
                     </div>
                     <div>
+                      <span className={darkMode ? "text-gray-400" : "text-gray-500"}>Cédula:</span>
+                      <p>{selectedDisbursement.cedula_desembolso || selectedDisbursement.id_cedula_aprob || 'No asignada'}</p>
+                    </div>
+                    <div>
                       <span className={darkMode ? "text-gray-400" : "text-gray-500"}>Monto:</span>
                       <p>{formatMonto(selectedDisbursement.monto)} {getMonedaNombre(selectedDisbursement.moneda)}</p>
                     </div>
@@ -1309,6 +1581,10 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
                       <p>{selectedDisbursementDetail.emprendedor || 'No especificado'}</p>
                     </div>
                     <div>
+                      <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Cédula</p>
+                      <p>{selectedDisbursementDetail.cedula_desembolso || selectedDisbursementDetail.id_cedula_aprob || 'No asignada'}</p>
+                    </div>
+                    <div>
                       <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Monto</p>
                       <p className="font-bold text-[#2A9D8F]">{formatMonto(selectedDisbursementDetail.monto)} {getMonedaNombre(selectedDisbursementDetail.moneda)}</p>
                     </div>
@@ -1329,7 +1605,6 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
                   </div>
                 </div>
 
-                {/* Sección de comprobantes - Ahora muestra las imágenes directamente */}
                 {(selectedDisbursementDetail.capture_desembolso || selectedDisbursementDetail.capture_confirmacion) && (
                   <div className="space-y-4">
                     {selectedDisbursementDetail.capture_desembolso && (
@@ -1376,11 +1651,10 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
               </div>
 
               <div className="flex justify-end pt-6 mt-4 border-t border-gray-200 dark:border-gray-700">
-                {selectedDisbursementDetail.estatus_desembolso === "Pendiente" && (
+                {selectedDisbursementDetail.estatus_desembolso === "Pendiente" && userRole === 1 && (
                   <button
                     onClick={() => {
                       setShowDetalleModal(false);
-                      // Llamar directamente a confirmarDesembolso2 con Swal
                       confirmarDesembolsoDirecto(selectedDisbursementDetail);
                     }}
                     className="px-6 py-2.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all flex items-center gap-2 text-sm font-medium mr-3"
@@ -1438,9 +1712,10 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
                         <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">ID</th>
                         <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">N° Contrato</th>
                         <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Emprendedor</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Cédula</th>
                         <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider">Monto</th>
                         <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Acciones</th>
-                       </tr>
+                      </tr>
                     </thead>
                     <tbody className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-200"}`}>
                       {contratosPendientes.map((contrato) => (
@@ -1451,6 +1726,12 @@ const confirmarDesembolsoDirecto = async (disbursement) => {
                             <div className="flex items-center gap-2">
                               <User size={14} className="text-gray-400" />
                               <span className="text-sm">{contrato.emprendedor_nombre || 'No especificado'}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <div className="flex items-center gap-2">
+                              <CreditCard size={14} className="text-gray-400" />
+                              <span>{contrato.id_cedula_aprob || 'No asignada'}</span>
                             </div>
                           </td>
                           <td className="px-4 py-3 text-right">

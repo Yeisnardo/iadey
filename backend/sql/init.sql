@@ -814,6 +814,7 @@ CREATE TABLE contrato (
 CREATE TABLE desembolso (
     id_desembolso SERIAL PRIMARY KEY,
     id_cont INT NOT NULL,
+    cedula_desembolso TEXT NOT NULL, 
     fecha_desembolso VARCHAR (15) NOT NULL,
     fecha_confirmacion VARCHAR (15),
     capture_desembolso TEXT NOT NULL,

@@ -12,6 +12,17 @@ const DesembolsoAPI = {
         }
     },
 
+    // Obtener desembolsos por cédula
+    getByCedula: async (cedula) => {
+        try {
+            const response = await api.get(`/desembolso/cedula/${cedula}`);
+            return response;
+        } catch (error) {
+            console.error('Error en getByCedula:', error);
+            throw error.response?.data || { error: 'Error al obtener desembolsos por cédula' };
+        }
+    },
+
     // Obtener contratos pendientes por desembolso
     getContratosPendientes: async () => {
         try {
