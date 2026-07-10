@@ -798,6 +798,7 @@ CREATE TABLE contrato (
     cambio  VARCHAR (50) NOT NULL,
     flat  VARCHAR (50) NOT NULL,
     interes  VARCHAR (50) NOT NULL,
+    morosidad VARCHAR (50) NOT NULL,
     devolvimiento VARCHAR (50) NOT NULL,
     numero_cuotas VARCHAR (50) NOT NULL,
     numero_gracias VARCHAR (20) NOT NULL,

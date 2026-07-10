@@ -7,5 +7,9 @@ router.get('/', cuotaController.getAll);
 router.get('/contrato/:id_contrato/cuotas', cuotaController.getCuotasByContrato);
 router.post('/cuota/:id_cuota/pagar', cuotaController.registrarPago);
 router.post('/contrato/:id_contrato/generar-cuotas-manual', cuotaController.generarCuotasManual);
+router.post('/actualizar-mora', cuotaController.actualizarMora);
+
+// Ruta de prueba para recalcular gracias
+router.post('/test-recalculo/:id_contrato', cuotaController.testRecalculo);
 
 module.exports = router;

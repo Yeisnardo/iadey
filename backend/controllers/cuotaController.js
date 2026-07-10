@@ -66,7 +66,6 @@ const cuotaController = {
   async registrarPago(req, res) {
     try {
       const { id_cuota } = req.params;
-      const datosPago = req.body;
       
       if (!id_cuota) {
         return res.status(400).json({ 
@@ -75,19 +74,61 @@ const cuotaController = {
         });
       }
       
-      const cuotaActualizada = await CuotaModel.registrarPago(id_cuota, datosPago);
+      // Obtener los datos del pago del body
+      const {
+        fecha_pagada,
+        dias_mora_cuota,
+        monto_morosidad,
+        comprobante
+      } = req.body;
+      
+      // Validar datos requeridos
+      if (!fecha_pagada) {
+        return res.status(400).json({
+          success: false,
+          error: 'La fecha de pago es requerida'
+        });
+      }
+      
+      console.log('=== REGISTRANDO PAGO DESDE CONTROLLER ===');
+      console.log('ID Cuota:', id_cuota);
+      console.log('Datos recibidos:', req.body);
+      
+      // Registrar el pago en el modelo (esto también recalcula las gracias)
+      const cuotaActualizada = await CuotaModel.registrarPago(id_cuota, {
+        fecha_pagada,
+        dias_mora_cuota: dias_mora_cuota || 0,
+        monto_morosidad: monto_morosidad || '0',
+        comprobante: comprobante || null
+      });
+      
+      // Actualizar estados de mora
       await CuotaModel.actualizarEstadosMora();
+      
+      // Obtener todas las cuotas actualizadas del contrato
+      const cuotasActualizadas = await CuotaModel.getCuotasByContratoId(
+        cuotaActualizada.id_cuota_cont
+      );
+      
+      const mensaje = cuotaActualizada.cuotas_gracia_actualizadas?.length > 0
+        ? `Pago registrado exitosamente. Se recalcul${cuotaActualizada.cuotas_gracia_actualizadas.length === 1 ? 'ó' : 'aron'} ${cuotaActualizada.cuotas_gracia_actualizadas.length} cuota(s) de gracia.`
+        : 'Pago registrado exitosamente';
       
       res.json({ 
         success: true, 
-        message: 'Pago registrado exitosamente',
-        data: cuotaActualizada 
+        message: mensaje,
+        data: {
+          cuota_pagada: cuotaActualizada,
+          cuotas_gracia_actualizadas: cuotaActualizada.cuotas_gracia_actualizadas || [],
+          todas_las_cuotas: cuotasActualizadas
+        }
       });
+      
     } catch (error) {
       console.error('Error en registrarPago:', error);
       res.status(500).json({ 
         success: false, 
-        error: error.message 
+        error: error.message || 'Error al registrar el pago' 
       });
     }
   },
@@ -98,7 +139,9 @@ const cuotaController = {
       const { id_contrato } = req.params;
       const configuracion = req.body;
       
-      console.log('Configuración recibida:', configuracion);
+      console.log('=== GENERANDO CUOTAS MANUALES (CONTROLLER) ===');
+      console.log('ID Contrato:', id_contrato);
+      console.log('Configuración recibida:', JSON.stringify(configuracion, null, 2));
       
       if (!id_contrato) {
         return res.status(400).json({ 
@@ -153,6 +196,42 @@ const cuotaController = {
         success: false, 
         error: error.message 
       });
+    }
+  },
+
+  // Endpoint de prueba para recalcular gracias
+  async testRecalculo(req, res) {
+    try {
+      const { id_contrato } = req.params;
+      
+      console.log('=== TEST RECALCULO ===');
+      console.log('ID Contrato:', id_contrato);
+      
+      const resultado = await CuotaModel.recalcularCuotasGracia(id_contrato);
+      
+      // Obtener todas las cuotas para verificar
+      const cuotas = await CuotaModel.getCuotasByContratoId(id_contrato);
+      
+      const resumen = {
+        total_obligatorias: cuotas
+          .filter(c => c.tipo_cuota === 'Obligatoria')
+          .reduce((sum, c) => sum + parseFloat(c.monto_cuota), 0),
+        total_gracias: cuotas
+          .filter(c => c.tipo_cuota === 'Gracias')
+          .reduce((sum, c) => sum + parseFloat(c.monto_cuota), 0),
+        total_general: cuotas.reduce((sum, c) => sum + parseFloat(c.monto_cuota), 0),
+        cuotas_actualizadas: resultado,
+        todas_las_cuotas: cuotas.map(c => ({
+          numero: c.num_cuota,
+          tipo: c.tipo_cuota,
+          monto: c.monto_cuota,
+          estado: c.estado_cuota
+        }))
+      };
+      
+      res.json({ success: true, data: resumen });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
     }
   }
 };

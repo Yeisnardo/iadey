@@ -31,6 +31,7 @@ class ContratoModel {
         c.cierre,
         c.estatus,
         c.frecuencia_pago_contrato,
+        c.morosidad,
         c.created_at as contrato_created_at,
         c.updated_at as contrato_updated_at,
         d.id_desembolso,
@@ -66,7 +67,8 @@ class ContratoModel {
       inicio,
       cierre,
       estatus,
-      frecuencia_pago_contrato // NUEVO CAMPO
+      frecuencia_pago_contrato,
+      morosidad
     } = contratoData;
 
     const query = `
@@ -86,8 +88,9 @@ class ContratoModel {
         inicio,
         cierre,
         estatus,
-        frecuencia_pago_contrato
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        frecuencia_pago_contrato,
+        morosidad
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
       RETURNING *
     `;
     
@@ -107,7 +110,8 @@ class ContratoModel {
       inicio,
       cierre,
       estatus,
-      frecuencia_pago_contrato
+      frecuencia_pago_contrato,
+      morosidad
     ];
 
     const result = await pool.query(query, values);
@@ -129,52 +133,53 @@ class ContratoModel {
   }
 
   static async getByCedula(cedula) {
-  const query = `
-    SELECT 
-      a.id_aprobacion,
-      a.id_inspeccion,
-      a.id_expediente,
-      a.verificacion_requisitos,
-      a.estatus_aprobacion,
-      a.cedula_persona_id,
-      a.seleccion_manejo,
-      a.created_at as aprobacion_created_at,
-      a.updated_at as aprobacion_updated_at,
-      c.id_contrato,
-      c.id_cedula_aprob,
-      c.numero_contrato,
-      c.moneda,
-      c.monto_moneda,
-      c.cambio,
-      c.flat,
-      c.interes,
-      c.devolvimiento,
-      c.numero_cuotas,
-      c.numero_gracias,
-      c.inicio,
-      c.cierre,
-      c.estatus,
-      c.frecuencia_pago_contrato,
-      c.created_at as contrato_created_at,
-      c.updated_at as contrato_updated_at,
-      d.id_desembolso,
-      d.fecha_desembolso,
-      d.capture_desembolso,
-      d.estatus_desembolso,
-      d.fecha_confirmacion,
-      p.nombres as emprendedor,
-      p.cedula
-    FROM aprobacion a
-    INNER JOIN contrato c ON a.id_aprobacion = c.id_aprob
-    LEFT JOIN desembolso d ON c.id_contrato = d.id_cont
-    LEFT JOIN persona p ON a.cedula_persona_id = p.cedula
-    WHERE a.seleccion_manejo = 'Interno'
-    AND a.cedula_persona_id = $1
-    ORDER BY a.id_aprobacion DESC
-  `;
-  const result = await pool.query(query, [cedula]);
-  return result.rows;
-}
+    const query = `
+      SELECT 
+        a.id_aprobacion,
+        a.id_inspeccion,
+        a.id_expediente,
+        a.verificacion_requisitos,
+        a.estatus_aprobacion,
+        a.cedula_persona_id,
+        a.seleccion_manejo,
+        a.created_at as aprobacion_created_at,
+        a.updated_at as aprobacion_updated_at,
+        c.id_contrato,
+        c.id_cedula_aprob,
+        c.numero_contrato,
+        c.moneda,
+        c.monto_moneda,
+        c.cambio,
+        c.flat,
+        c.interes,
+        c.devolvimiento,
+        c.numero_cuotas,
+        c.numero_gracias,
+        c.inicio,
+        c.cierre,
+        c.estatus,
+        c.frecuencia_pago_contrato,
+        c.morosidad,
+        c.created_at as contrato_created_at,
+        c.updated_at as contrato_updated_at,
+        d.id_desembolso,
+        d.fecha_desembolso,
+        d.capture_desembolso,
+        d.estatus_desembolso,
+        d.fecha_confirmacion,
+        p.nombres as emprendedor,
+        p.cedula
+      FROM aprobacion a
+      INNER JOIN contrato c ON a.id_aprobacion = c.id_aprob
+      LEFT JOIN desembolso d ON c.id_contrato = d.id_cont
+      LEFT JOIN persona p ON a.cedula_persona_id = p.cedula
+      WHERE a.seleccion_manejo = 'Interno'
+      AND a.cedula_persona_id = $1
+      ORDER BY a.id_aprobacion DESC
+    `;
+    const result = await pool.query(query, [cedula]);
+    return result.rows;
+  }
 
   // Obtener un contrato por ID de aprobación
   static async getById(id) {
@@ -196,6 +201,7 @@ class ContratoModel {
         c.cierre,
         c.estatus,
         c.frecuencia_pago_contrato,
+        c.morosidad,
         c.created_at,
         c.updated_at,
         a.id_aprobacion,
@@ -256,7 +262,8 @@ class ContratoModel {
       inicio,
       cierre,
       estatus,
-      frecuencia_pago_contrato
+      frecuencia_pago_contrato,
+      morosidad
     } = contratoData;
 
     const query = `
@@ -275,8 +282,9 @@ class ContratoModel {
         cierre = COALESCE($11, cierre),
         estatus = COALESCE($12, estatus),
         frecuencia_pago_contrato = COALESCE($13, frecuencia_pago_contrato),
+        morosidad = COALESCE($14, morosidad),
         updated_at = CURRENT_TIMESTAMP
-      WHERE id_contrato = $14
+      WHERE id_contrato = $15
       RETURNING *
     `;
 
@@ -294,6 +302,7 @@ class ContratoModel {
       cierre,
       estatus,
       frecuencia_pago_contrato,
+      morosidad,
       id_contrato
     ];
 
@@ -502,7 +511,7 @@ class ContratoModel {
         c.numero_contrato,
         c.moneda,
         a.id_expediente,
-        a.id_inspeccion,
+        a.id_inspeccion
       FROM desembolso d
       JOIN contrato c ON d.id_cont = c.id_contrato
       JOIN aprobacion a ON c.id_aprob = a.id_aprobacion
@@ -537,7 +546,7 @@ class ContratoModel {
     const query = `
       SELECT 
         c.*,
-        a.id_expediente,
+        a.id_expediente
       FROM contrato c
       JOIN aprobacion a ON c.id_aprob = a.id_aprobacion
       JOIN expediente e ON a.id_expediente = e.id_expediente

@@ -105,6 +105,7 @@ const Contrato = () => {
     cierre: "",
     numero_gracias: "0",
     frecuencia_pago_contrato: "",
+    morosidad: ""
   });
   const [formErrors, setFormErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -155,6 +156,12 @@ const Contrato = () => {
       bgColor: "bg-red-500",
       label: "Cancelado",
     },
+    "En espera de cuotas": {
+      color: "purple",
+      icon: Clock,
+      bgColor: "bg-purple-500",
+      label: "En espera de cuotas",
+    },
   };
 
   // ============================================================
@@ -162,6 +169,7 @@ const Contrato = () => {
   // ============================================================
   const VALID_STATUS_TRANSITIONS = {
     "Esperando contrato": ["Pendiente por aceptar", "Cancelado"],
+    "En espera de cuotas": ["Pendiente por aceptar", "Cancelado"],
     "Pendiente por aceptar": ["Pendiente por desembolso", "Cancelado"],
     "Pendiente por desembolso": ["Activo", "Cancelado"],
     Activo: ["Finalizado", "Cancelado"],
@@ -356,6 +364,7 @@ const Contrato = () => {
             <p style="margin: 5px 0;"><strong>💰 Monto:</strong> ${contract.monto_moneda} ${contract.moneda?.toUpperCase() || "USD"}</p>
             <p style="margin: 5px 0;"><strong>📊 Cuotas:</strong> ${contract.numero_cuotas}</p>
             <p style="margin: 5px 0;"><strong>📅 Período:</strong> ${contract.inicio} al ${contract.cierre}</p>
+            <p style="margin: 5px 0;"><strong>⚠️ Morosidad:</strong> ${contract.morosidad || '0'}%</p>
           </div>
           <p style="color: #e67e22; font-size: 13px; text-align: center;">⚠️ Esta acción confirmará la aceptación del contrato por parte del emprendedor.</p>
         </div>
@@ -471,6 +480,7 @@ const Contrato = () => {
           <p><strong>Cuotas:</strong> ${formGestion.numero_cuotas}</p>
           <p><strong>Frecuencia:</strong> ${getFrecuenciaPagoTexto(formGestion.frecuencia_pago_contrato)}</p>
           <p><strong>Valor en Bs:</strong> Bs. ${formatMonto(montoBolivares.neto)}</p>
+          <p><strong>Morosidad:</strong> ${formGestion.morosidad || '0'}%</p>
         </div>
       `,
       icon: 'question',
@@ -513,6 +523,7 @@ const Contrato = () => {
         inicio: formGestion.inicio,
         cierre: formGestion.cierre,
         frecuencia_pago_contrato: formGestion.frecuencia_pago_contrato,
+        morosidad: parseFloat(formGestion.morosidad) || 0
       };
 
       const response = await ContratoAPI.create(contratoData);
@@ -529,7 +540,8 @@ const Contrato = () => {
             html: `
               El contrato <strong>${formGestion.numero_contrato}</strong> ha sido registrado exitosamente.<br/>
               Estado actual: <strong>Pendiente por aceptar</strong><br/>
-              Frecuencia de pago: <strong>${getFrecuenciaPagoTexto(formGestion.frecuencia_pago_contrato)}</strong>
+              Frecuencia de pago: <strong>${getFrecuenciaPagoTexto(formGestion.frecuencia_pago_contrato)}</strong><br/>
+              Morosidad: <strong>${formGestion.morosidad || '0'}%</strong>
             `,
             icon: 'success',
             confirmButtonColor: '#2A9D8F',
@@ -555,6 +567,7 @@ const Contrato = () => {
                     interes_porcentaje: parseFloat(formGestion.interes_porcentaje),
                     devolvimiento: parseFloat(formGestion.devolvimiento),
                     frecuencia_pago_contrato: formGestion.frecuencia_pago_contrato,
+                    morosidad: parseFloat(formGestion.morosidad) || 0
                   }
                 : contract
             )
@@ -777,7 +790,6 @@ const Contrato = () => {
         console.log('Rol del usuario:', userRole);
         console.log('Es administrador:', isAdmin);
         
-        // Si la sección es "Mis Contratos" y el usuario NO es admin, mostrar error
         if (activeSection === "my" && !isAdmin) {
           setError('Acceso restringido: Solo administradores pueden ver "Mis Contratos"');
           setContractsData([]);
@@ -785,7 +797,6 @@ const Contrato = () => {
           return;
         }
         
-        // Si la sección es "Todos los Contratos" y el usuario ES admin, mostrar error
         if (activeSection === "all" && isAdmin) {
           setError('Acceso restringido: Los administradores solo pueden ver "Mis Contratos"');
           setContractsData([]);
@@ -794,7 +805,6 @@ const Contrato = () => {
         }
         
         if (activeSection === "my") {
-          // Mis Contratos - solo para administradores
           if (!cedulaUsuario) {
             console.warn('Usuario sin cédula definida');
             setContractsData([]);
@@ -822,6 +832,7 @@ const Contrato = () => {
               numero_gracias: item.numero_gracias || 0,
               frecuencia_pago_contrato: item.frecuencia_pago_contrato || null,
               id_cedula_aprob: item.id_cedula_aprob || null,
+              morosidad: item.morosidad || 0
             }));
             setContractsData(dataConDefaults);
             console.log(`✅ ${dataConDefaults.length} contratos cargados para "Mis Contratos"`);
@@ -829,7 +840,6 @@ const Contrato = () => {
             setError(response.error || "Error al cargar los contratos");
           }
         } else {
-          // Todos los Contratos - solo para usuarios NO administradores
           const response = await ContratoAPI.getAll();
           
           if (response.success) {
@@ -850,6 +860,7 @@ const Contrato = () => {
               numero_gracias: item.numero_gracias || 0,
               frecuencia_pago_contrato: item.frecuencia_pago_contrato || null,
               id_cedula_aprob: item.id_cedula_aprob || null,
+              morosidad: item.morosidad || 0
             }));
             setContractsData(dataConDefaults);
             console.log(`✅ ${dataConDefaults.length} contratos cargados para "Todos los Contratos"`);
@@ -875,9 +886,6 @@ const Contrato = () => {
     if (user) {
       const userRole = user?.id_rol_usu || user?.id_rol || 0;
       const isAdmin = userRole === 1;
-      
-      // Si es admin, mostrar "Mis Contratos"
-      // Si no es admin, mostrar "Todos los Contratos"
       setActiveSection(isAdmin ? "my" : "all");
     }
   }, [user]);
@@ -946,6 +954,8 @@ const Contrato = () => {
         );
       }
 
+      const morosidadValue = configuracionContrato.morosidad_porcentaje || 0;
+
       setFormGestion({
         numero_contrato: numeroContratoAuto,
         moneda: monedaConfig,
@@ -959,6 +969,7 @@ const Contrato = () => {
         cierre: fechaCierreDefault,
         numero_gracias: graciasConfig,
         frecuencia_pago_contrato: configuracionContrato.frecuencia_pago || "",
+        morosidad: morosidadValue.toString()
       });
       setMontoBolivares({ bruto: 0, flatMonto: 0, neto: 0 });
       setFormErrors({});
@@ -1032,7 +1043,7 @@ const Contrato = () => {
     const statusConfig = STATUS_CONFIG[contract.estatus];
     if (!statusConfig) {
       return (
-        <span className="inline-flex items-center gap-2 px-4 py-2 bg-gray-400 text-white rounded-lg text-sm font-medium">
+        <span className={`inline-flex items-center gap-2 px-4 py-2 bg-gray-400 text-white rounded-lg text-sm font-medium`}>
           <AlertCircle size={14} />
           {contract.estatus || "Desconocido"}
         </span>
@@ -1050,90 +1061,158 @@ const Contrato = () => {
   };
 
   // ============================================================
-  // RENDER - getActionButtons con verificación de rol
-  // ============================================================
-  const getActionButtons = (contract) => {
-    const actions = [];
-    
-    // Obtener el rol del usuario actual
-    const userRole = user?.id_rol_usu || user?.id_rol || 0;
-    const isAdmin = userRole === 1;
+// RENDER - getActionButtons SIN CONDICIONES
+// ============================================================
+const getActionButtons = (contract) => {
+  const actions = [];
+  
+  const userRole = user?.id_rol_usu || user?.id_rol || 0;
+  const isAdmin = userRole === 1;
 
-    // Botón Ver - visible para todos
+  // Botón VER - Siempre visible
+  actions.push(
+    <button
+      key="ver"
+      onClick={() => {
+        setSelectedContractForConsulta(contract);
+        setShowConsultaModal(true);
+      }}
+      className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+        darkMode ? "bg-gray-600 hover:bg-gray-700 text-white" : "bg-gray-500 hover:bg-gray-600 text-white"
+      }`}
+      title="Ver detalles"
+    >
+      <Eye size={14} /> Ver
+    </button>
+  );
+
+  // Botones para administradores (TODOS VISIBLES SIN CONDICIONES)
+  if (userRole) {
+    // Botón GESTIONAR
     actions.push(
       <button
-        key="ver"
+        key="gestionar"
         onClick={() => {
-          setSelectedContractForConsulta(contract);
-          setShowConsultaModal(true);
+          setSelectedContractForGestion(contract);
+          setShowGestionModal(true);
         }}
         className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-          darkMode ? "bg-gray-600 hover:bg-gray-700 text-white" : "bg-gray-500 hover:bg-gray-600 text-white"
+          darkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
         }`}
-        title="Ver detalles"
       >
-        <Eye size={14} /> Ver
+        <FileText size={14} /> Gestionar
       </button>
     );
 
-    // Botón Gestionar - solo para administradores
-    if (isAdmin) {
-      if (contract.estatus === "En espera de cuotas") {
-        actions.push(
-          <button
-            key="gestionar"
-            onClick={() => {
-              setSelectedContractForGestion(contract);
-              setShowGestionModal(true);
-            }}
-            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              darkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
-            }`}
-          >
-            <FileText size={14} /> Gestionar cuotas
-          </button>
-        );
-      }
+    // Botón GESTIONAR CUOTAS
+    actions.push(
+      <button
+        key="gestionar_cuotas"
+        onClick={() => {
+          setSelectedContractForGestion(contract);
+          setShowGestionModal(true);
+        }}
+        className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+          darkMode ? "bg-purple-600 hover:bg-purple-700 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
+        }`}
+      >
+        <FileText size={14} /> Gestionar cuotas
+      </button>
+    );
 
-      if (contract.estatus === "Esperando contrato") {
-        actions.push(
-          <button
-            key="gestionar"
-            onClick={() => {
-              setSelectedContractForGestion(contract);
-              setShowGestionModal(true);
-            }}
-            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              darkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
-            }`}
-          >
-            <FileText size={14} /> Gestionar
-          </button>
-        );
-      }
+    // Botón ACEPTAR
+    actions.push(
+      <button
+        key="aceptar"
+        onClick={() => aceptarContratoDirecto(contract)}
+        className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+          darkMode ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-emerald-500 hover:bg-emerald-600 text-white"
+        }`}
+      >
+        <CheckCircle size={14} /> Aceptar
+      </button>
+    );
 
-      // Botón Aceptar - SOLO PARA ADMINISTRADORES
-      if (contract.estatus === "Pendiente por aceptar") {
-        actions.push(
-          <button
-            key="aceptar"
-            onClick={() => aceptarContratoDirecto(contract)}
-            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              darkMode ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-emerald-500 hover:bg-emerald-600 text-white"
-            }`}
-          >
-            <CheckCircle size={14} /> Aceptar
-          </button>
-        );
-      }
-    }
+    // Botón DESEMBOLSAR
+    actions.push(
+      <button
+        key="desembolsar"
+        onClick={() => {
+          console.log("Desembolsar contrato:", contract.id_aprobacion);
+          Swal.fire({
+            title: 'Funcionalidad en desarrollo',
+            text: 'El módulo de desembolso estará disponible próximamente.',
+            icon: 'info',
+            confirmButtonColor: '#2A9D8F'
+          });
+        }}
+        className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+          darkMode ? "bg-orange-600 hover:bg-orange-700 text-white" : "bg-orange-500 hover:bg-orange-600 text-white"
+        }`}
+      >
+        <DollarSign size={14} /> Desembolsar
+      </button>
+    );
 
-    if (actions.length === 0) {
-      return <span className={`text-xs ${darkMode ? "text-gray-500" : "text-gray-400"}`}>Sin acciones</span>;
-    }
-    
-    return <div className="flex items-center justify-center gap-2 flex-wrap">{actions}</div>;
-  };
+    // Botón CANCELAR
+    actions.push(
+      <button
+        key="cancelar"
+        onClick={() => {
+          Swal.fire({
+            title: '¿Cancelar contrato?',
+            text: 'Esta acción no se puede deshacer.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#2A9D8F',
+            confirmButtonText: 'Sí, cancelar',
+            cancelButtonText: 'No'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              updateContractStatus(contract.id_aprobacion, "Cancelado", "cancelacion");
+            }
+          });
+        }}
+        className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+          darkMode ? "bg-red-600 hover:bg-red-700 text-white" : "bg-red-500 hover:bg-red-600 text-white"
+        }`}
+      >
+        <X size={14} /> Cancelar
+      </button>
+    );
+
+    // Botón FINALIZAR
+    actions.push(
+      <button
+        key="finalizar"
+        onClick={() => {
+          Swal.fire({
+            title: '¿Finalizar contrato?',
+            text: 'El contrato pasará a estado "Finalizado".',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#2A9D8F',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, finalizar',
+            cancelButtonText: 'No'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              updateContractStatus(contract.id_aprobacion, "Finalizado", "finalizacion");
+            }
+          });
+        }}
+        className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+          darkMode ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-indigo-500 hover:bg-indigo-600 text-white"
+        }`}
+      >
+        <CheckCircle size={14} /> Finalizar
+      </button>
+    );
+  }
+  
+  return <div className="flex items-center justify-center gap-2 flex-wrap">{actions}</div>;
+};
 
   const handleLogout = () => {
     usuarioAPI.logout();
@@ -1249,11 +1328,10 @@ const Contrato = () => {
             </div>
 
             {/* ============================================================ */}
-            {/* BOTONES DE SECCIÓN - Solo se muestra el botón correspondiente según el rol */}
+            {/* BOTONES DE SECCIÓN */}
             {/* ============================================================ */}
             <div className="flex flex-wrap gap-3 mb-6">
               {isAdmin ? (
-                // Si es administrador, solo muestra "Mis Contratos" (activo por defecto)
                 <button
                   className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium bg-[#2A9D8F] text-white shadow-md cursor-default"
                 >
@@ -1264,7 +1342,6 @@ const Contrato = () => {
                   </span>
                 </button>
               ) : (
-                // Si NO es administrador, solo muestra "Todos los Contratos" (activo por defecto)
                 <button
                   className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium bg-[#2A9D8F] text-white shadow-md cursor-default"
                 >
@@ -1344,6 +1421,7 @@ const Contrato = () => {
                           <option value="pendiente por aceptar">Pendiente por aceptar</option>
                           <option value="pendiente por desembolso">Pendiente por Desembolso</option>
                           <option value="esperando contrato">Esperando contrato</option>
+                          <option value="en espera de cuotas">En espera de cuotas</option>
                           <option value="finalizado">Finalizado</option>
                           <option value="cancelado">Cancelado</option>
                         </select>
@@ -1431,6 +1509,9 @@ const Contrato = () => {
                                     {contract.cedula_persona_id || "N/A"}
                                   </span>
                                   {contract.numero_contrato && <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Contrato: {contract.numero_contrato}</p>}
+                                  {contract.morosidad !== undefined && (
+                                    <p className={`text-xs ${darkMode ? "text-orange-400" : "text-orange-600"}`}>Morosidad: {contract.morosidad}%</p>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -1476,7 +1557,6 @@ const Contrato = () => {
                             </td>
                             <td className="px-6 py-4">
                               {getActionButtons(contract)}
-                              {/* Mostrar indicador si el contrato está pendiente por aceptar pero el usuario no es admin */}
                               {contract.estatus === "Pendiente por aceptar" && !isAdmin && (
                                 <div className="flex items-center justify-center mt-1">
                                   <span className="text-xs text-yellow-500 flex items-center gap-1">
@@ -1612,6 +1692,14 @@ const Contrato = () => {
                         : "No definido"}
                     </p>
                   </div>
+                  <div>
+                    <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Morosidad</p>
+                    <p className={`font-medium text-orange-600 dark:text-orange-400`}>
+                      {selectedContractForConsulta.morosidad 
+                        ? `${selectedContractForConsulta.morosidad}%` 
+                        : "No definido"}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -1729,6 +1817,12 @@ const Contrato = () => {
                         </span>
                       </div>
                     )}
+                    <div>
+                      <span className={`${darkMode ? "text-gray-400" : "text-gray-500"}`}>Morosidad:</span>
+                      <span className={`ml-2 font-semibold ${darkMode ? "text-orange-400" : "text-orange-600"}`}>
+                        {configuracionContrato.morosidad_porcentaje || 0}%
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1822,6 +1916,22 @@ const Contrato = () => {
                     <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                     <input type="text" value={configuracionContrato ? getFrecuenciaPagoTexto(configuracionContrato.frecuencia_pago) : "Cargando..."} readOnly className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${darkMode ? "bg-gray-600 border-gray-500 text-gray-300 cursor-not-allowed" : "bg-gray-100 border-gray-200 text-gray-600 cursor-not-allowed"} focus:outline-none text-sm`} />
                   </div>
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Morosidad (%)</label>
+                  <div className="relative">
+                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">%</span>
+                    <input 
+                      type="text" 
+                      value={formGestion.morosidad} 
+                      readOnly 
+                      className={`w-full pl-4 pr-10 py-2.5 rounded-lg border ${darkMode ? "bg-gray-600 border-gray-500 text-orange-400 cursor-not-allowed" : "bg-orange-50 border-orange-200 text-orange-700 cursor-not-allowed"} focus:outline-none text-sm font-semibold`} 
+                    />
+                  </div>
+                  <p className={`text-xs mt-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                    Porcentaje de morosidad configurado en el sistema
+                  </p>
                 </div>
 
                 <div>

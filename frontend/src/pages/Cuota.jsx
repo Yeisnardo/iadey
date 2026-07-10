@@ -1,4 +1,146 @@
-// pages/Cuota.jsx
+// ============================================================
+// FUNCIONES DE CÁLCULO DE MORA - CÓDIGO COMPLETO
+// ============================================================
+
+/**
+ * Calcula los días de mora acumulados hasta la fecha de cierre
+ * @param {string} fechaVencimiento - Fecha de vencimiento (YYYY-MM-DD)
+ * @param {string} fechaPago - Fecha de pago (YYYY-MM-DD) o null
+ * @param {string} estado - 'pagado', 'pendiente', etc.
+ * @param {string} fechaCierre - Fecha de cierre para el cálculo (YYYY-MM-DD)
+ * @returns {number} - Días de mora acumulados
+ */
+const calcularDiasMora = (fechaVencimiento, fechaPago, estado, fechaCierre = null) => {
+    // Si la cuota está pagada, usamos la fecha de pago como límite
+    if (estado === 'pagado' && fechaPago) {
+        const vencimiento = new Date(fechaVencimiento);
+        const pago = new Date(fechaPago);
+        vencimiento.setHours(0, 0, 0, 0);
+        pago.setHours(0, 0, 0, 0);
+        
+        // Si pagó antes o en la fecha de vencimiento, no hay mora
+        if (pago <= vencimiento) {
+            return 0;
+        }
+        
+        // Días entre vencimiento y pago
+        const diffTime = pago - vencimiento;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays;
+    }
+    
+    // Para cuotas no pagadas, calculamos hasta la fecha de cierre
+    if (estado !== 'pagado') {
+        const vencimiento = new Date(fechaVencimiento);
+        vencimiento.setHours(0, 0, 0, 0);
+        
+        // Fecha de referencia (cierre o actual)
+        let fechaReferencia;
+        if (fechaCierre) {
+            fechaReferencia = new Date(fechaCierre);
+        } else {
+            fechaReferencia = new Date();
+        }
+        fechaReferencia.setHours(0, 0, 0, 0);
+        
+        // Si aún no ha vencido, no hay mora
+        if (fechaReferencia <= vencimiento) {
+            return 0;
+        }
+        
+        // Días entre vencimiento y fecha de cierre
+        const diffTime = fechaReferencia - vencimiento;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        // Período de gracia: 5 días sin mora
+        if (diffDays <= 5) {
+            return 0;
+        }
+        
+        return diffDays;
+    }
+    
+    return 0;
+};
+
+/**
+ * Calcula la tasa de mora diaria a partir de la tasa mensual del contrato
+ * @param {number} tasaMensual - Tasa de mora mensual (ej: 0.05 = 5%)
+ * @returns {number} - Tasa de mora diaria
+ */
+const calcularTasaMoraDiaria = (tasaMensual) => {
+    // Convertir tasa mensual a diaria (interés compuesto)
+    // tasa_diaria = (1 + tasa_mensual)^(1/30) - 1
+    return Math.pow(1 + tasaMensual, 1/30) - 1;
+};
+
+/**
+ * Calcula el monto de morosidad con interés compuesto DIARIO
+ * @param {number} montoCuota - Monto original de la cuota
+ * @param {number} diasMora - Días de mora acumulados
+ * @param {number} tasaMoraDiaria - Tasa de mora DIARIA (ej: 0.00167)
+ * @param {number} montoAbonado - Monto ya abonado a la mora (si aplica)
+ * @returns {number} - Monto de morosidad acumulado
+ */
+const calcularMontoMorosidadDiario = (montoCuota, diasMora, tasaMoraDiaria, montoAbonado = 0) => {
+    // Si no hay días de mora, el monto es 0
+    if (diasMora <= 0 || montoCuota <= 0) {
+        return 0;
+    }
+    
+    // Calcular mora con interés compuesto diario
+    // Fórmula: Mora = MontoCuota * ((1 + tasaDiaria)^dias - 1)
+    const factor = Math.pow(1 + tasaMoraDiaria, diasMora);
+    const montoMora = montoCuota * (factor - 1);
+    
+    // Restar abonos realizados a la mora
+    const montoFinal = Math.max(0, montoMora - montoAbonado);
+    
+    // Redondear a 2 decimales
+    return Math.round(montoFinal * 100) / 100;
+};
+
+/**
+ * Calcula la morosidad de todas las cuotas de un contrato
+ * @param {Array} cuotas - Lista de cuotas del contrato
+ * @param {string} fechaCierre - Fecha de cierre del período (YYYY-MM-DD)
+ * @param {number} tasaMoraMensual - Tasa de mora mensual del contrato
+ * @returns {Array} - Cuotas actualizadas con días_mora_cuota y monto_morosidad
+ */
+const calcularMorosidadContrato = (cuotas, fechaCierre, tasaMoraMensual) => {
+    const tasaDiaria = calcularTasaMoraDiaria(tasaMoraMensual);
+    
+    return cuotas.map(cuota => {
+        // Calcular días de mora
+        const diasMora = calcularDiasMora(
+            cuota.fechaVencimiento || cuota.fechaHasta,
+            cuota.fechaPago,
+            cuota.estado,
+            fechaCierre
+        );
+        
+        // Calcular monto de morosidad diario
+        const montoMorosidad = calcularMontoMorosidadDiario(
+            cuota.monto,
+            diasMora,
+            tasaDiaria,
+            cuota.moraPagada || 0 // Si ya pagó parte de la mora
+        );
+        
+        return {
+            ...cuota,
+            dias_mora_cuota: diasMora,
+            monto_morosidad: montoMorosidad,
+            tasa_mora_diaria: tasaDiaria,
+            fecha_cierre_calculo: fechaCierre
+        };
+    });
+};
+
+// ============================================================
+// COMPONENTE PRINCIPAL Cuota
+// ============================================================
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -26,7 +168,12 @@ import {
   Upload,
   Image as ImageIcon,
   Trash2,
-  FileText
+  FileText,
+  LayoutGrid,
+  List,
+  Settings,
+  Lock,
+  Loader
 } from "lucide-react";
 
 // Componentes personalizados
@@ -34,6 +181,7 @@ import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
 import CuotaAPI from '../services/api_cuota';
+import { uploadToImgBB } from '../services/imgbbService';
 
 const Cuota = () => {
   const navigate = useNavigate();
@@ -50,6 +198,12 @@ const Cuota = () => {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [prestamos, setPrestamos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeView, setActiveView] = useState("all");
+  const [userCuotas, setUserCuotas] = useState([]);
+  const [allCuotas, setAllCuotas] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const [fechaCierre, setFechaCierre] = useState(new Date().toISOString().split('T')[0]);
   
   // Estados para generar cuotas
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -79,51 +233,92 @@ const Cuota = () => {
     { id: 3, text: "Actualización de tasas", time: "3 horas", read: true },
   ]);
 
+  // Función para verificar si una cuota está en su período vigente
+  const isCuotaVigente = (fechaDesde, fechaHasta) => {
+    if (!fechaDesde || !fechaHasta) return false;
+    
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    
+    const desde = new Date(fechaDesde);
+    desde.setHours(0, 0, 0, 0);
+    
+    const hasta = new Date(fechaHasta);
+    hasta.setHours(23, 59, 59, 999);
+    
+    return hoy >= desde && hoy <= hasta;
+  };
+
   // Función para verificar si una cuota está vencida o en mora
-  const getCuotaStatus = (fechaVencimiento, fechaPago, estadoBase) => {
+  const getCuotaStatus = (fechaVencimiento, fechaPago, estadoBase, fechaDesde, fechaHasta) => {
     if (estadoBase === "pagado") return "pagado";
     
     const hoy = new Date();
-    const vencimiento = new Date(fechaVencimiento);
     hoy.setHours(0, 0, 0, 0);
+    
+    // Si la cuota no está en su período vigente y no ha comenzado
+    if (fechaDesde) {
+      const desde = new Date(fechaDesde);
+      desde.setHours(0, 0, 0, 0);
+      
+      if (hoy < desde) {
+        return "proxima";
+      }
+    }
+    
+    const vencimiento = new Date(fechaVencimiento);
     vencimiento.setHours(0, 0, 0, 0);
     
     if (estadoBase === "pendiente") {
+      const diffDays = Math.floor((hoy - vencimiento) / (1000 * 60 * 60 * 24));
+      
       if (hoy > vencimiento) {
-        const diffDays = Math.floor((hoy - vencimiento) / (1000 * 60 * 60 * 24));
-        if (diffDays > 30) {
+        if (diffDays <= 5) {
+          return "en_gracia";
+        } else if (diffDays > 30) {
           return "vencido";
         }
         return "en_mora";
       }
+      
+      if (isCuotaVigente(fechaDesde, fechaHasta)) {
+        return "vigente";
+      }
+      
       return "pendiente";
     }
     
     return estadoBase;
   };
 
-  // Calcular mora (5% del monto de la cuota por mes de retraso)
-  const calcularMora = (fechaVencimiento, montoCuota) => {
-    const hoy = new Date();
-    const vencimiento = new Date(fechaVencimiento);
-    hoy.setHours(0, 0, 0, 0);
-    vencimiento.setHours(0, 0, 0, 0);
-    
-    if (hoy > vencimiento) {
-      const diffMonths = (hoy.getFullYear() - vencimiento.getFullYear()) * 12 + 
-                        (hoy.getMonth() - vencimiento.getMonth());
-      const moraPorcentaje = 0.05 * (diffMonths + 1);
-      return montoCuota * moraPorcentaje;
-    }
-    return 0;
+  // Calcular mora con la nueva función DIARIA (5% mensual = 0.05)
+  const calcularMora = (fechaVencimiento, montoCuota, tasaMoraMensual = 0.05, fechaCierre = null, moraPagada = 0) => {
+    const diasMora = calcularDiasMora(fechaVencimiento, null, 'pendiente', fechaCierre);
+    const tasaDiaria = calcularTasaMoraDiaria(tasaMoraMensual);
+    return calcularMontoMorosidadDiario(montoCuota, diasMora, tasaDiaria, moraPagada);
   };
 
-  // Estadísticas generales
+  // Verificar si se puede pagar una cuota
+  const canPayCuota = (cuota) => {
+    if (cuota.estado === "pagado") return false;
+    
+    const estado = getCuotaStatus(
+      cuota.fechaVencimiento, 
+      cuota.fechaPago, 
+      cuota.estado,
+      cuota.fechaDesde,
+      cuota.fechaHasta
+    );
+    
+    return ["vigente", "pendiente", "en_gracia", "en_mora", "vencido"].includes(estado);
+  };
+
+  // Estadísticas generales con morosidad total
   const stats = [
     {
       id: 1,
-      title: "Total Préstamos Activos",
-      value: prestamos.filter(p => p.estado === "activo").length,
+      title: "Total Préstamos",
+      value: prestamos.length,
       icon: CreditCard,
       color: "blue",
       bgColor: "bg-blue-50",
@@ -131,30 +326,33 @@ const Cuota = () => {
     },
     {
       id: 2,
-      title: "Monto Total Prestado",
-      value: `$${prestamos.reduce((sum, p) => sum + p.montoTotal, 0).toLocaleString()}`,
-      icon: DollarSign,
-      color: "green",
-      bgColor: "bg-green-50",
-      textColor: "text-green-600"
-    },
-    {
-      id: 3,
-      title: "Cuotas por Cobrar",
-      value: `$${prestamos.reduce((sum, p) => sum + p.saldoPendiente, 0).toLocaleString()}`,
+      title: "Cuotas Vigentes",
+      value: allCuotas.filter(c => {
+        const status = getCuotaStatus(c.fechaVencimiento, c.fechaPago, c.estado, c.fechaDesde, c.fechaHasta);
+        return status === "vigente";
+      }).length,
       icon: Clock,
       color: "yellow",
       bgColor: "bg-yellow-50",
       textColor: "text-yellow-600"
     },
     {
+      id: 3,
+      title: "Cuotas Pagadas",
+      value: allCuotas.filter(c => c.estado === "pagado").length,
+      icon: CheckCircle,
+      color: "green",
+      bgColor: "bg-green-50",
+      textColor: "text-green-600"
+    },
+    {
       id: 4,
-      title: "Tasa de Puntualidad",
-      value: "94%",
-      icon: TrendingUp,
-      color: "purple",
-      bgColor: "bg-purple-50",
-      textColor: "text-purple-600"
+      title: "Monto Total en Mora",
+      value: `$${allCuotas.reduce((sum, c) => sum + (c.monto_morosidad || 0), 0).toFixed(2)}`,
+      icon: AlertCircle,
+      color: "red",
+      bgColor: "bg-red-50",
+      textColor: "text-red-600"
     }
   ];
 
@@ -162,7 +360,9 @@ const Cuota = () => {
   const filteredPrestamos = prestamos.filter(prestamo => {
     const matchesSearch = prestamo.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          prestamo.cedula.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = selectedFilter === "all" || prestamo.estado === selectedFilter;
+    const matchesFilter = selectedFilter === "all" || 
+                         (selectedFilter === "sin_cuotas" && prestamo.cuotas.length === 0) ||
+                         prestamo.estado === selectedFilter;
     return matchesSearch && matchesFilter;
   });
 
@@ -181,62 +381,73 @@ const Cuota = () => {
     navigate('/login');
   };
 
-  // Registrar pago con comprobante
-  const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
-    const { montoPagado, comprobante } = pagoData;
+  // Registrar pago con comprobante e ImgBB
+  // Registrar pago con comprobante e ImgBB - VERSIÓN ADAPTADA
+// En Cuota.js, actualizar handleRegisterPayment
+
+const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
+  try {
+    const { montoPagado, comprobante, metodoPago, referencia, mora, diasMora } = pagoData;
+    const fecha_pagada = new Date().toISOString().split('T')[0];
     
-    setPrestamos(prestamos.map(prestamo => {
-      if (prestamo.id === prestamoId) {
-        const updatedCuotas = prestamo.cuotas.map(cuota => {
-          if (cuota.numero === cuotaNumero && (cuota.estado === "pendiente" || cuota.estado === "en_mora")) {
-            const fechaPago = new Date().toISOString().split('T')[0];
-            const mora = calcularMora(cuota.fechaVencimiento, cuota.monto);
-            
-            return { 
-              ...cuota, 
-              estado: "pagado", 
-              fechaPago: fechaPago,
-              comprobante: comprobante.name || comprobante,
-              montoPagado: montoPagado,
-              moraPagada: mora
-            };
-          }
-          return cuota;
-        });
-        
-        const pagadas = updatedCuotas.filter(c => c.estado === "pagado").length;
-        const montoPagadoTotal = updatedCuotas.reduce((sum, c) => sum + (c.estado === "pagado" ? c.monto : 0), 0);
-        const saldoPendiente = prestamo.montoTotal - montoPagadoTotal;
-        
-        const fechaCierre = saldoPendiente === 0 ? new Date().toISOString().split('T')[0] : null;
-        
-        return {
-          ...prestamo,
-          cuotas: updatedCuotas,
-          cuotasPagadas: pagadas,
-          cuotasPendientes: prestamo.plazo - pagadas,
-          montoPagado: montoPagadoTotal,
-          saldoPendiente: saldoPendiente,
-          estado: saldoPendiente === 0 ? "pagado" : "activo",
-          fechaCierre: fechaCierre
-        };
+    const cuotaEncontrada = allCuotas.find(
+      c => c.contratoId === prestamoId && c.numero === cuotaNumero
+    );
+    
+    if (!cuotaEncontrada) {
+      throw new Error('Cuota no encontrada');
+    }
+    
+    // Subir comprobante a ImgBB si es un archivo
+    let comprobanteUrl = comprobante;
+    if (comprobante instanceof File) {
+      try {
+        const uploadResult = await uploadToImgBB(comprobante);
+        comprobanteUrl = uploadResult.url;
+      } catch (uploadError) {
+        console.error('Error al subir comprobante:', uploadError);
+        throw new Error('Error al subir el comprobante de pago');
       }
-      return prestamo;
-    }));
+    }
     
-    setShowPaymentModal(false);
-    setSelectedCuota(null);
+    const response = await CuotaAPI.registrarPago(cuotaEncontrada.id, {
+      fecha_pagada: fecha_pagada,
+      comprobante: comprobanteUrl,
+      monto_pagado: montoPagado,
+      metodo_pago: metodoPago,
+      referencia: referencia,
+      monto_morosidad: mora || 0,
+      dias_mora_cuota: diasMora || 0
+    });
     
-    setNotifications([
-      {
-        id: Date.now(),
-        text: `Pago de cuota ${cuotaNumero} registrado exitosamente`,
-        time: "Justo ahora",
-        read: false
-      },
-      ...notifications
-    ]);
-  };
+    if (response.success) {
+      // Mensaje con información de cuotas recalculadas
+      const mensajeExito = response.data.cuotas_gracia_actualizadas?.length > 0
+        ? `✅ Pago registrado. Se recalcularon ${response.data.cuotas_gracia_actualizadas.length} cuotas de gracia.`
+        : `✅ Pago de cuota ${cuotaNumero} registrado exitosamente.`;
+      
+      // Recargar todos los datos para reflejar los cambios
+      await cargarContratos();
+      
+      setShowPaymentModal(false);
+      setSelectedCuota(null);
+      
+      // Mostrar notificación
+      setNotifications([
+        {
+          id: Date.now(),
+          text: mensajeExito,
+          time: "Justo ahora",
+          read: false
+        },
+        ...notifications
+      ]);
+    }
+  } catch (error) {
+    console.error('Error al registrar pago:', error);
+    alert('Error al registrar el pago: ' + (error.message || 'Error desconocido'));
+  }
+};
 
   // Ver comprobante de pago
   const handleViewReceipt = (prestamoId, cuota) => {
@@ -248,15 +459,15 @@ const Cuota = () => {
     setShowPaymentReceiptModal(true);
   };
 
-  // Función para generar cuotas para un préstamo
+  // Función para generar cuotas
   const handleGenerateCuotas = (prestamoId) => {
     const prestamo = prestamos.find(p => p.id === prestamoId);
     if (prestamo) {
       const cuotasRestantes = prestamo.plazo - prestamo.cuotas.length;
-      const montoPorCuota = prestamo.montoCuota;
+      const montoPorCuota = prestamo.montoCuota || (prestamo.montoTotal / prestamo.plazo);
       
       setGenerationConfig({
-        cantidadCuotas: cuotasRestantes || 1,
+        cantidadCuotas: cuotasRestantes > 0 ? cuotasRestantes : prestamo.plazo,
         montoPorCuota: montoPorCuota,
         frecuencia: "mensual",
         fechaPrimeraCuota: new Date().toISOString().split('T')[0],
@@ -268,7 +479,7 @@ const Cuota = () => {
     }
   };
 
-  // Función para confirmar la generación de cuotas
+  // Confirmar generación de cuotas
   const confirmGenerateCuotas = async (configuracion) => {
     if (!selectedPrestamoForGeneration) return;
     
@@ -281,14 +492,12 @@ const Cuota = () => {
       montoGracia: configuracion.montoGracia || 0
     };
     
-    console.log('Enviando configuración al backend:', config);
-    
     try {
       const response = await CuotaAPI.generarCuotasManual(selectedPrestamoForGeneration.id, config);
       
       if (response.success) {
         await cargarContratos();
-        alert(response.message);
+        alert(response.message || 'Cuotas generadas exitosamente');
         setShowGenerateModal(false);
         setSelectedPrestamoForGeneration(null);
       }
@@ -298,9 +507,9 @@ const Cuota = () => {
     }
   };
 
-  // Obtener estado de cuota con color y texto
-  const getEstadoConfig = (cuota, prestamoId) => {
-    const status = getCuotaStatus(cuota.fechaVencimiento, cuota.fechaPago, cuota.estado);
+  // Obtener estado de cuota con color, texto e indicador
+  const getEstadoConfig = (cuota) => {
+    const status = getCuotaStatus(cuota.fechaVencimiento, cuota.fechaPago, cuota.estado, cuota.fechaDesde, cuota.fechaHasta);
     
     switch(status) {
       case "pagado":
@@ -310,6 +519,22 @@ const Cuota = () => {
           bg: "bg-green-100", 
           icon: CheckCircle,
           border: "border-green-200"
+        };
+      case "vigente":
+        return { 
+          text: "Vigente", 
+          color: "text-blue-600", 
+          bg: "bg-blue-100", 
+          icon: CreditCard,
+          border: "border-blue-200"
+        };
+      case "en_gracia":
+        return { 
+          text: "En Gracia", 
+          color: "text-teal-600", 
+          bg: "bg-teal-100", 
+          icon: Clock,
+          border: "border-teal-200"
         };
       case "vencido":
         return { 
@@ -327,6 +552,14 @@ const Cuota = () => {
           icon: AlertCircle,
           border: "border-orange-200"
         };
+      case "proxima":
+        return { 
+          text: "Próxima", 
+          color: "text-gray-600", 
+          bg: "bg-gray-100", 
+          icon: Lock,
+          border: "border-gray-200"
+        };
       default:
         return { 
           text: "Pendiente", 
@@ -341,49 +574,146 @@ const Cuota = () => {
   // Cargar datos al montar el componente
   useEffect(() => {
     cargarContratos();
+    
+    // Actualizar mora diariamente
+    const interval = setInterval(() => {
+      const nuevaFecha = new Date().toISOString().split('T')[0];
+      if (nuevaFecha !== fechaCierre) {
+        setFechaCierre(nuevaFecha);
+        actualizarMorosidadDiaria();
+      }
+    }, 60000); // Revisar cada minuto
+    
+    return () => clearInterval(interval);
   }, []);
+
+  // Función para actualizar la morosidad diariamente
+  const actualizarMorosidadDiaria = () => {
+    setPrestamos(prevPrestamos => {
+      return prevPrestamos.map(prestamo => {
+        const tasaMoraMensual = prestamo.tasaInteresMora || 0.05;
+        const fechaActual = new Date().toISOString().split('T')[0];
+        
+        const cuotasActualizadas = prestamo.cuotas.map(cuota => {
+          // Solo recalcular si no está pagada
+          if (cuota.estado !== 'pagado') {
+            const diasMora = calcularDiasMora(
+              cuota.fechaVencimiento,
+              cuota.fechaPago,
+              cuota.estado,
+              fechaActual
+            );
+            
+            const tasaDiaria = calcularTasaMoraDiaria(tasaMoraMensual);
+            const montoMorosidad = calcularMontoMorosidadDiario(
+              cuota.monto,
+              diasMora,
+              tasaDiaria,
+              cuota.moraPagada || 0
+            );
+            
+            return {
+              ...cuota,
+              dias_mora_cuota: diasMora,
+              monto_morosidad: montoMorosidad,
+              ultima_actualizacion: fechaActual
+            };
+          }
+          return cuota;
+        });
+        
+        const totalMorosidad = cuotasActualizadas.reduce((sum, c) => sum + (c.monto_morosidad || 0), 0);
+        
+        return {
+          ...prestamo,
+          cuotas: cuotasActualizadas,
+          totalMorosidad: totalMorosidad,
+          ultima_actualizacion_mora: fechaActual
+        };
+      });
+    });
+  };
 
   const cargarContratos = async () => {
     try {
       setLoading(true);
       const response = await CuotaAPI.getAll();
       if (response.success) {
-        const contratosFormateados = response.data.map(contrato => ({
-          id: contrato.id_contrato,
-          cliente: `${contrato.aprobacion?.cliente_nombre || 'Cliente'}`,
-          cedula: contrato.aprobacion?.cliente_cedula || '',
-          telefono: contrato.aprobacion?.cliente_telefono || '',
-          email: contrato.aprobacion?.cliente_email || '',
-          direccion: contrato.aprobacion?.cliente_direccion || '',
-          montoTotal: parseFloat(contrato.devolvimiento) || 0,
-          montoPagado: 0,
-          saldoPendiente: parseFloat(contrato.monto_moneda) || 0,
-          tasaInteres: parseFloat(contrato.interes) || 0,
-          plazo: contrato.numero_cuotas || 0,
-          cuotasPagadas: 0,
-          numero_gracias: contrato.numero_gracias || 0,
-          devolvimiento: contrato.devolvimiento,
-          monto_moneda: contrato.monto_moneda, 
-          cuotasPendientes: contrato.numero_cuotas || 0,
-          estado: contrato.estatus === 'En espera de cuotas' ? 'pendiente' : 
-                  contrato.estatus === 'Activo' ? 'activo' : 'pagado',
-          fechaInicio: contrato.inicio ? contrato.inicio.split('T')[0] : '',
-          fechaCierre: contrato.cierre ? contrato.cierre.split('T')[0] : null,
-          montoCuota: contrato.cuotas && contrato.cuotas.length > 0 ? 
-                      parseFloat(contrato.cuotas[0].monto_cuota) : 0,
-          cuotas: (contrato.cuotas || []).map(cuota => ({
-            id: cuota.id_cuota,
-            numero: cuota.numero_cuota,
-            fechaVencimiento: cuota.fecha_vencimiento ? cuota.fecha_vencimiento.split('T')[0] : '',
-            monto: parseFloat(cuota.monto_cuota) || 0,
-            estado: cuota.estado_cuota,
-            fechaPago: cuota.fecha_pago ? cuota.fecha_pago.split('T')[0] : null,
-            comprobante: cuota.comprobante_pago,
-            montoPagado: parseFloat(cuota.monto_pagado) || 0,
-            moraPagada: parseFloat(cuota.monto_mora) || 0
-          }))
-        }));
+        const fechaActual = new Date().toISOString().split('T')[0];
         
+        const contratosFormateados = response.data.map(contrato => {
+          const tasaMoraMensual = parseFloat(contrato.interes_mora) || 0.05;
+          const tasaDiaria = calcularTasaMoraDiaria(tasaMoraMensual);
+          
+          const cuotasConMora = (contrato.cuotas || []).map(cuota => {
+            const fechaVencimiento = cuota.fecha_hasta ? cuota.fecha_hasta.split('T')[0] : 
+                                    cuota.fecha_vencimiento ? cuota.fecha_vencimiento.split('T')[0] : '';
+            
+            const diasMora = calcularDiasMora(
+              fechaVencimiento,
+              cuota.fecha_pago ? cuota.fecha_pago.split('T')[0] : null,
+              cuota.estado_cuota,
+              fechaActual
+            );
+            
+            const montoMorosidad = calcularMontoMorosidadDiario(
+              parseFloat(cuota.monto_cuota) || 0,
+              diasMora,
+              tasaDiaria,
+              parseFloat(cuota.monto_mora) || 0
+            );
+            
+            return {
+              id: cuota.id_cuota,
+              numero: cuota.num_cuota,
+              fechaDesde: cuota.fecha_desde ? cuota.fecha_desde.split('T')[0] : '',
+              fechaHasta: cuota.fecha_hasta ? cuota.fecha_hasta.split('T')[0] : '',
+              fechaVencimiento: fechaVencimiento,
+              monto: parseFloat(cuota.monto_cuota) || 0,
+              estado: cuota.estado_cuota,
+              fechaPago: cuota.fecha_pago ? cuota.fecha_pago.split('T')[0] : null,
+              comprobante: cuota.comprobante_pago,
+              montoPagado: parseFloat(cuota.monto_pagado) || 0,
+              moraPagada: parseFloat(cuota.monto_mora) || 0,
+              dias_mora_cuota: diasMora,
+              monto_morosidad: montoMorosidad,
+              tasa_mora_diaria: tasaDiaria,
+              metodoPago: cuota.metodo_pago,
+              referencia: cuota.referencia_pago,
+              // ✅ AGREGAR TIPO DE CUOTA
+              tipo_cuota: cuota.tipo_cuota || cuota.tipo || 'Obligatoria'
+            };
+          });
+          
+          return {
+            id: contrato.id_contrato,
+            cliente: `${contrato.aprobacion?.cliente_nombre || 'Cliente'}`,
+            cedula: contrato.aprobacion?.cliente_cedula || '',
+            telefono: contrato.aprobacion?.cliente_telefono || '',
+            email: contrato.aprobacion?.cliente_email || '',
+            direccion: contrato.aprobacion?.cliente_direccion || '',
+            montoTotal: parseFloat(contrato.devolvimiento) || 0,
+            montoPagado: 0,
+            saldoPendiente: parseFloat(contrato.monto_moneda) || 0,
+            tasaInteres: parseFloat(contrato.interes) || 0,
+            tasaInteresMora: tasaMoraMensual,
+            plazo: contrato.numero_cuotas || 0,
+            cuotasPagadas: 0,
+            numero_gracias: contrato.numero_gracias || 0,
+            devolvimiento: contrato.devolvimiento,
+            monto_moneda: contrato.monto_moneda,
+            cuotasPendientes: contrato.numero_cuotas || 0,
+            estado: contrato.estatus === 'En espera de cuotas' ? 'pendiente' : 
+                    contrato.estatus === 'Activo' ? 'activo' : 'pagado',
+            fechaInicio: contrato.inicio ? contrato.inicio.split('T')[0] : '',
+            fechaCierre: contrato.cierre ? contrato.cierre.split('T')[0] : null,
+            montoCuota: cuotasConMora.length > 0 ? cuotasConMora[0].monto : 0,
+            cuotas: cuotasConMora,
+            totalMorosidad: cuotasConMora.reduce((sum, c) => sum + (c.monto_morosidad || 0), 0)
+          };
+        });
+        
+        // Calcular totales
         contratosFormateados.forEach(contrato => {
           const pagadas = contrato.cuotas.filter(c => c.estado === 'pagado');
           contrato.cuotasPagadas = pagadas.length;
@@ -393,6 +723,7 @@ const Cuota = () => {
         });
         
         setPrestamos(contratosFormateados);
+        prepararDatosCuotas(contratosFormateados);
       }
     } catch (error) {
       console.error('Error al cargar contratos:', error);
@@ -401,7 +732,44 @@ const Cuota = () => {
     }
   };
 
-  // Cerrar menús al hacer clic fuera
+  // Preparar datos para las tablas de cuotas
+  const prepararDatosCuotas = (contratos) => {
+    const todasLasCuotas = [];
+    const misCuotas = [];
+    
+    const currentUser = JSON.parse(localStorage.getItem('usuario') || '{}');
+    const userId = currentUser.id || currentUser.id_usuario;
+    
+    contratos.forEach(contrato => {
+      contrato.cuotas.forEach(cuota => {
+        const cuotaConInfo = {
+          ...cuota,
+          contratoId: contrato.id,
+          cliente: contrato.cliente,
+          cedula: contrato.cedula,
+          montoTotal: contrato.montoTotal,
+          plazo: contrato.plazo,
+          estadoContrato: contrato.estado,
+          totalMorosidad: contrato.totalMorosidad
+        };
+        
+        todasLasCuotas.push(cuotaConInfo);
+        
+        if (currentUser.role === "Administrador" || currentUser.role === "admin") {
+          misCuotas.push(cuotaConInfo);
+        } else if (cuota.usuario_asignado === userId) {
+          misCuotas.push(cuotaConInfo);
+        } else if (cuota.estado === "pendiente" || cuota.estado === "en_mora") {
+          misCuotas.push(cuotaConInfo);
+        }
+      });
+    });
+    
+    setAllCuotas(todasLasCuotas);
+    setUserCuotas(misCuotas);
+  };
+
+  // Cerrar menús
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (!e.target.closest('.notifications-menu') && !e.target.closest('.user-menu')) {
@@ -414,6 +782,32 @@ const Cuota = () => {
   }, []);
 
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  // Paginación
+  const totalPagesMine = Math.ceil(userCuotas.filter(cuota => {
+    const matchesSearch = cuota.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         cuota.cedula.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         cuota.contratoId.toString().includes(searchTerm);
+    const cuotaStatus = getCuotaStatus(cuota.fechaVencimiento, cuota.fechaPago, cuota.estado, cuota.fechaDesde, cuota.fechaHasta);
+    const matchesFilter = selectedFilter === "all" || cuotaStatus === selectedFilter;
+    return matchesSearch && matchesFilter;
+  }).length / itemsPerPage);
+  
+  const filteredUserCuotas = userCuotas.filter(cuota => {
+    const matchesSearch = cuota.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         cuota.cedula.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         cuota.contratoId.toString().includes(searchTerm);
+    const cuotaStatus = getCuotaStatus(cuota.fechaVencimiento, cuota.fechaPago, cuota.estado, cuota.fechaDesde, cuota.fechaHasta);
+    const matchesFilter = selectedFilter === "all" || cuotaStatus === selectedFilter;
+    return matchesSearch && matchesFilter;
+  });
+  
+  const startIndexMine = (currentPage - 1) * itemsPerPage;
+  const paginatedUserCuotas = filteredUserCuotas.slice(startIndexMine, startIndexMine + itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedFilter, activeView]);
 
   return (
     <div className={`min-h-screen flex flex-col ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
@@ -452,12 +846,67 @@ const Cuota = () => {
               <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 Control de pagos, seguimiento de morosidad y gestión de cartera
               </p>
+              <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                Última actualización de mora: {fechaCierre}
+              </p>
+            </div>
+
+            {/* Tabs */}
+            <div className="mb-6">
+              <div className={`flex gap-2 p-1 rounded-lg shadow-sm w-fit ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                <button
+                  onClick={() => {
+                    setActiveView("all");
+                    setSelectedFilter("all");
+                    setSearchTerm("");
+                    setCurrentPage(1);
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                    activeView === "all"
+                      ? "bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white shadow-md"
+                      : `${darkMode ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'}`
+                  }`}
+                >
+                  <List size={16} />
+                  Todas las Cuotas
+                  <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${
+                    activeView === "all" 
+                      ? "bg-white/20" 
+                      : "bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
+                  }`}>
+                    {prestamos.length}
+                  </span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveView("mine");
+                    setSelectedFilter("all");
+                    setSearchTerm("");
+                    setCurrentPage(1);
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                    activeView === "mine"
+                      ? "bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white shadow-md"
+                      : `${darkMode ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'}`
+                  }`}
+                >
+                  <Wallet size={16} />
+                  Mis Cuotas
+                  <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${
+                    activeView === "mine" 
+                      ? "bg-white/20" 
+                      : "bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
+                  }`}>
+                    {userCuotas.length}
+                  </span>
+                </button>
+              </div>
             </div>
 
             {/* Estadísticas */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {stats.map((stat) => (
-                <div key={stat.id} className={`p-6 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+                <div key={stat.id} className={`p-6 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg hover:shadow-xl transition-shadow`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className={`p-3 rounded-lg ${stat.bgColor}`}>
                       <stat.icon className={stat.textColor} size={24} />
@@ -474,15 +923,15 @@ const Cuota = () => {
             </div>
 
             {/* Filtros y búsqueda */}
-            <div className="mb-8 flex flex-col sm:flex-row gap-4 items-center justify-between">
+            <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
               <div className="relative w-full sm:w-96">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
                   type="text"
-                  placeholder="Buscar por cliente o cédula..."
+                  placeholder={activeView === "all" ? "Buscar por cliente o cédula..." : "Buscar por cliente, cédula o contrato..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 rounded-lg border ${
+                  className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${
                     darkMode 
                       ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400' 
                       : 'bg-white border-gray-200 placeholder-gray-500'
@@ -494,219 +943,570 @@ const Cuota = () => {
                 <select
                   value={selectedFilter}
                   onChange={(e) => setSelectedFilter(e.target.value)}
-                  className={`px-4 py-2 rounded-lg border ${
+                  className={`px-4 py-2.5 rounded-lg border ${
                     darkMode 
                       ? 'bg-gray-800 border-gray-700 text-white' 
                       : 'bg-white border-gray-200 text-gray-700'
                   } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
                 >
-                  <option value="all">Todos los préstamos</option>
-                  <option value="activo">Activos</option>
-                  <option value="pagado">Pagados</option>
+                  {activeView === "all" ? (
+                    <>
+                      <option value="all">Todos los préstamos</option>
+                      <option value="activo">Activos</option>
+                      <option value="pagado">Pagados</option>
+                      <option value="pendiente">Pendientes</option>
+                      <option value="sin_cuotas">Sin cuotas generadas</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="all">Todos los estados</option>
+                      <option value="vigente">Vigentes</option>
+                      <option value="proxima">Próximas</option>
+                      <option value="pagado">Pagadas</option>
+                      <option value="en_mora">En Mora</option>
+                      <option value="vencido">Vencidas</option>
+                      <option value="obligatoria">Tipo Obligatoria</option>
+                      <option value="gracias">Tipo Gracias</option>
+                    </>
+                  )}
                 </select>
                 
-                <button className="px-4 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2">
-                  <Plus size={20} />
-                  Nuevo Préstamo
+                <button 
+                  onClick={() => {
+                    actualizarMorosidadDiaria();
+                    alert('Morosidad actualizada correctamente');
+                  }}
+                  className="px-4 py-2.5 bg-gradient-to-r from-[#E9C46A] to-[#F4A261] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
+                >
+                  <TrendingUp size={20} />
+                  Actualizar Mora
+                </button>
+                
+                <button className="px-4 py-2.5 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2">
+                  <Download size={20} />
+                  Exportar
                 </button>
               </div>
             </div>
 
-            {/* Lista de préstamos */}
-            <div className="space-y-6">
-              {filteredPrestamos.map((prestamo) => (
-                <div key={prestamo.id} className={`rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg overflow-hidden`}>
-                  {/* Cabecera del préstamo */}
-                  <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                      <div className="flex items-start gap-4">
-                        <div className={`p-3 rounded-lg ${prestamo.estado === 'activo' ? 'bg-green-100' : 'bg-gray-100'}`}>
-                          <Wallet className={prestamo.estado === 'activo' ? 'text-green-600' : 'text-gray-600'} size={24} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                              {prestamo.cliente}
-                            </h3>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              prestamo.estado === 'activo' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+            {/* VISTA: TODAS LAS CUOTAS */}
+            {activeView === "all" && (
+              <div className="space-y-6">
+                {loading ? (
+                  <div className="flex justify-center items-center py-12">
+                    <Loader className="animate-spin text-[#2A9D8F]" size={48} />
+                  </div>
+                ) : filteredPrestamos.length === 0 ? (
+                  <div className={`rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg p-12 text-center`}>
+                    <CreditCard size={64} className="mx-auto text-gray-400 mb-4" />
+                    <h3 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      No se encontraron préstamos
+                    </h3>
+                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      No hay préstamos que coincidan con los filtros seleccionados
+                    </p>
+                  </div>
+                ) : (
+                  filteredPrestamos.map((prestamo) => (
+                    <div key={prestamo.id} className={`rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg overflow-hidden`}>
+                      {/* Cabecera del préstamo */}
+                      <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                          <div className="flex items-start gap-4">
+                            <div className={`p-3 rounded-lg ${
+                              prestamo.estado === 'activo' ? 'bg-green-100' : 
+                              prestamo.estado === 'pagado' ? 'bg-blue-100' : 'bg-gray-100'
                             }`}>
-                              {prestamo.estado.toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                            <div className="flex items-center gap-2">
-                              <User size={14} className="text-gray-400" />
-                              <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Cédula: {prestamo.cedula}</span>
+                              <Wallet className={
+                                prestamo.estado === 'activo' ? 'text-green-600' : 
+                                prestamo.estado === 'pagado' ? 'text-blue-600' : 'text-gray-600'
+                              } size={24} />
                             </div>
-                            <div className="flex items-center gap-2">
-                              <PhoneCall size={14} className="text-gray-400" />
-                              <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>{prestamo.telefono}</span>
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                                  {prestamo.cliente}
+                                </h3>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  prestamo.estado === 'activo' ? 'bg-green-100 text-green-700' : 
+                                  prestamo.estado === 'pagado' ? 'bg-blue-100 text-blue-700' :
+                                  'bg-gray-100 text-gray-700'
+                                }`}>
+                                  {prestamo.estado === 'activo' ? 'ACTIVO' : 
+                                   prestamo.estado === 'pagado' ? 'PAGADO' : 'PENDIENTE'}
+                                </span>
+                                {prestamo.totalMorosidad > 0 && (
+                                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                                    Mora: ${prestamo.totalMorosidad.toFixed(2)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                <div className="flex items-center gap-2">
+                                  <User size={14} className="text-gray-400" />
+                                  <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Cédula: {prestamo.cedula}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <PhoneCall size={14} className="text-gray-400" />
+                                  <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>{prestamo.telefono}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Calendar size={14} className="text-gray-400" />
+                                  <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Inicio: {prestamo.fechaInicio}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <FileText size={14} className="text-gray-400" />
+                                  <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                                    Contrato #{prestamo.id}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Mail size={14} className="text-gray-400" />
-                              <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>{prestamo.email}</span>
+                          </div>
+                          
+                          <div className="flex flex-col gap-3">
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                              <div>
+                                <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Monto Total</p>
+                                <p className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                                  ${prestamo.montoTotal.toLocaleString()}
+                                </p>
+                              </div>
+                              <div>
+                                <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Saldo</p>
+                                <p className={`text-lg font-bold ${prestamo.saldoPendiente > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                                  ${prestamo.saldoPendiente.toLocaleString()}
+                                </p>
+                              </div>
+                              <div>
+                                <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Mora Total</p>
+                                <p className={`text-lg font-bold ${prestamo.totalMorosidad > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                  ${prestamo.totalMorosidad?.toFixed(2) || '0.00'}
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <MapPin size={14} className="text-gray-400" />
-                              <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>{prestamo.direccion}</span>
+                            
+                            <div className="flex justify-center gap-2 mt-2">
+                              <button
+                                onClick={() => handleGenerateCuotas(prestamo.id)}
+                                className="px-6 py-2.5 bg-gradient-to-r from-[#E9C46A] to-[#F4A261] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 font-medium"
+                              >
+                                <Settings size={18} />
+                                Generar Cuotas
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const moraTotal = prestamo.cuotas.reduce((sum, c) => sum + (c.monto_morosidad || 0), 0);
+                                  alert(`Mora total del contrato: $${moraTotal.toFixed(2)}\nCuotas en mora: ${prestamo.cuotas.filter(c => c.monto_morosidad > 0).length}`);
+                                }}
+                                className="px-4 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all flex items-center gap-2"
+                              >
+                                <AlertCircle size={18} />
+                                Ver Mora
+                              </button>
                             </div>
-                          </div>
-                          <div className="flex gap-4 mt-2 text-xs">
-                            <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>
-                              📅 Inicio: {prestamo.fechaInicio}
-                            </span>
-                            {prestamo.fechaCierre && (
-                              <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>
-                                🔒 Cierre: {prestamo.fechaCierre}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex flex-col gap-3">
-                        <div className="grid grid-cols-3 gap-4 text-center">
-                          <div>
-                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Monto Total</p>
-                            <p className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                              ${prestamo.montoTotal.toLocaleString()}
-                            </p>
-                          </div>
-                          <div>
-                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Saldo Pendiente</p>
-                            <p className={`text-lg font-bold ${prestamo.saldoPendiente > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-                              ${prestamo.saldoPendiente.toLocaleString()}
-                            </p>
-                          </div>
-                          <div>
-                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Progreso</p>
-                            <p className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                              {Math.round((prestamo.montoPagado / prestamo.montoTotal) * 100)}%
-                            </p>
                           </div>
                         </div>
                         
-                        {/* Botón Generar Cuotas */}
-                        <div className="flex justify-center mt-2">
-                          <button
-                            onClick={() => handleGenerateCuotas(prestamo.id)}
-                            className="px-4 py-2 bg-gradient-to-r from-[#E9C46A] to-[#F4A261] text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
-                          >
-                            <Calendar size={18} />
-                            Generar Cuotas
-                          </button>
+                        {/* Barra de progreso */}
+                        <div className="mt-4">
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Progreso de pago</span>
+                            <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                              {prestamo.cuotasPagadas} de {prestamo.plazo} cuotas
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2.5">
+                            <div 
+                              className="bg-gradient-to-r from-[#264653] to-[#2A9D8F] h-2.5 rounded-full transition-all duration-500"
+                              style={{ width: `${prestamo.plazo > 0 ? (prestamo.cuotasPagadas / prestamo.plazo) * 100 : 0}%` }}
+                            />
+                          </div>
                         </div>
                       </div>
+
+                      {/* Tabla de cuotas del préstamo */}
+                      {prestamo.cuotas.length > 0 ? (
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead className={darkMode ? 'bg-gray-700' : 'bg-gray-50'}>
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">N°</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Tipo</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Período Desde</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Período Hasta</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider">Monto</th>
+                                <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Días Mora</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider">Monto Mora</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider">Total</th>
+                                <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Estado</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Fecha Pago</th>
+                                <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Acciones</th>
+                              </tr>
+                            </thead>
+                            <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                              {prestamo.cuotas.map((cuota) => {
+                                const estadoConfig = getEstadoConfig(cuota);
+                                const mora = cuota.monto_morosidad || 0;
+                                const totalPagar = cuota.monto + mora;
+                                const Icon = estadoConfig.icon;
+                                const puedePagar = canPayCuota(cuota);
+                                
+                                return (
+                                  <tr key={cuota.numero} className={`${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}>
+                                    <td className="px-4 py-3 text-sm font-medium">{cuota.numero}</td>
+                                    <td className="px-4 py-3 text-sm">
+                                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                        cuota.tipo_cuota === 'Obligatoria' 
+                                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' 
+                                          : cuota.tipo_cuota === 'Gracias' 
+                                          ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                      }`}>
+                                        {cuota.tipo_cuota || 'Obligatoria'}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm">
+                                      <div className="flex items-center gap-1">
+                                        <Calendar size={14} className="text-gray-400" />
+                                        {cuota.fechaDesde || '-'}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm">
+                                      <div className="flex items-center gap-1">
+                                        <Calendar size={14} className="text-gray-400" />
+                                        {cuota.fechaHasta || cuota.fechaVencimiento || '-'}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-right">${cuota.monto.toLocaleString()}</td>
+                                    <td className="px-4 py-3 text-sm text-center">
+                                      {cuota.dias_mora_cuota > 0 ? (
+                                        <span className="text-red-600 font-medium">{cuota.dias_mora_cuota} días</span>
+                                      ) : (
+                                        <span className="text-gray-400">0</span>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-right">
+                                      {mora > 0 ? (
+                                        <span className="text-red-600 font-medium">${mora.toFixed(2)}</span>
+                                      ) : (
+                                        <span className="text-gray-400">$0.00</span>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-right font-medium">
+                                      ${totalPagar.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${estadoConfig.bg} ${estadoConfig.color}`}>
+                                        <Icon size={12} />
+                                        {estadoConfig.text}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm">{cuota.fechaPago || '-'}</td>
+                                    <td className="px-4 py-3">
+                                      <div className="flex items-center justify-center gap-1">
+                                        {puedePagar ? (
+                                          <button
+                                            onClick={() => {
+                                              setSelectedCuota({ 
+                                                prestamoId: prestamo.id, 
+                                                cuotaNumero: cuota.numero, 
+                                                monto: cuota.monto, 
+                                                mora: mora,
+                                                fechaVencimiento: cuota.fechaVencimiento,
+                                                fechaDesde: cuota.fechaDesde,
+                                                fechaHasta: cuota.fechaHasta,
+                                                diasMora: cuota.dias_mora_cuota,
+                                                tipo_cuota: cuota.tipo_cuota
+                                              });
+                                              setShowPaymentModal(true);
+                                            }}
+                                            className="px-3 py-1.5 bg-[#2A9D8F] text-white rounded-lg text-xs hover:bg-[#264653] transition-colors flex items-center gap-1"
+                                          >
+                                            <Receipt size={14} />
+                                            Pagar
+                                          </button>
+                                        ) : cuota.estado !== "pagado" ? (
+                                          <span className="px-3 py-1.5 bg-gray-200 text-gray-500 rounded-lg text-xs flex items-center gap-1 cursor-not-allowed">
+                                            <Lock size={14} />
+                                            Bloqueado
+                                          </span>
+                                        ) : null}
+                                        {cuota.estado === "pagado" && (
+                                          <button
+                                            onClick={() => handleViewReceipt(prestamo.id, cuota)}
+                                            className="px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-xs hover:bg-gray-100 transition-colors flex items-center gap-1"
+                                          >
+                                            <Eye size={14} />
+                                            Ver
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="p-8 text-center">
+                          <Settings size={48} className="mx-auto text-gray-400 mb-3" />
+                          <p className={`text-sm mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            No se han generado cuotas para este préstamo
+                          </p>
+                          <button
+                            onClick={() => handleGenerateCuotas(prestamo.id)}
+                            className="px-5 py-2.5 bg-gradient-to-r from-[#E9C46A] to-[#F4A261] text-white rounded-lg hover:shadow-lg transition-all inline-flex items-center gap-2 font-medium"
+                          >
+                            <Plus size={18} />
+                            Generar Cuotas Ahora
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    
-                    {/* Barra de progreso */}
-                    <div className="mt-4">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Progreso de pago</span>
-                        <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                          {prestamo.cuotasPagadas} de {prestamo.plazo} cuotas
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-gradient-to-r from-[#264653] to-[#2A9D8F] h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${(prestamo.cuotasPagadas / prestamo.plazo) * 100}%` }}
-                        />
-                      </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* VISTA: MIS CUOTAS */}
+            {activeView === "mine" && (
+              <div className={`rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg overflow-hidden`}>
+                <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                        Mis Cuotas Asignadas
+                      </h2>
+                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Cuotas que tienes asignadas para gestión y cobro
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className={`px-3 py-1 rounded-full text-sm ${
+                        darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        Mora Total: ${allCuotas.reduce((sum, c) => sum + (c.monto_morosidad || 0), 0).toFixed(2)}
+                      </span>
                     </div>
                   </div>
-
-                  {/* Tabla de cuotas */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className={darkMode ? 'bg-gray-700' : 'bg-gray-50'}>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className={darkMode ? 'bg-gray-700' : 'bg-gray-50'}>
+                      <tr>
+                        <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Cuota</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Tipo</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Cliente</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Período</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider">Monto</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Días Mora</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider">Monto Mora</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider">Total</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Estado</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Fecha Pago</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                      {loading ? (
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">N°</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Fecha Vencimiento</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Monto</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Mora</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Monto Total</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Estado</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Fecha Pago</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Comprobante</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Acciones</th>
+                          <td colSpan={11} className="px-4 py-12 text-center">
+                            <div className="flex flex-col items-center gap-3">
+                              <Loader className="animate-spin text-[#2A9D8F]" size={40} />
+                              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                Cargando cuotas...
+                              </p>
+                            </div>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
-                        {prestamo.cuotas.map((cuota) => {
-                          const estadoConfig = getEstadoConfig(cuota, prestamo.id);
-                          const mora = (cuota.estado !== "pagado") ? calcularMora(cuota.fechaVencimiento, cuota.monto) : 0;
+                      ) : paginatedUserCuotas.length === 0 ? (
+                        <tr>
+                          <td colSpan={11} className="px-4 py-12 text-center">
+                            <div className="flex flex-col items-center gap-3">
+                              <FileText size={48} className="text-gray-400" />
+                              <p className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                No se encontraron cuotas
+                              </p>
+                              <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                No tienes cuotas asignadas en este momento
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedUserCuotas.map((cuota) => {
+                          const estadoConfig = getEstadoConfig(cuota);
+                          const mora = cuota.monto_morosidad || 0;
                           const totalPagar = cuota.monto + mora;
                           const Icon = estadoConfig.icon;
-                          const puedePagar = cuota.estado === "pendiente" || cuota.estado === "en_mora";
+                          const puedePagar = canPayCuota(cuota);
                           
                           return (
-                            <tr key={cuota.numero} className={`${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} ${estadoConfig.border}`}>
-                              <td className="px-4 py-3 text-sm font-medium">{cuota.num_cuota}</td>
-                              <td className="px-4 py-3 text-sm">{cuota.fechaVencimiento}</td>
-                              <td className="px-4 py-3 text-sm">${cuota.monto.toLocaleString()}</td>
-                              <td className="px-4 py-3 text-sm text-red-600">
-                                {mora > 0 ? `$${mora.toFixed(2)}` : '-'}
+                            <tr 
+                              key={`${cuota.contratoId}-${cuota.numero}`} 
+                              className={`${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} transition-colors`}
+                            >
+                              <td className="px-4 py-3 text-sm text-center font-medium">
+                                {cuota.numero}
                               </td>
-                              <td className="px-4 py-3 text-sm font-medium">
-                                {mora > 0 ? `$${totalPagar.toFixed(2)}` : `$${cuota.monto.toLocaleString()}`}
+                              <td className="px-4 py-3 text-sm text-center">
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  cuota.tipo_cuota === 'Obligatoria' 
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' 
+                                    : cuota.tipo_cuota === 'Gracias' 
+                                    ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                                    : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                }`}>
+                                  {cuota.tipo_cuota || 'Obligatoria'}
+                                </span>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-3 text-sm">
+                                <div>
+                                  <p className="font-medium dark:text-white">{cuota.cliente}</p>
+                                  <p className="text-xs text-gray-500">#{cuota.contratoId}</p>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-sm">
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-1">
+                                    <Calendar size={12} className="text-gray-400" />
+                                    <span className="text-xs text-gray-500">Desde:</span>
+                                    <span>{cuota.fechaDesde || '-'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Calendar size={12} className="text-gray-400" />
+                                    <span className="text-xs text-gray-500">Hasta:</span>
+                                    <span>{cuota.fechaHasta || cuota.fechaVencimiento || '-'}</span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-right">${cuota.monto.toLocaleString()}</td>
+                              <td className="px-4 py-3 text-sm text-center">
+                                {cuota.dias_mora_cuota > 0 ? (
+                                  <span className="text-red-600 font-medium">{cuota.dias_mora_cuota} días</span>
+                                ) : (
+                                  <span className="text-gray-400">0</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-right">
+                                {mora > 0 ? (
+                                  <span className="text-red-600 font-medium">${mora.toFixed(2)}</span>
+                                ) : (
+                                  <span className="text-gray-400">$0.00</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-right font-medium">
+                                ${totalPagar.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                              </td>
+                              <td className="px-4 py-3 text-center">
                                 <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${estadoConfig.bg} ${estadoConfig.color}`}>
                                   <Icon size={12} />
                                   {estadoConfig.text}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-sm">{cuota.fechaPago || '-'}</td>
-                              <td className="px-4 py-3">
-                                {cuota.comprobante && (
-                                  <button
-                                    onClick={() => handleViewReceipt(prestamo.id, cuota)}
-                                    className="text-[#2A9D8F] hover:text-[#264653] transition-colors"
-                                  >
-                                    <FileText size={18} />
-                                  </button>
-                                )}
+                              <td className="px-4 py-3 text-sm">
+                                {cuota.fechaPago || <span className="text-gray-400">-</span>}
                               </td>
                               <td className="px-4 py-3">
-                                {puedePagar && (
-                                  <button
-                                    onClick={() => {
-                                      setSelectedCuota({ 
-                                        prestamoId: prestamo.id, 
-                                        cuotaNumero: cuota.numero, 
-                                        monto: cuota.monto, 
-                                        mora,
-                                        fechaVencimiento: cuota.fechaVencimiento
-                                      });
-                                      setShowPaymentModal(true);
-                                    }}
-                                    className="px-3 py-1 bg-[#2A9D8F] text-white rounded-lg text-sm hover:bg-[#264653] transition-colors flex items-center gap-1"
-                                  >
-                                    <Receipt size={14} />
-                                    Pagar
-                                  </button>
-                                )}
-                                {cuota.estado === "pagado" && (
-                                  <button
-                                    onClick={() => handleViewReceipt(prestamo.id, cuota)}
-                                    className="px-3 py-1 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-100 transition-colors flex items-center gap-1"
-                                  >
-                                    <Eye size={14} />
-                                    Ver
-                                  </button>
-                                )}
+                                <div className="flex items-center justify-center gap-1">
+                                  {puedePagar ? (
+                                    <button
+                                      onClick={() => {
+                                        setSelectedCuota({ 
+                                          prestamoId: cuota.contratoId, 
+                                          cuotaNumero: cuota.numero, 
+                                          monto: cuota.monto, 
+                                          mora: mora,
+                                          fechaVencimiento: cuota.fechaVencimiento,
+                                          fechaDesde: cuota.fechaDesde,
+                                          fechaHasta: cuota.fechaHasta,
+                                          diasMora: cuota.dias_mora_cuota,
+                                          tipo_cuota: cuota.tipo_cuota
+                                        });
+                                        setShowPaymentModal(true);
+                                      }}
+                                      className="px-3 py-1.5 bg-[#2A9D8F] text-white rounded-lg text-xs hover:bg-[#264653] transition-colors flex items-center gap-1"
+                                    >
+                                      <Receipt size={14} />
+                                      Pagar
+                                    </button>
+                                  ) : cuota.estado !== "pagado" ? (
+                                    <span className="px-3 py-1.5 bg-gray-200 text-gray-500 rounded-lg text-xs flex items-center gap-1 cursor-not-allowed">
+                                      <Lock size={14} />
+                                      Bloqueado
+                                    </span>
+                                  ) : null}
+                                  {cuota.estado === "pagado" && (
+                                    <button
+                                      onClick={() => handleViewReceipt(cuota.contratoId, cuota)}
+                                      className="px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-xs hover:bg-gray-100 transition-colors flex items-center gap-1"
+                                    >
+                                      <Eye size={14} />
+                                      Ver
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                        })
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
-            </div>
+                
+                {/* Paginación */}
+                {filteredUserCuotas.length > itemsPerPage && (
+                  <div className={`px-6 py-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                    <div className="flex items-center justify-between">
+                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Mostrando {startIndexMine + 1} a {Math.min(startIndexMine + itemsPerPage, filteredUserCuotas.length)} de {filteredUserCuotas.length}
+                      </p>
+                      <div className="flex gap-1">
+                        <button 
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                          className={`px-3 py-1 text-sm rounded border ${
+                            currentPage === 1 
+                              ? 'border-gray-200 text-gray-400 cursor-not-allowed' 
+                              : `${darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-100'}`
+                          }`}
+                        >
+                          Anterior
+                        </button>
+                        {Array.from({ length: totalPagesMine }, (_, i) => i + 1).map(page => (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`px-3 py-1 text-sm rounded ${
+                              currentPage === page
+                                ? 'bg-[#2A9D8F] text-white'
+                                : `${darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-100'}`
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ))}
+                        <button 
+                          onClick={() => setCurrentPage(prev => Math.min(totalPagesMine, prev + 1))}
+                          disabled={currentPage === totalPagesMine}
+                          className={`px-3 py-1 text-sm rounded border ${
+                            currentPage === totalPagesMine 
+                              ? 'border-gray-200 text-gray-400 cursor-not-allowed' 
+                              : `${darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-100'}`
+                          }`}
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <Footer darkMode={darkMode} />
@@ -756,7 +1556,9 @@ const Cuota = () => {
   );
 };
 
-// Componente Modal de Pago
+// ============================================================
+// COMPONENTE MODAL DE PAGO
+// ============================================================
 const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
   const [comprobante, setComprobante] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -764,12 +1566,26 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
   const [referencia, setReferencia] = useState("");
   const [montoPagado, setMontoPagado] = useState(selectedCuota.monto + selectedCuota.mora);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const totalPagar = selectedCuota.monto + selectedCuota.mora;
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validar tipo de archivo
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        alert('Por favor, seleccione una imagen válida (JPG, PNG, GIF, WEBP)');
+        return;
+      }
+      
+      // Validar tamaño (máximo 32MB para ImgBB)
+      if (file.size > 32 * 1024 * 1024) {
+        alert('La imagen no debe superar los 32MB');
+        return;
+      }
+      
       setComprobante(file);
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
@@ -783,50 +1599,119 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
     }
 
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    setUploadProgress(10);
     
-    onConfirm(selectedCuota.prestamoId, selectedCuota.cuotaNumero, {
-      montoPagado: montoPagado,
-      comprobante: comprobante || {
-        name: `pago_${Date.now()}.pdf`,
-        size: 0,
-        type: "application/pdf"
-      },
-      metodoPago: metodoPago,
-      referencia: referencia
-    });
-    
-    setIsSubmitting(false);
+    try {
+      setUploadProgress(50);
+      
+      await onConfirm(selectedCuota.prestamoId, selectedCuota.cuotaNumero, {
+        montoPagado: montoPagado,
+        comprobante: comprobante || {
+          name: `pago_${Date.now()}_sin_comprobante`,
+          size: 0,
+          type: "application/pdf"
+        },
+        metodoPago: metodoPago,
+        referencia: referencia,
+        mora: selectedCuota.mora,
+        diasMora: selectedCuota.diasMora
+      });
+      
+      setUploadProgress(100);
+      
+      // Limpiar preview
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      
+    } catch (error) {
+      console.error('Error al procesar el pago:', error);
+      alert('Error al procesar el pago: ' + (error.message || 'Error desconocido'));
+    } finally {
+      setIsSubmitting(false);
+      setUploadProgress(0);
+    }
   };
+
+  // Limpiar URL al desmontar
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className={`rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} max-w-md w-full p-6 max-h-[90vh] overflow-y-auto`}>
-        <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-          Registrar Pago - Cuota N° {selectedCuota.cuotaNumero}
-        </h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+            Registrar Pago - Cuota N° {selectedCuota.cuotaNumero}
+          </h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <XCircle size={24} />
+          </button>
+        </div>
         
         <div className="space-y-4">
+          {/* Información de la cuota */}
           <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+            <h4 className={`font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+              Detalle del Pago
+            </h4>
+            
+            {selectedCuota.tipo_cuota && (
+              <div className="flex justify-between mb-2">
+                <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Tipo de cuota:</span>
+                <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  {selectedCuota.tipo_cuota}
+                </span>
+              </div>
+            )}
+            
+            {selectedCuota.fechaDesde && (
+              <div className="flex justify-between mb-2">
+                <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Período desde:</span>
+                <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  {selectedCuota.fechaDesde}
+                </span>
+              </div>
+            )}
+            
             <div className="flex justify-between mb-2">
-              <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Fecha vencimiento:</span>
+              <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                {selectedCuota.fechaDesde ? 'Período hasta:' : 'Fecha vencimiento:'}
+              </span>
               <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                {selectedCuota.fechaVencimiento}
+                {selectedCuota.fechaHasta || selectedCuota.fechaVencimiento}
               </span>
             </div>
+            
+            <div className="flex justify-between mb-2">
+              <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Días de mora:</span>
+              <span className={`font-semibold ${selectedCuota.diasMora > 0 ? 'text-red-600' : darkMode ? 'text-white' : 'text-gray-800'}`}>
+                {selectedCuota.diasMora || 0} días
+              </span>
+            </div>
+            
             <div className="flex justify-between mb-2">
               <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Monto de cuota:</span>
               <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                 ${selectedCuota.monto.toLocaleString()}
               </span>
             </div>
+            
             {selectedCuota.mora > 0 && (
               <div className="flex justify-between mb-2">
-                <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Mora:</span>
-                <span className="font-semibold text-red-600">${selectedCuota.mora.toFixed(2)}</span>
+                <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Monto de mora:</span>
+                <span className="font-semibold text-red-600">
+                  ${selectedCuota.mora.toFixed(2)}
+                </span>
               </div>
             )}
-            <div className="flex justify-between pt-2 border-t border-gray-200">
+            
+            <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-600">
               <span className="font-semibold">Total a pagar:</span>
               <span className="text-xl font-bold text-[#2A9D8F]">
                 ${totalPagar.toFixed(2)}
@@ -834,6 +1719,7 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
             </div>
           </div>
 
+          {/* Método de pago */}
           <div>
             <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               Método de pago
@@ -854,6 +1740,7 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
             </select>
           </div>
 
+          {/* Referencia */}
           {(metodoPago === "transferencia" || metodoPago === "pago_movil") && (
             <div>
               <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -873,6 +1760,7 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
             </div>
           )}
 
+          {/* Comprobante */}
           <div>
             <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               Comprobante de pago {metodoPago !== "efectivo" && <span className="text-red-500">*</span>}
@@ -882,16 +1770,17 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
             }`}>
               {previewUrl ? (
                 <div className="space-y-2">
-                  {comprobante.type?.startsWith('image/') ? (
+                  {comprobante && comprobante.type?.startsWith('image/') ? (
                     <img src={previewUrl} alt="Preview" className="max-h-48 mx-auto rounded" />
                   ) : (
                     <FileText size={48} className="mx-auto text-gray-400" />
                   )}
-                  <p className="text-sm text-gray-600">{comprobante.name}</p>
+                  <p className="text-sm text-gray-600">{comprobante?.name}</p>
                   <button
                     onClick={() => {
                       setComprobante(null);
                       setPreviewUrl(null);
+                      if (previewUrl) URL.revokeObjectURL(previewUrl);
                     }}
                     className="text-red-600 text-sm hover:text-red-700"
                   >
@@ -900,12 +1789,12 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
                 </div>
               ) : (
                 <label className="cursor-pointer block">
-                  <Upload size={40} className="mx-auto text-gray-400 mb-2" />
+                  <ImageIcon size={40} className="mx-auto text-gray-400 mb-2" />
                   <p className="text-sm text-gray-600">Haga clic para subir el comprobante</p>
-                  <p className="text-xs text-gray-500 mt-1">PDF, JPG, PNG (max. 5MB)</p>
+                  <p className="text-xs text-gray-500 mt-1">JPG, PNG, GIF, WEBP (max. 32MB)</p>
                   <input
                     type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
                     onChange={handleFileChange}
                     className="hidden"
                   />
@@ -914,19 +1803,51 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
             </div>
           </div>
 
+          {/* Barra de progreso */}
+          {isSubmitting && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                  {uploadProgress < 100 ? 'Procesando pago...' : '¡Pago registrado!'}
+                </span>
+                <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                  {uploadProgress}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-gradient-to-r from-[#264653] to-[#2A9D8F] h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Botones */}
           <div className="flex gap-3 pt-4">
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className={`flex-1 px-4 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all ${
+              className={`flex-1 px-4 py-2 bg-gradient-to-r from-[#264653] to-[#2A9D8F] text-white rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 ${
                 isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
-              {isSubmitting ? 'Procesando...' : 'Confirmar Pago'}
+              {isSubmitting ? (
+                <>
+                  <Loader className="animate-spin" size={16} />
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={18} />
+                  Confirmar Pago
+                </>
+              )}
             </button>
             <button
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:text-gray-300 disabled:opacity-50"
             >
               Cancelar
             </button>
@@ -937,7 +1858,9 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
   );
 };
 
-// Componente Modal para ver comprobante
+// ============================================================
+// COMPONENTE MODAL PARA VER COMPROBANTE
+// ============================================================
 const ReceiptModal = ({ selectedPayment, onClose, darkMode }) => {
   const { cuota, prestamo } = selectedPayment;
   
@@ -961,28 +1884,59 @@ const ReceiptModal = ({ selectedPayment, onClose, darkMode }) => {
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Cliente:</span>
-                <p className="font-medium">{prestamo.cliente}</p>
+                <p className="font-medium dark:text-white">{prestamo?.cliente || 'N/A'}</p>
               </div>
               <div>
                 <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Cédula:</span>
-                <p className="font-medium">{prestamo.cedula}</p>
+                <p className="font-medium dark:text-white">{prestamo?.cedula || 'N/A'}</p>
               </div>
               <div>
                 <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>N° Cuota:</span>
-                <p className="font-medium">{cuota.numero}</p>
+                <p className="font-medium dark:text-white">{cuota.numero}</p>
               </div>
               <div>
-                <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Monto pagado:</span>
-                <p className="font-medium text-green-600">${cuota.monto.toLocaleString()}</p>
+                <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Tipo:</span>
+                <p className="font-medium dark:text-white">{cuota.tipo_cuota || 'Obligatoria'}</p>
+              </div>
+              <div>
+                <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Monto cuota:</span>
+                <p className="font-medium dark:text-white">${cuota.monto.toLocaleString()}</p>
+              </div>
+              {cuota.monto_morosidad > 0 && (
+                <div>
+                  <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Monto mora:</span>
+                  <p className="font-medium text-red-600">${cuota.monto_morosidad.toFixed(2)}</p>
+                </div>
+              )}
+              <div>
+                <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Total pagado:</span>
+                <p className="font-medium text-green-600">
+                  ${(cuota.monto + (cuota.monto_morosidad || 0)).toFixed(2)}
+                </p>
               </div>
               <div>
                 <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Fecha de pago:</span>
-                <p className="font-medium">{cuota.fechaPago}</p>
+                <p className="font-medium dark:text-white">{cuota.fechaPago}</p>
               </div>
               <div>
-                <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Comprobante:</span>
-                <p className="font-medium text-[#2A9D8F]">{cuota.comprobante}</p>
+                <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Días de mora:</span>
+                <p className="font-medium dark:text-white">{cuota.dias_mora_cuota || 0} días</p>
               </div>
+              <div>
+                <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Método de pago:</span>
+                <p className="font-medium dark:text-white">
+                  {cuota.metodoPago === 'efectivo' ? 'Efectivo' :
+                   cuota.metodoPago === 'transferencia' ? 'Transferencia Bancaria' :
+                   cuota.metodoPago === 'pago_movil' ? 'Pago Móvil' :
+                   cuota.metodoPago === 'punto_venta' ? 'Punto de Venta' : 'No especificado'}
+                </p>
+              </div>
+              {cuota.referencia && (
+                <div>
+                  <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Referencia:</span>
+                  <p className="font-medium dark:text-white">{cuota.referencia}</p>
+                </div>
+              )}
             </div>
           </div>
           
@@ -990,18 +1944,40 @@ const ReceiptModal = ({ selectedPayment, onClose, darkMode }) => {
             <h4 className={`font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
               Comprobante
             </h4>
-            <div className="bg-white p-4 rounded border border-gray-200 text-center">
-              <FileText size={48} className="mx-auto text-gray-400 mb-2" />
-              <p className="text-sm text-gray-600 mb-2">comprobante_pago_cuota_{cuota.numero}.pdf</p>
-              <button className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg text-sm hover:bg-[#264653] transition-colors">
-                Descargar Comprobante
-              </button>
-            </div>
+            {cuota.comprobante && cuota.comprobante.startsWith('http') ? (
+              <div className="bg-white p-4 rounded border border-gray-200 text-center">
+                <img 
+                  src={cuota.comprobante} 
+                  alt="Comprobante de pago" 
+                  className="max-h-96 mx-auto rounded"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOWNhM2FmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE0IDJINmEyIDIgMCAwIDAtMiAydjE2YTIgMiAwIDAgMCAyIDJoMTJhMiAyIDAgMCAwIDItMlY4eiI+PC9wYXRoPjxwb2x5bGluZSBwb2ludHM9IjE0IDIgMTQgOCAyMCA4Ij48L3BvbHlsaW5lPjwvc3ZnPg==';
+                  }}
+                />
+                <a 
+                  href={cuota.comprobante} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1 text-[#2A9D8F] hover:text-[#264653] text-sm"
+                >
+                  <Download size={14} />
+                  Ver en tamaño completo
+                </a>
+              </div>
+            ) : (
+              <div className="bg-white p-4 rounded border border-gray-200 text-center">
+                <FileText size={48} className="mx-auto text-gray-400 mb-2" />
+                <p className="text-sm text-gray-600">
+                  {cuota.comprobante || 'No hay comprobante disponible'}
+                </p>
+              </div>
+            )}
           </div>
           
           <button
             onClick={onClose}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:text-gray-300"
           >
             Cerrar
           </button>
@@ -1011,7 +1987,9 @@ const ReceiptModal = ({ selectedPayment, onClose, darkMode }) => {
   );
 };
 
-// Modal para generar cuotas manuales - VERSIÓN CORREGIDA (CON PARSEINT)
+// ============================================================
+// COMPONENTE MODAL PARA GENERAR CUOTAS
+// ============================================================
 const GenerateCuotasModal = ({ 
   prestamo, 
   config, 
@@ -1036,38 +2014,21 @@ const GenerateCuotasModal = ({
   
   const calcularVistaPrevia = () => {
     const {
-      cantidadCuotas, // Este es el número de CUOTAS OBLIGATORIAS
+      cantidadCuotas,
       frecuencia,
       fechaPrimeraCuota,
     } = config;
     
     if (!cantidadCuotas || !fechaPrimeraCuota) return;
     
-    // IMPORTANTE: Asegurar que sean números, no strings
     const cuotasGracia = parseInt(prestamo.numero_gracias) || 0;
     const cuotasObligatorias = parseInt(cantidadCuotas) || 0;
-    
-    // TOTAL DE CUOTAS A GENERAR = OBLIGATORIAS + GRACIAS
     const totalCuotas = cuotasObligatorias + cuotasGracia;
     
-    console.log('Debug:', {
-      cuotasObligatorias,
-      cuotasGracia,
-      totalCuotas,
-      tipoObligatorias: typeof cuotasObligatorias,
-      tipoGracia: typeof cuotasGracia
-    });
-    
-    // Monto total del préstamo
     const montoTotal = parseFloat(prestamo.devolvimiento || prestamo.montoTotal);
-    
-    // Monto de cada cuota obligatoria = MontoTotal / número de cuotas obligatorias
     const montoObligatorio = cuotasObligatorias > 0 ? montoTotal / cuotasObligatorias : 0;
-    
-    // Monto de cada cuota gracia = MontoTotal / número de cuotas gracias
     const montoGracia = cuotasGracia > 0 ? montoTotal / cuotasGracia : 0;
     
-    // Actualizar montos calculados
     setMontosCalculados({
       montoObligatorio,
       montoGracia
@@ -1075,25 +2036,18 @@ const GenerateCuotasModal = ({
     
     const cuotasPrevias = [];
     let fechaActual = new Date(fechaPrimeraCuota);
-    let totalObligatorias = 0;
-    let totalGracias = 0;
     
-    // Generar todas las cuotas (obligatorias + gracias)
     for (let i = 0; i < totalCuotas; i++) {
       const numeroCuota = i + 1;
       let tipoCuota = '';
       let monto = 0;
       
-      // Las primeras 'cuotasObligatorias' son obligatorias
-      // Las siguientes 'cuotasGracia' son de gracia
       if (numeroCuota <= cuotasObligatorias) {
         tipoCuota = 'Obligatoria';
         monto = montoObligatorio;
-        totalObligatorias += monto;
       } else {
         tipoCuota = 'Gracias';
         monto = montoGracia;
-        totalGracias += monto;
       }
       
       let fechaDesde = new Date(fechaActual);
@@ -1123,7 +2077,6 @@ const GenerateCuotasModal = ({
         monto: monto
       });
       
-      // Avanzar fecha para la siguiente cuota
       switch(frecuencia) {
         case 'mensual':
           fechaActual.setMonth(fechaActual.getMonth() + 1);
@@ -1137,16 +2090,6 @@ const GenerateCuotasModal = ({
       }
     }
     
-    console.log('Resumen vista previa:', {
-      cuotasObligatorias,
-      cuotasGracia,
-      totalCuotas,
-      montoTotal,
-      totalObligatorias,
-      totalGracias,
-      totalGeneral: totalObligatorias + totalGracias
-    });
-    
     setCuotasGeneradas(cuotasPrevias);
     setMostrarVistaPrevia(true);
   };
@@ -1158,7 +2101,6 @@ const GenerateCuotasModal = ({
     .filter(c => c.tipo === 'Gracias')
     .reduce((sum, cuota) => sum + cuota.monto, 0);
   
-  // Obtener números del contrato (asegurar que sean números)
   const cuotasGraciaContrato = parseInt(prestamo.numero_gracias) || 0;
   const cuotasObligatoriasIngresadas = parseInt(config.cantidadCuotas) || 0;
   const totalCuotasGenerar = cuotasObligatoriasIngresadas + cuotasGraciaContrato;
@@ -1177,7 +2119,6 @@ const GenerateCuotasModal = ({
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Formulario de configuración */}
           <div className="space-y-4">
             <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
               <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
@@ -1191,12 +2132,14 @@ const GenerateCuotasModal = ({
                   Monto Total: <span className="font-semibold">${montoTotalPrestamo.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                 </p>
                 <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                  Cuotas de Gracia según contrato: <span className="font-semibold">{cuotasGraciaContrato}</span>
+                  Cuotas de Gracia: <span className="font-semibold">{cuotasGraciaContrato}</span>
+                </p>
+                <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                  Tasa de Mora Mensual: <span className="font-semibold">{(prestamo.tasaInteresMora || 0.05) * 100}%</span>
                 </p>
               </div>
             </div>
             
-            {/* Cantidad de cuotas OBLIGATORIAS */}
             <div>
               <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Número de Cuotas Obligatorias *
@@ -1214,12 +2157,8 @@ const GenerateCuotasModal = ({
                 } focus:outline-none focus:ring-2 focus:ring-[#2A9D8F]`}
                 placeholder="Ej: 10"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Ingrese solo las cuotas obligatorias. Las cuotas de gracia se sumarán automáticamente.
-              </p>
             </div>
             
-            {/* Información de distribución de cuotas */}
             {config.cantidadCuotas > 0 && (
               <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-blue-50'}`}>
                 <h5 className={`text-sm font-semibold mb-2 ${darkMode ? 'text-white' : 'text-blue-800'}`}>
@@ -1233,19 +2172,18 @@ const GenerateCuotasModal = ({
                     </span>
                   </div>
                   <div>
-                    <span className={darkMode ? 'text-gray-400' : 'text-blue-600'}>Gracias (se suman):</span>
+                    <span className={darkMode ? 'text-gray-400' : 'text-blue-600'}>Gracias:</span>
                     <span className={`font-bold ml-1 ${darkMode ? 'text-white' : 'text-blue-800'}`}>
                       {cuotasGraciaContrato}
                     </span>
                   </div>
                 </div>
-                <div className="mt-2 text-xs font-semibold text-blue-800">
-                  ➕ Total cuotas a generar: {cuotasObligatoriasIngresadas} + {cuotasGraciaContrato} = <span className="text-blue-600">{totalCuotasGenerar}</span>
+                <div className="mt-2 text-xs font-semibold">
+                  ➕ Total: {totalCuotasGenerar} cuotas
                 </div>
               </div>
             )}
             
-            {/* Montos calculados automáticamente */}
             {montosCalculados.montoObligatorio > 0 && (
               <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-green-50'}`}>
                 <h5 className={`text-sm font-semibold mb-2 ${darkMode ? 'text-white' : 'text-green-800'}`}>
@@ -1267,31 +2205,9 @@ const GenerateCuotasModal = ({
                     </div>
                   )}
                 </div>
-                <div className="mt-2 pt-2 border-t border-gray-200 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Total Obligatorias:</span>
-                    <span className="font-semibold">
-                      ${(montosCalculados.montoObligatorio * cuotasObligatoriasIngresadas).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Total Gracias (adicional):</span>
-                    <span className="font-semibold">
-                      ${(montosCalculados.montoGracia * cuotasGraciaContrato).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                    </span>
-                  </div>
-                  <div className="flex justify-between font-bold mt-1">
-                    <span>Total General a Pagar:</span>
-                    <span className="text-[#2A9D8F]">
-                      ${((montosCalculados.montoObligatorio * cuotasObligatoriasIngresadas) + 
-                         (montosCalculados.montoGracia * cuotasGraciaContrato)).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                    </span>
-                  </div>
-                </div>
               </div>
             )}
             
-            {/* Frecuencia de pago */}
             <div>
               <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Frecuencia de pago
@@ -1311,7 +2227,6 @@ const GenerateCuotasModal = ({
               </select>
             </div>
             
-            {/* Fecha primera cuota */}
             <div>
               <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Fecha de primera cuota *
@@ -1328,23 +2243,21 @@ const GenerateCuotasModal = ({
               />
             </div>
             
-            {/* Botón vista previa */}
             <button
               onClick={calcularVistaPrevia}
               disabled={!config.cantidadCuotas || !config.fechaPrimeraCuota}
               className="w-full px-4 py-2 bg-[#264653] text-white rounded-lg hover:bg-[#1d3a4a] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <Eye size={18} />
-              Calcular y Ver Vista Previa
+              Calcular Vista Previa
             </button>
           </div>
           
-          {/* Vista previa de cuotas */}
           <div>
             {mostrarVistaPrevia && cuotasGeneradas.length > 0 && (
               <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
                 <h4 className={`font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  Resumen de Cuotas a Generar
+                  Vista Previa de Cuotas
                 </h4>
                 
                 <div className="space-y-3 mb-4">
@@ -1352,35 +2265,14 @@ const GenerateCuotasModal = ({
                     <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Total cuotas:</span>
                     <span className="font-bold">{cuotasGeneradas.length}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Cuotas Obligatorias:</span>
-                    <span className="font-bold text-blue-600">
-                      {cuotasGeneradas.filter(c => c.tipo === 'Obligatoria').length}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Cuotas de Gracia:</span>
-                    <span className="font-bold text-green-600">
-                      {cuotasGeneradas.filter(c => c.tipo === 'Gracias').length}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Monto Total Obligatorias:</span>
-                    <span className="font-bold">${totalObligatorias.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Monto Total Gracias:</span>
-                    <span className="font-bold">${totalGracias.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                  </div>
-                  <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                    <span className="font-semibold">Total General a Pagar:</span>
+                  <div className="flex justify-between text-sm pt-2 border-t border-gray-200 dark:border-gray-600">
+                    <span className="font-semibold">Total a pagar:</span>
                     <span className="font-bold text-[#2A9D8F]">
                       ${(totalObligatorias + totalGracias).toLocaleString(undefined, {minimumFractionDigits: 2})}
                     </span>
                   </div>
                 </div>
                 
-                {/* Tabla de cuotas vista previa */}
                 <div className="max-h-64 overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead className={darkMode ? 'bg-gray-600' : 'bg-gray-200'}>
@@ -1420,8 +2312,7 @@ const GenerateCuotasModal = ({
           </div>
         </div>
         
-        {/* Botones de acción */}
-        <div className="flex gap-3 pt-6 mt-4 border-t">
+        <div className="flex gap-3 pt-6 mt-4 border-t dark:border-gray-700">
           <button
             onClick={() => onConfirm({
               ...config,
@@ -1439,7 +2330,7 @@ const GenerateCuotasModal = ({
           </button>
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:text-gray-300"
           >
             Cancelar
           </button>
