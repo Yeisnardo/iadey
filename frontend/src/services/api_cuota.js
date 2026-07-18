@@ -12,6 +12,17 @@ const CuotaAPI = {
     }
   },
 
+  // Obtener contratos por cédula de aprobación
+  getByCedulaAprob: async (id_cedula_aprob) => {
+    try {
+      const response = await api.get(`/cuota/cedula/${id_cedula_aprob}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error en getByCedulaAprob:', error);
+      throw error.response?.data || { error: 'Error al obtener los contratos por cédula' };
+    }
+  },
+
   // Obtener cuotas de un contrato específico
   getCuotasByContrato: async (id_contrato) => {
     try {

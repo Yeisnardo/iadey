@@ -274,8 +274,9 @@ const Usuario = () => {
     Veroes: ["Farriar", "El Farrial"],
   };
 
-  // Formulario de usuario
+  // Formulario de usuario - USAMOS CÉDULA COMO IDENTIFICADOR
   const [formData, setFormData] = useState({
+    cedula_original: "", // Guardamos la cédula original para identificar la persona
     nacionalidad: "V",
     cedula: "",
     nombres: "",
@@ -562,15 +563,23 @@ const Usuario = () => {
     try {
       const response = await usuarioAPI.getAllUsuarios();
       if (response.success) {
-        const usuariosFormateados = response.data.map(usuario => ({
-          ...usuario,
-          id_persona: usuario.id_persona || usuario.persona?.id || usuario.id,
-          nombre_completo: usuario.nombre_completo || `${usuario.nombres || ''} ${usuario.apellidos || ''}`.trim(),
-          email: usuario.email || usuario.correo,
-          telefono: usuario.telefono || usuario.persona?.telefono,
-          fechaRegistro: usuario.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
-          rol: usuario.nombre_rol || usuario.rol
-        }));
+        const usuariosFormateados = response.data.map(usuario => {
+          // Debug: Ver qué datos vienen del backend
+          console.log("📦 Datos del usuario desde backend:", usuario);
+          
+          return {
+            ...usuario,
+            id: usuario.id,
+            cedula_usuario: usuario.cedula_usuario,
+            nombre_completo: usuario.nombre_completo || `${usuario.nombres || ''} ${usuario.apellidos || ''}`.trim(),
+            email: usuario.email || usuario.correo,
+            telefono: usuario.telefono || usuario.persona?.telefono,
+            fechaRegistro: usuario.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+            rol: usuario.nombre_rol || usuario.rol,
+            // La cédula de la persona es la misma que cedula_usuario
+            persona_cedula: usuario.cedula_usuario
+          };
+        });
         setUsuarios(usuariosFormateados);
       }
     } catch (err) {
@@ -645,34 +654,45 @@ const Usuario = () => {
   };
 
   const handleEditUser = (user) => {
+    // Debug: Ver qué datos tiene el usuario al editar
+    console.log("✏️ Editando usuario:", user);
+    
     setSelectedUser(user);
     setFieldErrors({});
     
     let correo_local = "", correo_dominio = "";
-    const email = user.email || user.correo || user.persona?.correo || "";
+    const email = user.email || user.correo || "";
     if (email && email.includes("@")) {
       [correo_local, correo_dominio] = email.split("@");
       if (!dominiosCorreo.includes(correo_dominio)) correo_dominio = "";
     }
     
+    // La cédula de la persona es la misma que cedula_usuario
+    const cedulaPersona = user.cedula_usuario || "";
+    const cedulaSinPrefijo = cedulaPersona.replace(/^[VE]-/, "");
+    const nacionalidad = cedulaPersona.startsWith("E-") ? "E" : "V";
+    
     setFormData({
-      nacionalidad: user.nacionalidad || user.persona?.nacionalidad || "V",
-      cedula: user.cedula_usuario?.replace(/^[VE]-/, "") || "",
-      nombres: user.nombres || user.persona?.nombres || "",
-      apellidos: user.apellidos || user.persona?.apellidos || "",
-      fecha_nacimiento: user.fecha_nacimiento?.split('T')[0] || user.persona?.fecha_nacimiento?.split('T')[0] || "",
-      telefono: user.telefono || user.persona?.telefono || "",
+      cedula_original: cedulaPersona, // Guardamos la cédula original para identificar la persona
+      nacionalidad: nacionalidad,
+      cedula: cedulaSinPrefijo,
+      nombres: user.nombres || "",
+      apellidos: user.apellidos || "",
+      fecha_nacimiento: user.fecha_nacimiento?.split('T')[0] || "",
+      telefono: user.telefono || "",
       correo_local, correo_dominio, correo: email,
-      estado_civil: user.estado_civil || user.persona?.estado_civil || "",
-      direccion: user.direccion || user.persona?.direccion || "",
-      estado: user.estado || user.persona?.estado || "Yaracuy",
-      municipio: user.municipio || user.persona?.municipio || "",
-      parroquia: user.parroquia || user.persona?.parroquia || "",
-      tipo_persona: user.tipo_persona || user.persona?.tipo_persona || "usuario_sistema",
+      estado_civil: user.estado_civil || "",
+      direccion: user.direccion || "",
+      estado: user.estado || "Yaracuy",
+      municipio: user.municipio || "",
+      parroquia: user.parroquia || "",
+      tipo_persona: user.tipo_persona || "usuario_sistema",
       clave: "", confirmPassword: "",
       id_rol_usu: user.id_rol_usu?.toString() || "",
-      estatus: user.estatus,
+      estatus: user.estatus || "activo",
     });
+    
+    console.log("📝 FormData después de editar:", formData);
     setModalMode("edit");
     setModalOpen(true);
   };
@@ -681,6 +701,7 @@ const Usuario = () => {
     setSelectedUser(null);
     setFieldErrors({});
     setFormData({
+      cedula_original: "",
       nacionalidad: "V", cedula: "", nombres: "", apellidos: "",
       fecha_nacimiento: "", telefono: "", correo_local: "", correo_dominio: "", correo: "",
       estado_civil: "", direccion: "", estado: "Yaracuy", municipio: "", parroquia: "",
@@ -935,7 +956,7 @@ const Usuario = () => {
   };
 
   // ============================================================================
-  // GUARDADO DE USUARIO - CORREGIDO CON fecha_nacimiento
+  // GUARDADO DE USUARIO - CORREGIDO PARA USAR CÉDULA COMO PK
   // ============================================================================
   
   const handleSaveUser = async () => {
@@ -952,7 +973,7 @@ const Usuario = () => {
       const cedulaFormateada = `${formData.nacionalidad.toUpperCase()}-${formData.cedula}`;
       const correoFinal = formData.correo || (formData.correo_local && formData.correo_dominio ? `${formData.correo_local}@${formData.correo_dominio}` : "");
       
-      // Datos de persona - INCLUYENDO fecha_nacimiento
+      // Datos de persona
       const personaData = {
         nacionalidad: formData.nacionalidad,
         cedula: cedulaFormateada,
@@ -987,17 +1008,50 @@ const Usuario = () => {
         setSuccessMessage(`Usuario ${formData.nombres} ${formData.apellidos} creado exitosamente`);
         
       } else if (modalMode === "edit" && selectedUser) {
-        // EDICIÓN: Actualizar persona (CON fecha_nacimiento)
-        const personaId = selectedUser.id_persona || selectedUser.persona?.id || selectedUser.id;
+        // EDICIÓN: Usar la cédula como identificador de la persona
+        // La cédula original es la que tenía antes de editar
+        const cedulaOriginal = formData.cedula_original || selectedUser.cedula_usuario;
         
-        await personaAPI.updatePersona(personaId, personaData);
+        if (!cedulaOriginal) {
+          throw new Error("No se encontró la cédula de la persona para actualizar");
+        }
         
-        const usuarioData = {
-          id_rol_usu: parseInt(formData.id_rol_usu),
-          estatus: formData.estatus.toLowerCase()
-        };
+        console.log("🔄 Actualizando persona con cédula:", cedulaOriginal);
+        console.log("📝 Datos a actualizar:", personaData);
+        console.log("📝 Nueva cédula:", cedulaFormateada);
         
-        await usuarioAPI.updateUsuario(selectedUser.id, usuarioData);
+        // Si la cédula cambió, necesitamos actualizar también la referencia en usuario
+        const cedulaCambio = cedulaOriginal !== cedulaFormateada;
+        
+        // Actualizar persona (usando la cédula original como identificador)
+        const personaResponse = await personaAPI.updatePersona(cedulaOriginal, personaData);
+        if (!personaResponse.success) {
+          throw new Error(personaResponse.error || "Error al actualizar la persona");
+        }
+        
+        // Si la cédula cambió, actualizar la cédula en el usuario también
+        if (cedulaCambio) {
+          const usuarioData = {
+            cedula_usuario: cedulaFormateada,
+            id_rol_usu: parseInt(formData.id_rol_usu),
+            estatus: formData.estatus.toLowerCase()
+          };
+          const usuarioResponse = await usuarioAPI.updateUsuario(selectedUser.id, usuarioData);
+          if (!usuarioResponse.success) {
+            throw new Error(usuarioResponse.error || "Error al actualizar el usuario");
+          }
+        } else {
+          // Solo actualizar rol y estatus
+          const usuarioData = {
+            id_rol_usu: parseInt(formData.id_rol_usu),
+            estatus: formData.estatus.toLowerCase()
+          };
+          const usuarioResponse = await usuarioAPI.updateUsuario(selectedUser.id, usuarioData);
+          if (!usuarioResponse.success) {
+            throw new Error(usuarioResponse.error || "Error al actualizar el usuario");
+          }
+        }
+        
         setSuccessMessage(`Usuario ${formData.nombres} ${formData.apellidos} actualizado exitosamente`);
       }
       
@@ -1006,7 +1060,7 @@ const Usuario = () => {
       setTimeout(() => setSuccessMessage(null), 3000);
       
     } catch (err) {
-      console.error("Error guardando usuario:", err);
+      console.error("❌ Error guardando usuario:", err);
       setError(err.message || "Error al guardar el usuario");
       setTimeout(() => setError(null), 5000);
     } finally {
@@ -1428,7 +1482,7 @@ const Usuario = () => {
           {hasError('apellidos') && <p className="text-xs text-red-500 mt-1">{getErrorMessage('apellidos')}</p>}
         </div>
         
-        {/* Fecha de Nacimiento - AHORA VISIBLE Y FUNCIONAL */}
+        {/* Fecha de Nacimiento */}
         <div>
           <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Fecha de Nacimiento</label>
           <div className="relative">

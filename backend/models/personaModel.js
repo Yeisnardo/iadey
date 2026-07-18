@@ -3,13 +3,13 @@ const pool = require('../config/db');
 class PersonaModel {
   // Obtener todas las persona
   static async getAll() {
-    const result = await pool.query('SELECT * FROM persona ORDER BY id');
+    const result = await pool.query('SELECT * FROM persona ORDER BY cedula');
     return result.rows;
   }
 
   // Obtener persona por ID
-  static async getById(id) {
-    const result = await pool.query('SELECT * FROM persona WHERE id = $1', [id]);
+  static async getById(cedula) {
+    const result = await pool.query('SELECT * FROM persona WHERE cedula = $1', [cedula]);
     return result.rows[0];
   }
 
@@ -48,7 +48,7 @@ class PersonaModel {
   }
 
   // Actualizar persona
-  static async update(id, data) {
+  static async update(cedula, data) {
     const {
       nacionalidad, nombres, apellidos, fecha_nacimiento,
       telefono, correo, estado_civil, direccion, estado, municipio,
@@ -61,24 +61,24 @@ class PersonaModel {
         telefono = $5, correo = $6, estado_civil = $7, direccion = $8,
         estado = $9, municipio = $10, parroquia = $11, tipo_persona = $12
         , updated_at = CURRENT_TIMESTAMP
-      WHERE id = $14 RETURNING *`,
+      WHERE cedula = $13 RETURNING *`,
       [nacionalidad, nombres, apellidos, fecha_nacimiento, telefono,
        correo, estado_civil, direccion, estado, municipio, parroquia,
-       tipo_persona, id]
+       tipo_persona, cedula]
     );
     return result.rows[0];
   }
 
   // Eliminar persona (borrado lógico o físico)
-  static async delete(id) {
-    const result = await pool.query('DELETE FROM persona WHERE id = $1 RETURNING *', [id]);
+  static async delete(cedula) {
+    const result = await pool.query('DELETE FROM persona WHERE cedula = $1 RETURNING *', [cedula]);
     return result.rows[0];
   }
 
   // Obtener persona por tipo
   static async getByTipo(tipo_persona) {
     const result = await pool.query(
-      'SELECT * FROM persona WHERE tipo_persona = $1 ORDER BY id',
+      'SELECT * FROM persona WHERE tipo_persona = $1 ORDER BY cedula',
       [tipo_persona]
     );
     return result.rows;

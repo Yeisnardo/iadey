@@ -168,6 +168,8 @@ async getRoles(req, res) {
   
 
   // Login
+// controllers/usuarioController.js - Método login CORREGIDO
+
 async login(req, res) {
     try {
       const { cedula_usuario, clave } = req.body;

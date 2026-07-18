@@ -535,6 +535,16 @@ const Login = () => {
                 Regístrate aquí
               </button>
             </p>
+
+<div className="text-center mt-4">
+    <button
+        type="button"
+        onClick={() => navigate('/solicitar-recuperacion')}
+        className="text-sm text-[#264653] hover:text-[#2A9D8F] transition-colors"
+    >
+        ¿Olvidaste tu contraseña?
+    </button>
+</div>
           </form>
         </div>
       </div>

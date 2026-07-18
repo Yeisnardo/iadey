@@ -14,6 +14,7 @@ class CuotaModel {
         a.created_at as aprobacion_created_at,
         a.updated_at as aprobacion_updated_at,
         c.id_contrato,
+        c.id_cedula_aprob,
         c.numero_contrato,
         c.moneda,
         c.monto_moneda,
@@ -47,6 +48,55 @@ class CuotaModel {
       throw error;
     }
   }
+
+  // Obtener contratos por cédula de aprobación
+static async getByCedulaAprob(id_cedula_aprob) {
+  const query = `
+    SELECT 
+      a.id_aprobacion,
+      a.id_inspeccion,
+      a.id_expediente,
+      a.verificacion_requisitos,
+      a.estatus_aprobacion,
+      a.seleccion_manejo,
+      a.created_at as aprobacion_created_at,
+      a.updated_at as aprobacion_updated_at,
+      c.id_contrato,
+      c.id_cedula_aprob,
+      c.numero_contrato,
+      c.moneda,
+      c.monto_moneda,
+      c.cambio,
+      c.flat,
+      c.interes,
+      c.devolvimiento,
+      c.numero_cuotas,
+      c.numero_gracias,
+      c.inicio,
+      c.cierre,
+      c.estatus,
+      c.created_at as contrato_created_at,
+      d.id_desembolso,
+      d.fecha_desembolso,
+      d.capture_desembolso,
+      d.estatus_desembolso,
+      d.fecha_confirmacion
+    FROM aprobacion a
+    INNER JOIN contrato c ON a.id_aprobacion = c.id_aprob
+    LEFT JOIN desembolso d ON c.id_contrato = d.id_cont
+    WHERE c.id_cedula_aprob = $1
+      AND c.estatus IN ('En espera de cuotas', 'Activo', 'Terminado')
+    ORDER BY c.id_contrato DESC
+  `;
+  
+  try {
+    const result = await pool.query(query, [id_cedula_aprob]);
+    return result.rows;
+  } catch (error) {
+    console.error(`Error en getByCedulaAprob para id_cedula_aprob ${id_cedula_aprob}:`, error);
+    throw error;
+  }
+}
 
   // Obtener cuotas de un contrato específico
   static async getCuotasByContratoId(id_contrato) {

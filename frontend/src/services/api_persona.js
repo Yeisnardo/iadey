@@ -13,9 +13,9 @@ const personaAPI = {
   },
 
   // Obtener persona por ID
-  getPersonaById: async (id) => {
+  getPersonaById: async (cedula) => {
     try {
-      const response = await api.get(`/personas/${id}`);
+      const response = await api.get(`/personas/${cedula}`);
       return response.data;
     } catch (error) {
       console.error('Error en getPersonaById:', error);
@@ -57,9 +57,9 @@ const personaAPI = {
   },
 
   // Actualizar persona
-  updatePersona: async (id, personaData) => {
+  updatePersona: async (cedula, personaData) => {
     try {
-      const response = await api.put(`/personas/${id}`, personaData);
+      const response = await api.put(`/personas/${cedula}`, personaData);
       return response.data;
     } catch (error) {
       console.error('Error en updatePersona:', error);
@@ -68,9 +68,9 @@ const personaAPI = {
   },
 
   // Eliminar persona
-  deletePersona: async (id) => {
+  deletePersona: async (cedula) => {
     try {
-      const response = await api.delete(`/personas/${id}`);
+      const response = await api.delete(`/personas/${cedula}`);
       return response.data;
     } catch (error) {
       console.error('Error en deletePersona:', error);

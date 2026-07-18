@@ -1,40 +1,27 @@
 // ============================================================
-// FUNCIONES DE CÁLCULO DE MORA - CÓDIGO COMPLETO
+// FUNCIONES DE CÁLCULO DE MORA
 // ============================================================
 
-/**
- * Calcula los días de mora acumulados hasta la fecha de cierre
- * @param {string} fechaVencimiento - Fecha de vencimiento (YYYY-MM-DD)
- * @param {string} fechaPago - Fecha de pago (YYYY-MM-DD) o null
- * @param {string} estado - 'pagado', 'pendiente', etc.
- * @param {string} fechaCierre - Fecha de cierre para el cálculo (YYYY-MM-DD)
- * @returns {number} - Días de mora acumulados
- */
 const calcularDiasMora = (fechaVencimiento, fechaPago, estado, fechaCierre = null) => {
-    // Si la cuota está pagada, usamos la fecha de pago como límite
     if (estado === 'pagado' && fechaPago) {
         const vencimiento = new Date(fechaVencimiento);
         const pago = new Date(fechaPago);
         vencimiento.setHours(0, 0, 0, 0);
         pago.setHours(0, 0, 0, 0);
         
-        // Si pagó antes o en la fecha de vencimiento, no hay mora
         if (pago <= vencimiento) {
             return 0;
         }
         
-        // Días entre vencimiento y pago
         const diffTime = pago - vencimiento;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays;
     }
     
-    // Para cuotas no pagadas, calculamos hasta la fecha de cierre
     if (estado !== 'pagado') {
         const vencimiento = new Date(fechaVencimiento);
         vencimiento.setHours(0, 0, 0, 0);
         
-        // Fecha de referencia (cierre o actual)
         let fechaReferencia;
         if (fechaCierre) {
             fechaReferencia = new Date(fechaCierre);
@@ -43,16 +30,13 @@ const calcularDiasMora = (fechaVencimiento, fechaPago, estado, fechaCierre = nul
         }
         fechaReferencia.setHours(0, 0, 0, 0);
         
-        // Si aún no ha vencido, no hay mora
         if (fechaReferencia <= vencimiento) {
             return 0;
         }
         
-        // Días entre vencimiento y fecha de cierre
         const diffTime = fechaReferencia - vencimiento;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
-        // Período de gracia: 5 días sin mora
         if (diffDays <= 5) {
             return 0;
         }
@@ -63,125 +47,45 @@ const calcularDiasMora = (fechaVencimiento, fechaPago, estado, fechaCierre = nul
     return 0;
 };
 
-/**
- * Calcula la tasa de mora diaria a partir de la tasa mensual del contrato
- * @param {number} tasaMensual - Tasa de mora mensual (ej: 0.05 = 5%)
- * @returns {number} - Tasa de mora diaria
- */
 const calcularTasaMoraDiaria = (tasaMensual) => {
-    // Convertir tasa mensual a diaria (interés compuesto)
-    // tasa_diaria = (1 + tasa_mensual)^(1/30) - 1
     return Math.pow(1 + tasaMensual, 1/30) - 1;
 };
 
-/**
- * Calcula el monto de morosidad con interés compuesto DIARIO
- * @param {number} montoCuota - Monto original de la cuota
- * @param {number} diasMora - Días de mora acumulados
- * @param {number} tasaMoraDiaria - Tasa de mora DIARIA (ej: 0.00167)
- * @param {number} montoAbonado - Monto ya abonado a la mora (si aplica)
- * @returns {number} - Monto de morosidad acumulado
- */
 const calcularMontoMorosidadDiario = (montoCuota, diasMora, tasaMoraDiaria, montoAbonado = 0) => {
-    // Si no hay días de mora, el monto es 0
     if (diasMora <= 0 || montoCuota <= 0) {
         return 0;
     }
     
-    // Calcular mora con interés compuesto diario
-    // Fórmula: Mora = MontoCuota * ((1 + tasaDiaria)^dias - 1)
     const factor = Math.pow(1 + tasaMoraDiaria, diasMora);
     const montoMora = montoCuota * (factor - 1);
-    
-    // Restar abonos realizados a la mora
     const montoFinal = Math.max(0, montoMora - montoAbonado);
     
-    // Redondear a 2 decimales
     return Math.round(montoFinal * 100) / 100;
 };
 
-/**
- * Calcula la morosidad de todas las cuotas de un contrato
- * @param {Array} cuotas - Lista de cuotas del contrato
- * @param {string} fechaCierre - Fecha de cierre del período (YYYY-MM-DD)
- * @param {number} tasaMoraMensual - Tasa de mora mensual del contrato
- * @returns {Array} - Cuotas actualizadas con días_mora_cuota y monto_morosidad
- */
-const calcularMorosidadContrato = (cuotas, fechaCierre, tasaMoraMensual) => {
-    const tasaDiaria = calcularTasaMoraDiaria(tasaMoraMensual);
-    
-    return cuotas.map(cuota => {
-        // Calcular días de mora
-        const diasMora = calcularDiasMora(
-            cuota.fechaVencimiento || cuota.fechaHasta,
-            cuota.fechaPago,
-            cuota.estado,
-            fechaCierre
-        );
-        
-        // Calcular monto de morosidad diario
-        const montoMorosidad = calcularMontoMorosidadDiario(
-            cuota.monto,
-            diasMora,
-            tasaDiaria,
-            cuota.moraPagada || 0 // Si ya pagó parte de la mora
-        );
-        
-        return {
-            ...cuota,
-            dias_mora_cuota: diasMora,
-            monto_morosidad: montoMorosidad,
-            tasa_mora_diaria: tasaDiaria,
-            fecha_cierre_calculo: fechaCierre
-        };
-    });
-};
-
 // ============================================================
-// COMPONENTE PRINCIPAL Cuota
+// IMPORTS
 // ============================================================
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
-  Search, 
-  Plus, 
-  DollarSign,
-  CreditCard,
-  Clock,
-  AlertCircle,
-  TrendingUp,
-  Calendar,
-  CheckCircle,
-  XCircle,
-  Eye,
-  Download,
-  Filter,
-  ArrowUpDown,
-  Wallet,
-  Banknote,
-  Receipt,
-  PhoneCall,
-  Mail,
-  MapPin,
-  User,
-  Upload,
-  Image as ImageIcon,
-  Trash2,
-  FileText,
-  LayoutGrid,
-  List,
-  Settings,
-  Lock,
-  Loader
+  Search, Plus, CreditCard, Clock, AlertCircle,
+  TrendingUp, Calendar, CheckCircle, XCircle, Eye, Download,
+  Wallet, Receipt, PhoneCall, User, FileText,
+  LayoutGrid, List, Settings, Lock, Loader, Image as ImageIcon
 } from "lucide-react";
 
-// Componentes personalizados
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
 import CuotaAPI from '../services/api_cuota';
+import usuarioAPI from '../services/api_usuario';
 import { uploadToImgBB } from '../services/imgbbService';
+
+// ============================================================
+// COMPONENTE PRINCIPAL
+// ============================================================
 
 const Cuota = () => {
   const navigate = useNavigate();
@@ -193,19 +97,22 @@ const Cuota = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCuota, setSelectedCuota] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState("2024");
   const [showPaymentReceiptModal, setShowPaymentReceiptModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
-  const [prestamos, setPrestamos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeView, setActiveView] = useState("all");
-  const [userCuotas, setUserCuotas] = useState([]);
+  
+  const [allPrestamos, setAllPrestamos] = useState([]);
+  const [myPrestamos, setMyPrestamos] = useState([]);
   const [allCuotas, setAllCuotas] = useState([]);
+  const [myCuotas, setMyCuotas] = useState([]);
+  
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [loadingMine, setLoadingMine] = useState(false);
+  const [activeView, setActiveView] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [fechaCierre, setFechaCierre] = useState(new Date().toISOString().split('T')[0]);
+  const [currentUser, setCurrentUser] = useState(null);
   
-  // Estados para generar cuotas
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [selectedPrestamoForGeneration, setSelectedPrestamoForGeneration] = useState(null);
   const [generationConfig, setGenerationConfig] = useState({
@@ -215,8 +122,7 @@ const Cuota = () => {
     fechaPrimeraCuota: "",
     incluirMora: false
   });
-  
-  // Datos del usuario
+
   const user = {
     name: "Administrador IADEY",
     email: "admin@iadey.gob.ve",
@@ -226,44 +132,37 @@ const Cuota = () => {
     joinDate: "Enero 2024"
   };
 
-  // Notificaciones
   const [notifications, setNotifications] = useState([
     { id: 1, text: "Pago de cuota registrado", time: "5 min", read: false },
     { id: 2, text: "Nuevo vencimiento próximo", time: "1 hora", read: false },
     { id: 3, text: "Actualización de tasas", time: "3 horas", read: true },
   ]);
 
-  // Función para verificar si una cuota está en su período vigente
+  // ============================================================
+  // FUNCIONES DE UTILIDAD
+  // ============================================================
+  
   const isCuotaVigente = (fechaDesde, fechaHasta) => {
     if (!fechaDesde || !fechaHasta) return false;
-    
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
-    
     const desde = new Date(fechaDesde);
     desde.setHours(0, 0, 0, 0);
-    
     const hasta = new Date(fechaHasta);
     hasta.setHours(23, 59, 59, 999);
-    
     return hoy >= desde && hoy <= hasta;
   };
 
-  // Función para verificar si una cuota está vencida o en mora
   const getCuotaStatus = (fechaVencimiento, fechaPago, estadoBase, fechaDesde, fechaHasta) => {
     if (estadoBase === "pagado") return "pagado";
     
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     
-    // Si la cuota no está en su período vigente y no ha comenzado
     if (fechaDesde) {
       const desde = new Date(fechaDesde);
       desde.setHours(0, 0, 0, 0);
-      
-      if (hoy < desde) {
-        return "proxima";
-      }
+      if (hoy < desde) return "proxima";
     }
     
     const vencimiento = new Date(fechaVencimiento);
@@ -273,35 +172,20 @@ const Cuota = () => {
       const diffDays = Math.floor((hoy - vencimiento) / (1000 * 60 * 60 * 24));
       
       if (hoy > vencimiento) {
-        if (diffDays <= 5) {
-          return "en_gracia";
-        } else if (diffDays > 30) {
-          return "vencido";
-        }
+        if (diffDays <= 5) return "en_gracia";
+        if (diffDays > 30) return "vencido";
         return "en_mora";
       }
       
-      if (isCuotaVigente(fechaDesde, fechaHasta)) {
-        return "vigente";
-      }
-      
+      if (isCuotaVigente(fechaDesde, fechaHasta)) return "vigente";
       return "pendiente";
     }
     
     return estadoBase;
   };
 
-  // Calcular mora con la nueva función DIARIA (5% mensual = 0.05)
-  const calcularMora = (fechaVencimiento, montoCuota, tasaMoraMensual = 0.05, fechaCierre = null, moraPagada = 0) => {
-    const diasMora = calcularDiasMora(fechaVencimiento, null, 'pendiente', fechaCierre);
-    const tasaDiaria = calcularTasaMoraDiaria(tasaMoraMensual);
-    return calcularMontoMorosidadDiario(montoCuota, diasMora, tasaDiaria, moraPagada);
-  };
-
-  // Verificar si se puede pagar una cuota
   const canPayCuota = (cuota) => {
     if (cuota.estado === "pagado") return false;
-    
     const estado = getCuotaStatus(
       cuota.fechaVencimiento, 
       cuota.fechaPago, 
@@ -309,159 +193,364 @@ const Cuota = () => {
       cuota.fechaDesde,
       cuota.fechaHasta
     );
-    
     return ["vigente", "pendiente", "en_gracia", "en_mora", "vencido"].includes(estado);
   };
 
-  // Estadísticas generales con morosidad total
-  const stats = [
-    {
-      id: 1,
-      title: "Total Préstamos",
-      value: prestamos.length,
-      icon: CreditCard,
-      color: "blue",
-      bgColor: "bg-blue-50",
-      textColor: "text-blue-600"
-    },
-    {
-      id: 2,
-      title: "Cuotas Vigentes",
-      value: allCuotas.filter(c => {
-        const status = getCuotaStatus(c.fechaVencimiento, c.fechaPago, c.estado, c.fechaDesde, c.fechaHasta);
-        return status === "vigente";
-      }).length,
-      icon: Clock,
-      color: "yellow",
-      bgColor: "bg-yellow-50",
-      textColor: "text-yellow-600"
-    },
-    {
-      id: 3,
-      title: "Cuotas Pagadas",
-      value: allCuotas.filter(c => c.estado === "pagado").length,
-      icon: CheckCircle,
-      color: "green",
-      bgColor: "bg-green-50",
-      textColor: "text-green-600"
-    },
-    {
-      id: 4,
-      title: "Monto Total en Mora",
-      value: `$${allCuotas.reduce((sum, c) => sum + (c.monto_morosidad || 0), 0).toFixed(2)}`,
-      icon: AlertCircle,
-      color: "red",
-      bgColor: "bg-red-50",
-      textColor: "text-red-600"
+  const getEstadoConfig = (cuota) => {
+    const status = getCuotaStatus(cuota.fechaVencimiento, cuota.fechaPago, cuota.estado, cuota.fechaDesde, cuota.fechaHasta);
+    
+    switch(status) {
+      case "pagado":
+        return { text: "Pagado", color: "text-green-600", bg: "bg-green-100", icon: CheckCircle };
+      case "vigente":
+        return { text: "Vigente", color: "text-blue-600", bg: "bg-blue-100", icon: CreditCard };
+      case "en_gracia":
+        return { text: "En Gracia", color: "text-teal-600", bg: "bg-teal-100", icon: Clock };
+      case "vencido":
+        return { text: "Vencido", color: "text-red-600", bg: "bg-red-100", icon: XCircle };
+      case "en_mora":
+        return { text: "En Mora", color: "text-orange-600", bg: "bg-orange-100", icon: AlertCircle };
+      case "proxima":
+        return { text: "Próxima", color: "text-gray-600", bg: "bg-gray-100", icon: Lock };
+      default:
+        return { text: "Pendiente", color: "text-yellow-600", bg: "bg-yellow-100", icon: Clock };
     }
-  ];
-
-  // Filtrar préstamos
-  const filteredPrestamos = prestamos.filter(prestamo => {
-    const matchesSearch = prestamo.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         prestamo.cedula.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = selectedFilter === "all" || 
-                         (selectedFilter === "sin_cuotas" && prestamo.cuotas.length === 0) ||
-                         prestamo.estado === selectedFilter;
-    return matchesSearch && matchesFilter;
-  });
-
-  // Marcar notificaciones como leídas
-  const markAsRead = (id) => {
-    setNotifications(notifications.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    ));
   };
 
-  // Manejar logout
-  const handleLogout = () => {
-    localStorage.removeItem('usuario');
-    localStorage.removeItem('rememberToken');
-    window.dispatchEvent(new Event('authChange'));
-    navigate('/login');
+  // ============================================================
+  // FUNCIONES PARA FORMATEAR CONTRATOS
+  // ============================================================
+  
+  const formatearContratos = (data, fechaActual) => {
+    return data.map(contrato => {
+      const tasaMoraMensual = parseFloat(contrato.interes_mora) || 0.05;
+      const tasaDiaria = calcularTasaMoraDiaria(tasaMoraMensual);
+      
+      const cuotasConMora = (contrato.cuotas || []).map(cuota => {
+        const fechaVencimiento = cuota.fecha_hasta ? cuota.fecha_hasta.split('T')[0] : 
+                                cuota.fecha_vencimiento ? cuota.fecha_vencimiento.split('T')[0] : '';
+        
+        const diasMora = calcularDiasMora(
+          fechaVencimiento,
+          cuota.fecha_pago ? cuota.fecha_pago.split('T')[0] : null,
+          cuota.estado_cuota,
+          fechaActual
+        );
+        
+        const montoMorosidad = calcularMontoMorosidadDiario(
+          parseFloat(cuota.monto_cuota) || 0,
+          diasMora,
+          tasaDiaria,
+          parseFloat(cuota.monto_mora) || 0
+        );
+        
+        return {
+          id: cuota.id_cuota,
+          numero: cuota.num_cuota,
+          fechaDesde: cuota.fecha_desde ? cuota.fecha_desde.split('T')[0] : '',
+          fechaHasta: cuota.fecha_hasta ? cuota.fecha_hasta.split('T')[0] : '',
+          fechaVencimiento: fechaVencimiento,
+          monto: parseFloat(cuota.monto_cuota) || 0,
+          estado: cuota.estado_cuota,
+          fechaPago: cuota.fecha_pago ? cuota.fecha_pago.split('T')[0] : null,
+          comprobante: cuota.comprobante_pago,
+          montoPagado: parseFloat(cuota.monto_pagado) || 0,
+          moraPagada: parseFloat(cuota.monto_mora) || 0,
+          dias_mora_cuota: diasMora,
+          monto_morosidad: montoMorosidad,
+          tasa_mora_diaria: tasaDiaria,
+          metodoPago: cuota.metodo_pago,
+          referencia: cuota.referencia_pago,
+          tipo_cuota: cuota.tipo_cuota || cuota.tipo || 'Obligatoria',
+          usuario_asignado: cuota.usuario_asignado || null
+        };
+      });
+      
+      return {
+        id: contrato.id_contrato,
+        id_cedula_aprob: contrato.id_cedula_aprob,
+        numero_contrato: contrato.numero_contrato,
+        cliente: `${contrato.aprobacion?.cliente_nombre || 'Cliente'}`,
+        cedula: contrato.aprobacion?.cliente_cedula || '',
+        telefono: contrato.aprobacion?.cliente_telefono || '',
+        email: contrato.aprobacion?.cliente_email || '',
+        direccion: contrato.aprobacion?.cliente_direccion || '',
+        montoTotal: parseFloat(contrato.devolvimiento) || 0,
+        montoPagado: 0,
+        saldoPendiente: parseFloat(contrato.monto_moneda) || 0,
+        tasaInteres: parseFloat(contrato.interes) || 0,
+        tasaInteresMora: tasaMoraMensual,
+        plazo: contrato.numero_cuotas || 0,
+        cuotasPagadas: 0,
+        numero_gracias: contrato.numero_gracias || 0,
+        devolvimiento: contrato.devolvimiento,
+        monto_moneda: contrato.monto_moneda,
+        cuotasPendientes: contrato.numero_cuotas || 0,
+        estado: contrato.estatus === 'En espera de cuotas' ? 'pendiente' : 
+                contrato.estatus === 'Activo' ? 'activo' : 'pagado',
+        fechaInicio: contrato.inicio ? contrato.inicio.split('T')[0] : '',
+        fechaCierre: contrato.cierre ? contrato.cierre.split('T')[0] : null,
+        montoCuota: cuotasConMora.length > 0 ? cuotasConMora[0].monto : 0,
+        cuotas: cuotasConMora,
+        totalMorosidad: cuotasConMora.reduce((sum, c) => sum + (c.monto_morosidad || 0), 0)
+      };
+    });
   };
 
-  // Registrar pago con comprobante e ImgBB
-  // Registrar pago con comprobante e ImgBB - VERSIÓN ADAPTADA
-// En Cuota.js, actualizar handleRegisterPayment
-
-const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
-  try {
-    const { montoPagado, comprobante, metodoPago, referencia, mora, diasMora } = pagoData;
-    const fecha_pagada = new Date().toISOString().split('T')[0];
-    
-    const cuotaEncontrada = allCuotas.find(
-      c => c.contratoId === prestamoId && c.numero === cuotaNumero
-    );
-    
-    if (!cuotaEncontrada) {
-      throw new Error('Cuota no encontrada');
-    }
-    
-    // Subir comprobante a ImgBB si es un archivo
-    let comprobanteUrl = comprobante;
-    if (comprobante instanceof File) {
-      try {
-        const uploadResult = await uploadToImgBB(comprobante);
-        comprobanteUrl = uploadResult.url;
-      } catch (uploadError) {
-        console.error('Error al subir comprobante:', uploadError);
-        throw new Error('Error al subir el comprobante de pago');
+  // ============================================================
+  // CARGAR TODOS LOS CONTRATOS (getAll)
+  // ============================================================
+  const cargarTodosLosContratos = async () => {
+    try {
+      setLoadingAll(true);
+      console.log('📋 Cargando TODOS los contratos con CuotaAPI.getAll()');
+      
+      const response = await CuotaAPI.getAll();
+      
+      if (response.success) {
+        const fechaActual = new Date().toISOString().split('T')[0];
+        const contratosFormateados = formatearContratos(response.data, fechaActual);
+        
+        contratosFormateados.forEach(contrato => {
+          const pagadas = contrato.cuotas.filter(c => c.estado === 'pagado');
+          contrato.cuotasPagadas = pagadas.length;
+          contrato.cuotasPendientes = contrato.plazo - pagadas.length;
+          contrato.montoPagado = pagadas.reduce((sum, c) => sum + c.monto, 0);
+          contrato.saldoPendiente = contrato.montoTotal - contrato.montoPagado;
+        });
+        
+        setAllPrestamos(contratosFormateados);
+        
+        const todasLasCuotas = [];
+        contratosFormateados.forEach(contrato => {
+          contrato.cuotas.forEach(cuota => {
+            todasLasCuotas.push({
+              ...cuota,
+              contratoId: contrato.id,
+              id_cedula_aprob: contrato.id_cedula_aprob,
+              numero_contrato: contrato.numero_contrato,
+              cliente: contrato.cliente,
+              cedula: contrato.cedula,
+              montoTotal: contrato.montoTotal,
+              plazo: contrato.plazo,
+              estadoContrato: contrato.estado,
+              totalMorosidad: contrato.totalMorosidad
+            });
+          });
+        });
+        setAllCuotas(todasLasCuotas);
+        
+        console.log('✅ Total contratos:', contratosFormateados.length);
+        console.log('✅ Total cuotas:', todasLasCuotas.length);
       }
+    } catch (error) {
+      console.error('Error al cargar todos los contratos:', error);
+    } finally {
+      setLoadingAll(false);
     }
-    
-    const response = await CuotaAPI.registrarPago(cuotaEncontrada.id, {
-      fecha_pagada: fecha_pagada,
-      comprobante: comprobanteUrl,
-      monto_pagado: montoPagado,
-      metodo_pago: metodoPago,
-      referencia: referencia,
-      monto_morosidad: mora || 0,
-      dias_mora_cuota: diasMora || 0
-    });
-    
-    if (response.success) {
-      // Mensaje con información de cuotas recalculadas
-      const mensajeExito = response.data.cuotas_gracia_actualizadas?.length > 0
-        ? `✅ Pago registrado. Se recalcularon ${response.data.cuotas_gracia_actualizadas.length} cuotas de gracia.`
-        : `✅ Pago de cuota ${cuotaNumero} registrado exitosamente.`;
-      
-      // Recargar todos los datos para reflejar los cambios
-      await cargarContratos();
-      
-      setShowPaymentModal(false);
-      setSelectedCuota(null);
-      
-      // Mostrar notificación
-      setNotifications([
-        {
-          id: Date.now(),
-          text: mensajeExito,
-          time: "Justo ahora",
-          read: false
-        },
-        ...notifications
-      ]);
-    }
-  } catch (error) {
-    console.error('Error al registrar pago:', error);
-    alert('Error al registrar el pago: ' + (error.message || 'Error desconocido'));
-  }
-};
+  };
 
-  // Ver comprobante de pago
+  // ============================================================
+  // CARGAR MIS CONTRATOS (getByCedulaAprob)
+  // ============================================================
+  const cargarMisContratos = async () => {
+    try {
+      setLoadingMine(true);
+      
+      const userData = usuarioAPI.getCurrentUser();
+      const cedula = userData?.cedula_usuario || userData?.cedula;
+      
+      if (!cedula) {
+        console.warn('⚠️ Usuario sin cédula, no se pueden cargar "Mis Cuotas"');
+        setMyPrestamos([]);
+        setMyCuotas([]);
+        return;
+      }
+      
+      console.log(`👤 Cargando MIS contratos para cédula: ${cedula}`);
+      console.log('🔗 Usando CuotaAPI.getByCedulaAprob()');
+      
+      const response = await CuotaAPI.getByCedulaAprob(cedula);
+      
+      if (response.success) {
+        const fechaActual = new Date().toISOString().split('T')[0];
+        const contratosFormateados = formatearContratos(response.data, fechaActual);
+        
+        contratosFormateados.forEach(contrato => {
+          const pagadas = contrato.cuotas.filter(c => c.estado === 'pagado');
+          contrato.cuotasPagadas = pagadas.length;
+          contrato.cuotasPendientes = contrato.plazo - pagadas.length;
+          contrato.montoPagado = pagadas.reduce((sum, c) => sum + c.monto, 0);
+          contrato.saldoPendiente = contrato.montoTotal - contrato.montoPagado;
+        });
+        
+        setMyPrestamos(contratosFormateados);
+        
+        const misCuotas = [];
+        contratosFormateados.forEach(contrato => {
+          contrato.cuotas.forEach(cuota => {
+            misCuotas.push({
+              ...cuota,
+              contratoId: contrato.id,
+              id_cedula_aprob: contrato.id_cedula_aprob,
+              numero_contrato: contrato.numero_contrato,
+              cliente: contrato.cliente,
+              cedula: contrato.cedula,
+              montoTotal: contrato.montoTotal,
+              plazo: contrato.plazo,
+              estadoContrato: contrato.estado,
+              totalMorosidad: contrato.totalMorosidad
+            });
+          });
+        });
+        setMyCuotas(misCuotas);
+        
+        console.log('✅ Mis contratos:', contratosFormateados.length);
+        console.log('✅ Mis cuotas:', misCuotas.length);
+      }
+    } catch (error) {
+      console.error('Error al cargar mis contratos:', error);
+      setMyPrestamos([]);
+      setMyCuotas([]);
+    } finally {
+      setLoadingMine(false);
+    }
+  };
+
+  // ============================================================
+  // ACTUALIZAR MOROSIDAD
+  // ============================================================
+  const actualizarMorosidadDiaria = useCallback(() => {
+    const fechaActual = new Date().toISOString().split('T')[0];
+    
+    setAllPrestamos(prev => prev.map(prestamo => {
+      const tasaMoraMensual = prestamo.tasaInteresMora || 0.05;
+      const tasaDiaria = calcularTasaMoraDiaria(tasaMoraMensual);
+      
+      const cuotasActualizadas = prestamo.cuotas.map(cuota => {
+        if (cuota.estado !== 'pagado') {
+          const diasMora = calcularDiasMora(
+            cuota.fechaVencimiento,
+            cuota.fechaPago,
+            cuota.estado,
+            fechaActual
+          );
+          const montoMorosidad = calcularMontoMorosidadDiario(
+            cuota.monto,
+            diasMora,
+            tasaDiaria,
+            cuota.moraPagada || 0
+          );
+          return { ...cuota, dias_mora_cuota: diasMora, monto_morosidad: montoMorosidad };
+        }
+        return cuota;
+      });
+      
+      return { ...prestamo, cuotas: cuotasActualizadas };
+    }));
+    
+    setMyPrestamos(prev => prev.map(prestamo => {
+      const tasaMoraMensual = prestamo.tasaInteresMora || 0.05;
+      const tasaDiaria = calcularTasaMoraDiaria(tasaMoraMensual);
+      
+      const cuotasActualizadas = prestamo.cuotas.map(cuota => {
+        if (cuota.estado !== 'pagado') {
+          const diasMora = calcularDiasMora(
+            cuota.fechaVencimiento,
+            cuota.fechaPago,
+            cuota.estado,
+            fechaActual
+          );
+          const montoMorosidad = calcularMontoMorosidadDiario(
+            cuota.monto,
+            diasMora,
+            tasaDiaria,
+            cuota.moraPagada || 0
+          );
+          return { ...cuota, dias_mora_cuota: diasMora, monto_morosidad: montoMorosidad };
+        }
+        return cuota;
+      });
+      
+      return { ...prestamo, cuotas: cuotasActualizadas };
+    }));
+  }, []);
+
+  // ============================================================
+  // REGISTRAR PAGO
+  // ============================================================
+  const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
+    try {
+      const { montoPagado, comprobante, metodoPago, referencia, mora, diasMora } = pagoData;
+      const fecha_pagada = new Date().toISOString().split('T')[0];
+      
+      const cuotaEncontrada = allCuotas.find(
+        c => c.contratoId === prestamoId && c.numero === cuotaNumero
+      );
+      
+      if (!cuotaEncontrada) {
+        throw new Error('Cuota no encontrada');
+      }
+      
+      let comprobanteUrl = comprobante;
+      if (comprobante instanceof File) {
+        try {
+          const uploadResult = await uploadToImgBB(comprobante);
+          comprobanteUrl = uploadResult.url;
+        } catch (uploadError) {
+          console.error('Error al subir comprobante:', uploadError);
+          throw new Error('Error al subir el comprobante de pago');
+        }
+      }
+      
+      const response = await CuotaAPI.registrarPago(cuotaEncontrada.id, {
+        fecha_pagada: fecha_pagada,
+        comprobante: comprobanteUrl,
+        monto_pagado: montoPagado,
+        metodo_pago: metodoPago,
+        referencia: referencia,
+        monto_morosidad: mora || 0,
+        dias_mora_cuota: diasMora || 0
+      });
+      
+      if (response.success) {
+        const mensajeExito = response.data.cuotas_gracia_actualizadas?.length > 0
+          ? `✅ Pago registrado. Se recalcularon ${response.data.cuotas_gracia_actualizadas.length} cuotas de gracia.`
+          : `✅ Pago de cuota ${cuotaNumero} registrado exitosamente.`;
+        
+        await cargarTodosLosContratos();
+        await cargarMisContratos();
+        
+        setShowPaymentModal(false);
+        setSelectedCuota(null);
+        
+        setNotifications([
+          { id: Date.now(), text: mensajeExito, time: "Justo ahora", read: false },
+          ...notifications
+        ]);
+      }
+    } catch (error) {
+      console.error('Error al registrar pago:', error);
+      alert('Error al registrar el pago: ' + (error.message || 'Error desconocido'));
+    }
+  };
+
+  // ============================================================
+  // VER COMPROBANTE
+  // ============================================================
   const handleViewReceipt = (prestamoId, cuota) => {
-    setSelectedPayment({
-      prestamoId,
-      cuota,
-      prestamo: prestamos.find(p => p.id === prestamoId)
-    });
+    const prestamo = allPrestamos.find(p => p.id === prestamoId) || 
+                     myPrestamos.find(p => p.id === prestamoId);
+    setSelectedPayment({ prestamoId, cuota, prestamo });
     setShowPaymentReceiptModal(true);
   };
 
-  // Función para generar cuotas
+  // ============================================================
+  // GENERAR CUOTAS
+  // ============================================================
   const handleGenerateCuotas = (prestamoId) => {
-    const prestamo = prestamos.find(p => p.id === prestamoId);
+    const prestamo = allPrestamos.find(p => p.id === prestamoId) || 
+                     myPrestamos.find(p => p.id === prestamoId);
     if (prestamo) {
       const cuotasRestantes = prestamo.plazo - prestamo.cuotas.length;
       const montoPorCuota = prestamo.montoCuota || (prestamo.montoTotal / prestamo.plazo);
@@ -479,7 +568,6 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
     }
   };
 
-  // Confirmar generación de cuotas
   const confirmGenerateCuotas = async (configuracion) => {
     if (!selectedPrestamoForGeneration) return;
     
@@ -496,7 +584,8 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
       const response = await CuotaAPI.generarCuotasManual(selectedPrestamoForGeneration.id, config);
       
       if (response.success) {
-        await cargarContratos();
+        await cargarTodosLosContratos();
+        await cargarMisContratos();
         alert(response.message || 'Cuotas generadas exitosamente');
         setShowGenerateModal(false);
         setSelectedPrestamoForGeneration(null);
@@ -507,269 +596,31 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
     }
   };
 
-  // Obtener estado de cuota con color, texto e indicador
-  const getEstadoConfig = (cuota) => {
-    const status = getCuotaStatus(cuota.fechaVencimiento, cuota.fechaPago, cuota.estado, cuota.fechaDesde, cuota.fechaHasta);
-    
-    switch(status) {
-      case "pagado":
-        return { 
-          text: "Pagado", 
-          color: "text-green-600", 
-          bg: "bg-green-100", 
-          icon: CheckCircle,
-          border: "border-green-200"
-        };
-      case "vigente":
-        return { 
-          text: "Vigente", 
-          color: "text-blue-600", 
-          bg: "bg-blue-100", 
-          icon: CreditCard,
-          border: "border-blue-200"
-        };
-      case "en_gracia":
-        return { 
-          text: "En Gracia", 
-          color: "text-teal-600", 
-          bg: "bg-teal-100", 
-          icon: Clock,
-          border: "border-teal-200"
-        };
-      case "vencido":
-        return { 
-          text: "Vencido", 
-          color: "text-red-600", 
-          bg: "bg-red-100", 
-          icon: XCircle,
-          border: "border-red-200"
-        };
-      case "en_mora":
-        return { 
-          text: "En Mora", 
-          color: "text-orange-600", 
-          bg: "bg-orange-100", 
-          icon: AlertCircle,
-          border: "border-orange-200"
-        };
-      case "proxima":
-        return { 
-          text: "Próxima", 
-          color: "text-gray-600", 
-          bg: "bg-gray-100", 
-          icon: Lock,
-          border: "border-gray-200"
-        };
-      default:
-        return { 
-          text: "Pendiente", 
-          color: "text-yellow-600", 
-          bg: "bg-yellow-100", 
-          icon: Clock,
-          border: "border-yellow-200"
-        };
-    }
-  };
-
-  // Cargar datos al montar el componente
+  // ============================================================
+  // EFECTOS
+  // ============================================================
   useEffect(() => {
-    cargarContratos();
+    const userData = usuarioAPI.getCurrentUser();
+    setCurrentUser(userData);
     
-    // Actualizar mora diariamente
+    cargarTodosLosContratos();
+    cargarMisContratos();
+    
     const interval = setInterval(() => {
       const nuevaFecha = new Date().toISOString().split('T')[0];
       if (nuevaFecha !== fechaCierre) {
         setFechaCierre(nuevaFecha);
         actualizarMorosidadDiaria();
       }
-    }, 60000); // Revisar cada minuto
+    }, 60000);
     
     return () => clearInterval(interval);
   }, []);
 
-  // Función para actualizar la morosidad diariamente
-  const actualizarMorosidadDiaria = () => {
-    setPrestamos(prevPrestamos => {
-      return prevPrestamos.map(prestamo => {
-        const tasaMoraMensual = prestamo.tasaInteresMora || 0.05;
-        const fechaActual = new Date().toISOString().split('T')[0];
-        
-        const cuotasActualizadas = prestamo.cuotas.map(cuota => {
-          // Solo recalcular si no está pagada
-          if (cuota.estado !== 'pagado') {
-            const diasMora = calcularDiasMora(
-              cuota.fechaVencimiento,
-              cuota.fechaPago,
-              cuota.estado,
-              fechaActual
-            );
-            
-            const tasaDiaria = calcularTasaMoraDiaria(tasaMoraMensual);
-            const montoMorosidad = calcularMontoMorosidadDiario(
-              cuota.monto,
-              diasMora,
-              tasaDiaria,
-              cuota.moraPagada || 0
-            );
-            
-            return {
-              ...cuota,
-              dias_mora_cuota: diasMora,
-              monto_morosidad: montoMorosidad,
-              ultima_actualizacion: fechaActual
-            };
-          }
-          return cuota;
-        });
-        
-        const totalMorosidad = cuotasActualizadas.reduce((sum, c) => sum + (c.monto_morosidad || 0), 0);
-        
-        return {
-          ...prestamo,
-          cuotas: cuotasActualizadas,
-          totalMorosidad: totalMorosidad,
-          ultima_actualizacion_mora: fechaActual
-        };
-      });
-    });
-  };
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedFilter, activeView]);
 
-  const cargarContratos = async () => {
-    try {
-      setLoading(true);
-      const response = await CuotaAPI.getAll();
-      if (response.success) {
-        const fechaActual = new Date().toISOString().split('T')[0];
-        
-        const contratosFormateados = response.data.map(contrato => {
-          const tasaMoraMensual = parseFloat(contrato.interes_mora) || 0.05;
-          const tasaDiaria = calcularTasaMoraDiaria(tasaMoraMensual);
-          
-          const cuotasConMora = (contrato.cuotas || []).map(cuota => {
-            const fechaVencimiento = cuota.fecha_hasta ? cuota.fecha_hasta.split('T')[0] : 
-                                    cuota.fecha_vencimiento ? cuota.fecha_vencimiento.split('T')[0] : '';
-            
-            const diasMora = calcularDiasMora(
-              fechaVencimiento,
-              cuota.fecha_pago ? cuota.fecha_pago.split('T')[0] : null,
-              cuota.estado_cuota,
-              fechaActual
-            );
-            
-            const montoMorosidad = calcularMontoMorosidadDiario(
-              parseFloat(cuota.monto_cuota) || 0,
-              diasMora,
-              tasaDiaria,
-              parseFloat(cuota.monto_mora) || 0
-            );
-            
-            return {
-              id: cuota.id_cuota,
-              numero: cuota.num_cuota,
-              fechaDesde: cuota.fecha_desde ? cuota.fecha_desde.split('T')[0] : '',
-              fechaHasta: cuota.fecha_hasta ? cuota.fecha_hasta.split('T')[0] : '',
-              fechaVencimiento: fechaVencimiento,
-              monto: parseFloat(cuota.monto_cuota) || 0,
-              estado: cuota.estado_cuota,
-              fechaPago: cuota.fecha_pago ? cuota.fecha_pago.split('T')[0] : null,
-              comprobante: cuota.comprobante_pago,
-              montoPagado: parseFloat(cuota.monto_pagado) || 0,
-              moraPagada: parseFloat(cuota.monto_mora) || 0,
-              dias_mora_cuota: diasMora,
-              monto_morosidad: montoMorosidad,
-              tasa_mora_diaria: tasaDiaria,
-              metodoPago: cuota.metodo_pago,
-              referencia: cuota.referencia_pago,
-              // ✅ AGREGAR TIPO DE CUOTA
-              tipo_cuota: cuota.tipo_cuota || cuota.tipo || 'Obligatoria'
-            };
-          });
-          
-          return {
-            id: contrato.id_contrato,
-            cliente: `${contrato.aprobacion?.cliente_nombre || 'Cliente'}`,
-            cedula: contrato.aprobacion?.cliente_cedula || '',
-            telefono: contrato.aprobacion?.cliente_telefono || '',
-            email: contrato.aprobacion?.cliente_email || '',
-            direccion: contrato.aprobacion?.cliente_direccion || '',
-            montoTotal: parseFloat(contrato.devolvimiento) || 0,
-            montoPagado: 0,
-            saldoPendiente: parseFloat(contrato.monto_moneda) || 0,
-            tasaInteres: parseFloat(contrato.interes) || 0,
-            tasaInteresMora: tasaMoraMensual,
-            plazo: contrato.numero_cuotas || 0,
-            cuotasPagadas: 0,
-            numero_gracias: contrato.numero_gracias || 0,
-            devolvimiento: contrato.devolvimiento,
-            monto_moneda: contrato.monto_moneda,
-            cuotasPendientes: contrato.numero_cuotas || 0,
-            estado: contrato.estatus === 'En espera de cuotas' ? 'pendiente' : 
-                    contrato.estatus === 'Activo' ? 'activo' : 'pagado',
-            fechaInicio: contrato.inicio ? contrato.inicio.split('T')[0] : '',
-            fechaCierre: contrato.cierre ? contrato.cierre.split('T')[0] : null,
-            montoCuota: cuotasConMora.length > 0 ? cuotasConMora[0].monto : 0,
-            cuotas: cuotasConMora,
-            totalMorosidad: cuotasConMora.reduce((sum, c) => sum + (c.monto_morosidad || 0), 0)
-          };
-        });
-        
-        // Calcular totales
-        contratosFormateados.forEach(contrato => {
-          const pagadas = contrato.cuotas.filter(c => c.estado === 'pagado');
-          contrato.cuotasPagadas = pagadas.length;
-          contrato.cuotasPendientes = contrato.plazo - pagadas.length;
-          contrato.montoPagado = pagadas.reduce((sum, c) => sum + c.monto, 0);
-          contrato.saldoPendiente = contrato.montoTotal - contrato.montoPagado;
-        });
-        
-        setPrestamos(contratosFormateados);
-        prepararDatosCuotas(contratosFormateados);
-      }
-    } catch (error) {
-      console.error('Error al cargar contratos:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Preparar datos para las tablas de cuotas
-  const prepararDatosCuotas = (contratos) => {
-    const todasLasCuotas = [];
-    const misCuotas = [];
-    
-    const currentUser = JSON.parse(localStorage.getItem('usuario') || '{}');
-    const userId = currentUser.id || currentUser.id_usuario;
-    
-    contratos.forEach(contrato => {
-      contrato.cuotas.forEach(cuota => {
-        const cuotaConInfo = {
-          ...cuota,
-          contratoId: contrato.id,
-          cliente: contrato.cliente,
-          cedula: contrato.cedula,
-          montoTotal: contrato.montoTotal,
-          plazo: contrato.plazo,
-          estadoContrato: contrato.estado,
-          totalMorosidad: contrato.totalMorosidad
-        };
-        
-        todasLasCuotas.push(cuotaConInfo);
-        
-        if (currentUser.role === "Administrador" || currentUser.role === "admin") {
-          misCuotas.push(cuotaConInfo);
-        } else if (cuota.usuario_asignado === userId) {
-          misCuotas.push(cuotaConInfo);
-        } else if (cuota.estado === "pendiente" || cuota.estado === "en_mora") {
-          misCuotas.push(cuotaConInfo);
-        }
-      });
-    });
-    
-    setAllCuotas(todasLasCuotas);
-    setUserCuotas(misCuotas);
-  };
-
-  // Cerrar menús
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (!e.target.closest('.notifications-menu') && !e.target.closest('.user-menu')) {
@@ -781,19 +632,67 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  // ============================================================
+  // ESTADÍSTICAS Y FILTROS
+  // ============================================================
+  const getStats = () => {
+    const cuotas = activeView === "all" ? allCuotas : myCuotas;
+    const prestamos = activeView === "all" ? allPrestamos : myPrestamos;
+    
+    return [
+      {
+        id: 1,
+        title: "Total Préstamos",
+        value: prestamos.length,
+        icon: CreditCard,
+        bgColor: "bg-blue-50",
+        textColor: "text-blue-600"
+      },
+      {
+        id: 2,
+        title: "Cuotas Vigentes",
+        value: cuotas.filter(c => {
+          const status = getCuotaStatus(c.fechaVencimiento, c.fechaPago, c.estado, c.fechaDesde, c.fechaHasta);
+          return status === "vigente";
+        }).length,
+        icon: Clock,
+        bgColor: "bg-yellow-50",
+        textColor: "text-yellow-600"
+      },
+      {
+        id: 3,
+        title: "Cuotas Pagadas",
+        value: cuotas.filter(c => c.estado === "pagado").length,
+        icon: CheckCircle,
+        bgColor: "bg-green-50",
+        textColor: "text-green-600"
+      },
+      {
+        id: 4,
+        title: "Monto Total en Mora",
+        value: `$${cuotas.reduce((sum, c) => sum + (c.monto_morosidad || 0), 0).toFixed(2)}`,
+        icon: AlertCircle,
+        bgColor: "bg-red-50",
+        textColor: "text-red-600"
+      }
+    ];
+  };
 
-  // Paginación
-  const totalPagesMine = Math.ceil(userCuotas.filter(cuota => {
-    const matchesSearch = cuota.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         cuota.cedula.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         cuota.contratoId.toString().includes(searchTerm);
-    const cuotaStatus = getCuotaStatus(cuota.fechaVencimiento, cuota.fechaPago, cuota.estado, cuota.fechaDesde, cuota.fechaHasta);
-    const matchesFilter = selectedFilter === "all" || cuotaStatus === selectedFilter;
+  const stats = getStats();
+  const getPrestamos = () => activeView === "all" ? allPrestamos : myPrestamos;
+  const getCuotas = () => activeView === "all" ? allCuotas : myCuotas;
+  const isLoading = activeView === "all" ? loadingAll : loadingMine;
+
+  const filteredPrestamos = getPrestamos().filter(prestamo => {
+    const matchesSearch = prestamo.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         prestamo.cedula.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = selectedFilter === "all" || 
+                         (selectedFilter === "sin_cuotas" && prestamo.cuotas.length === 0) ||
+                         prestamo.estado === selectedFilter;
     return matchesSearch && matchesFilter;
-  }).length / itemsPerPage);
-  
-  const filteredUserCuotas = userCuotas.filter(cuota => {
+  });
+
+  const filteredCuotas = getCuotas().filter(cuota => {
     const matchesSearch = cuota.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          cuota.cedula.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          cuota.contratoId.toString().includes(searchTerm);
@@ -801,14 +700,27 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
     const matchesFilter = selectedFilter === "all" || cuotaStatus === selectedFilter;
     return matchesSearch && matchesFilter;
   });
-  
-  const startIndexMine = (currentPage - 1) * itemsPerPage;
-  const paginatedUserCuotas = filteredUserCuotas.slice(startIndexMine, startIndexMine + itemsPerPage);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, selectedFilter, activeView]);
+  const totalPages = Math.ceil(filteredCuotas.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedCuotas = filteredCuotas.slice(startIndex, startIndex + itemsPerPage);
 
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const markAsRead = (id) => {
+    setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('usuario');
+    localStorage.removeItem('rememberToken');
+    window.dispatchEvent(new Event('authChange'));
+    navigate('/login');
+  };
+
+  // ============================================================
+  // RENDER
+  // ============================================================
   return (
     <div className={`min-h-screen flex flex-col ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
       <Header 
@@ -849,6 +761,13 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
               <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                 Última actualización de mora: {fechaCierre}
               </p>
+              {currentUser && (
+                <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                  Usuario: {currentUser.nombre_completo || currentUser.nombres || 'N/A'} 
+                  ({currentUser.nombre_rol || currentUser.rol || 'Usuario'})
+                  {currentUser.cedula_usuario && ` - Cédula: ${currentUser.cedula_usuario}`}
+                </p>
+              )}
             </div>
 
             {/* Tabs */}
@@ -874,7 +793,7 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
                       ? "bg-white/20" 
                       : "bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
                   }`}>
-                    {prestamos.length}
+                    {allPrestamos.length}
                   </span>
                 </button>
                 <button
@@ -897,7 +816,7 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
                       ? "bg-white/20" 
                       : "bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
                   }`}>
-                    {userCuotas.length}
+                    {myCuotas.length}
                   </span>
                 </button>
               </div>
@@ -922,13 +841,13 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
               ))}
             </div>
 
-            {/* Filtros y búsqueda */}
+            {/* Filtros */}
             <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
               <div className="relative w-full sm:w-96">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
                   type="text"
-                  placeholder={activeView === "all" ? "Buscar por cliente o cédula..." : "Buscar por cliente, cédula o contrato..."}
+                  placeholder={activeView === "all" ? "Buscar por cliente o cédula..." : "Buscar en mis cuotas..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className={`w-full pl-10 pr-4 py-2.5 rounded-lg border ${
@@ -965,8 +884,6 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
                       <option value="pagado">Pagadas</option>
                       <option value="en_mora">En Mora</option>
                       <option value="vencido">Vencidas</option>
-                      <option value="obligatoria">Tipo Obligatoria</option>
-                      <option value="gracias">Tipo Gracias</option>
                     </>
                   )}
                 </select>
@@ -989,10 +906,12 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
               </div>
             </div>
 
-            {/* VISTA: TODAS LAS CUOTAS */}
+            {/* ============================================================
+                VISTA: TODAS LAS CUOTAS (getAll)
+                ============================================================ */}
             {activeView === "all" && (
               <div className="space-y-6">
-                {loading ? (
+                {loadingAll ? (
                   <div className="flex justify-center items-center py-12">
                     <Loader className="animate-spin text-[#2A9D8F]" size={48} />
                   </div>
@@ -1041,14 +960,16 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
                                   </span>
                                 )}
                               </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                              <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
                                 <div className="flex items-center gap-2">
                                   <User size={14} className="text-gray-400" />
                                   <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Cédula: {prestamo.cedula}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <PhoneCall size={14} className="text-gray-400" />
-                                  <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>{prestamo.telefono}</span>
+                                  <FileText size={14} className="text-gray-400" />
+                                  <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                                    Contrato #{prestamo.numero_contrato || prestamo.id}
+                                  </span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Calendar size={14} className="text-gray-400" />
@@ -1057,7 +978,7 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
                                 <div className="flex items-center gap-2">
                                   <FileText size={14} className="text-gray-400" />
                                   <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                                    Contrato #{prestamo.id}
+                                    Cédula Aprob: {prestamo.id_cedula_aprob || 'N/A'}
                                   </span>
                                 </div>
                               </div>
@@ -1125,7 +1046,7 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
                         </div>
                       </div>
 
-                      {/* Tabla de cuotas del préstamo */}
+                      {/* Tabla de cuotas */}
                       {prestamo.cuotas.length > 0 ? (
                         <div className="overflow-x-auto">
                           <table className="w-full">
@@ -1166,18 +1087,8 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
                                         {cuota.tipo_cuota || 'Obligatoria'}
                                       </span>
                                     </td>
-                                    <td className="px-4 py-3 text-sm">
-                                      <div className="flex items-center gap-1">
-                                        <Calendar size={14} className="text-gray-400" />
-                                        {cuota.fechaDesde || '-'}
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-sm">
-                                      <div className="flex items-center gap-1">
-                                        <Calendar size={14} className="text-gray-400" />
-                                        {cuota.fechaHasta || cuota.fechaVencimiento || '-'}
-                                      </div>
-                                    </td>
+                                    <td className="px-4 py-3 text-sm">{cuota.fechaDesde || '-'}</td>
+                                    <td className="px-4 py-3 text-sm">{cuota.fechaHasta || cuota.fechaVencimiento || '-'}</td>
                                     <td className="px-4 py-3 text-sm text-right">${cuota.monto.toLocaleString()}</td>
                                     <td className="px-4 py-3 text-sm text-center">
                                       {cuota.dias_mora_cuota > 0 ? (
@@ -1270,24 +1181,31 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
               </div>
             )}
 
-            {/* VISTA: MIS CUOTAS */}
+            {/* ============================================================
+                VISTA: MIS CUOTAS (getByCedulaAprob)
+                ============================================================ */}
             {activeView === "mine" && (
               <div className={`rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg overflow-hidden`}>
                 <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                        Mis Cuotas Asignadas
+                        Mis Cuotas
                       </h2>
                       <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        Cuotas que tienes asignadas para gestión y cobro
+                        Cuotas asociadas a tu cédula de aprobación
                       </p>
+                      {currentUser && (
+                        <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                          Cédula: {currentUser.cedula_usuario || currentUser.cedula || 'No disponible'}
+                        </p>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <span className={`px-3 py-1 rounded-full text-sm ${
                         darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
                       }`}>
-                        Mora Total: ${allCuotas.reduce((sum, c) => sum + (c.monto_morosidad || 0), 0).toFixed(2)}
+                        Mora Total: ${myCuotas.reduce((sum, c) => sum + (c.monto_morosidad || 0), 0).toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -1300,6 +1218,7 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
                         <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Cuota</th>
                         <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Tipo</th>
                         <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Cliente</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Contrato</th>
                         <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Período</th>
                         <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider">Monto</th>
                         <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Días Mora</th>
@@ -1311,33 +1230,38 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
                       </tr>
                     </thead>
                     <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
-                      {loading ? (
+                      {loadingMine ? (
                         <tr>
-                          <td colSpan={11} className="px-4 py-12 text-center">
+                          <td colSpan={12} className="px-4 py-12 text-center">
                             <div className="flex flex-col items-center gap-3">
                               <Loader className="animate-spin text-[#2A9D8F]" size={40} />
                               <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                Cargando cuotas...
+                                Cargando mis cuotas...
                               </p>
                             </div>
                           </td>
                         </tr>
-                      ) : paginatedUserCuotas.length === 0 ? (
+                      ) : paginatedCuotas.length === 0 ? (
                         <tr>
-                          <td colSpan={11} className="px-4 py-12 text-center">
+                          <td colSpan={12} className="px-4 py-12 text-center">
                             <div className="flex flex-col items-center gap-3">
                               <FileText size={48} className="text-gray-400" />
                               <p className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                 No se encontraron cuotas
                               </p>
                               <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                No tienes cuotas asignadas en este momento
+                                No tienes cuotas asociadas a tu cédula de aprobación
                               </p>
+                              {currentUser && (
+                                <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                  Cédula: {currentUser.cedula_usuario || currentUser.cedula || 'No disponible'}
+                                </p>
+                              )}
                             </div>
                           </td>
                         </tr>
                       ) : (
-                        paginatedUserCuotas.map((cuota) => {
+                        paginatedCuotas.map((cuota) => {
                           const estadoConfig = getEstadoConfig(cuota);
                           const mora = cuota.monto_morosidad || 0;
                           const totalPagar = cuota.monto + mora;
@@ -1366,7 +1290,13 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
                               <td className="px-4 py-3 text-sm">
                                 <div>
                                   <p className="font-medium dark:text-white">{cuota.cliente}</p>
-                                  <p className="text-xs text-gray-500">#{cuota.contratoId}</p>
+                                  <p className="text-xs text-gray-500">Cédula: {cuota.cedula}</p>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-sm">
+                                <div>
+                                  <p className="font-medium dark:text-white">#{cuota.numero_contrato || cuota.contratoId}</p>
+                                  <p className="text-xs text-gray-500">ID: {cuota.contratoId}</p>
                                 </div>
                               </td>
                               <td className="px-4 py-3 text-sm">
@@ -1459,11 +1389,11 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
                 </div>
                 
                 {/* Paginación */}
-                {filteredUserCuotas.length > itemsPerPage && (
+                {filteredCuotas.length > itemsPerPage && (
                   <div className={`px-6 py-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
                     <div className="flex items-center justify-between">
                       <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        Mostrando {startIndexMine + 1} a {Math.min(startIndexMine + itemsPerPage, filteredUserCuotas.length)} de {filteredUserCuotas.length}
+                        Mostrando {startIndex + 1} a {Math.min(startIndex + itemsPerPage, filteredCuotas.length)} de {filteredCuotas.length}
                       </p>
                       <div className="flex gap-1">
                         <button 
@@ -1477,7 +1407,7 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
                         >
                           Anterior
                         </button>
-                        {Array.from({ length: totalPagesMine }, (_, i) => i + 1).map(page => (
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                           <button
                             key={page}
                             onClick={() => setCurrentPage(page)}
@@ -1491,10 +1421,10 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
                           </button>
                         ))}
                         <button 
-                          onClick={() => setCurrentPage(prev => Math.min(totalPagesMine, prev + 1))}
-                          disabled={currentPage === totalPagesMine}
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
                           className={`px-3 py-1 text-sm rounded border ${
-                            currentPage === totalPagesMine 
+                            currentPage === totalPages 
                               ? 'border-gray-200 text-gray-400 cursor-not-allowed' 
                               : `${darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-100'}`
                           }`}
@@ -1513,7 +1443,7 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
         </main>
       </div>
 
-      {/* Modal de registro de pago */}
+      {/* Modal de pago */}
       {showPaymentModal && selectedCuota && (
         <PaymentModal
           selectedCuota={selectedCuota}
@@ -1526,7 +1456,7 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
         />
       )}
 
-      {/* Modal para ver comprobante */}
+      {/* Modal de comprobante */}
       {showPaymentReceiptModal && selectedPayment && (
         <ReceiptModal
           selectedPayment={selectedPayment}
@@ -1538,7 +1468,7 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
         />
       )}
 
-      {/* Modal para generar cuotas */}
+      {/* Modal de generar cuotas */}
       {showGenerateModal && selectedPrestamoForGeneration && (
         <GenerateCuotasModal
           prestamo={selectedPrestamoForGeneration}
@@ -1557,30 +1487,28 @@ const handleRegisterPayment = async (prestamoId, cuotaNumero, pagoData) => {
 };
 
 // ============================================================
-// COMPONENTE MODAL DE PAGO
+// MODAL DE PAGO
 // ============================================================
+
 const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
   const [comprobante, setComprobante] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [metodoPago, setMetodoPago] = useState("efectivo");
   const [referencia, setReferencia] = useState("");
-  const [montoPagado, setMontoPagado] = useState(selectedCuota.monto + selectedCuota.mora);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  const totalPagar = selectedCuota.monto + selectedCuota.mora;
+  const totalPagar = selectedCuota.monto + (selectedCuota.mora || 0);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validar tipo de archivo
       const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
       if (!validTypes.includes(file.type)) {
         alert('Por favor, seleccione una imagen válida (JPG, PNG, GIF, WEBP)');
         return;
       }
       
-      // Validar tamaño (máximo 32MB para ImgBB)
       if (file.size > 32 * 1024 * 1024) {
         alert('La imagen no debe superar los 32MB');
         return;
@@ -1605,7 +1533,7 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
       setUploadProgress(50);
       
       await onConfirm(selectedCuota.prestamoId, selectedCuota.cuotaNumero, {
-        montoPagado: montoPagado,
+        montoPagado: totalPagar,
         comprobante: comprobante || {
           name: `pago_${Date.now()}_sin_comprobante`,
           size: 0,
@@ -1613,13 +1541,12 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
         },
         metodoPago: metodoPago,
         referencia: referencia,
-        mora: selectedCuota.mora,
-        diasMora: selectedCuota.diasMora
+        mora: selectedCuota.mora || 0,
+        diasMora: selectedCuota.diasMora || 0
       });
       
       setUploadProgress(100);
       
-      // Limpiar preview
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
@@ -1633,7 +1560,6 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
     }
   };
 
-  // Limpiar URL al desmontar
   useEffect(() => {
     return () => {
       if (previewUrl) {
@@ -1655,7 +1581,6 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
         </div>
         
         <div className="space-y-4">
-          {/* Información de la cuota */}
           <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
             <h4 className={`font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
               Detalle del Pago
@@ -1670,21 +1595,10 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
               </div>
             )}
             
-            {selectedCuota.fechaDesde && (
-              <div className="flex justify-between mb-2">
-                <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Período desde:</span>
-                <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  {selectedCuota.fechaDesde}
-                </span>
-              </div>
-            )}
-            
             <div className="flex justify-between mb-2">
-              <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                {selectedCuota.fechaDesde ? 'Período hasta:' : 'Fecha vencimiento:'}
-              </span>
+              <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Fecha vencimiento:</span>
               <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                {selectedCuota.fechaHasta || selectedCuota.fechaVencimiento}
+                {selectedCuota.fechaVencimiento || selectedCuota.fechaHasta}
               </span>
             </div>
             
@@ -1719,7 +1633,6 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
             </div>
           </div>
 
-          {/* Método de pago */}
           <div>
             <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               Método de pago
@@ -1740,7 +1653,6 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
             </select>
           </div>
 
-          {/* Referencia */}
           {(metodoPago === "transferencia" || metodoPago === "pago_movil") && (
             <div>
               <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -1760,7 +1672,6 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
             </div>
           )}
 
-          {/* Comprobante */}
           <div>
             <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               Comprobante de pago {metodoPago !== "efectivo" && <span className="text-red-500">*</span>}
@@ -1770,11 +1681,7 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
             }`}>
               {previewUrl ? (
                 <div className="space-y-2">
-                  {comprobante && comprobante.type?.startsWith('image/') ? (
-                    <img src={previewUrl} alt="Preview" className="max-h-48 mx-auto rounded" />
-                  ) : (
-                    <FileText size={48} className="mx-auto text-gray-400" />
-                  )}
+                  <img src={previewUrl} alt="Preview" className="max-h-48 mx-auto rounded" />
                   <p className="text-sm text-gray-600">{comprobante?.name}</p>
                   <button
                     onClick={() => {
@@ -1803,7 +1710,6 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
             </div>
           </div>
 
-          {/* Barra de progreso */}
           {isSubmitting && (
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
@@ -1823,7 +1729,6 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
             </div>
           )}
 
-          {/* Botones */}
           <div className="flex gap-3 pt-4">
             <button
               onClick={handleSubmit}
@@ -1859,8 +1764,9 @@ const PaymentModal = ({ selectedCuota, onClose, onConfirm, darkMode }) => {
 };
 
 // ============================================================
-// COMPONENTE MODAL PARA VER COMPROBANTE
+// MODAL PARA VER COMPROBANTE
 // ============================================================
+
 const ReceiptModal = ({ selectedPayment, onClose, darkMode }) => {
   const { cuota, prestamo } = selectedPayment;
   
@@ -1988,8 +1894,9 @@ const ReceiptModal = ({ selectedPayment, onClose, darkMode }) => {
 };
 
 // ============================================================
-// COMPONENTE MODAL PARA GENERAR CUOTAS
+// MODAL PARA GENERAR CUOTAS
 // ============================================================
+
 const GenerateCuotasModal = ({ 
   prestamo, 
   config, 
@@ -2013,11 +1920,7 @@ const GenerateCuotasModal = ({
   };
   
   const calcularVistaPrevia = () => {
-    const {
-      cantidadCuotas,
-      frecuencia,
-      fechaPrimeraCuota,
-    } = config;
+    const { cantidadCuotas, frecuencia, fechaPrimeraCuota } = config;
     
     if (!cantidadCuotas || !fechaPrimeraCuota) return;
     
@@ -2029,10 +1932,7 @@ const GenerateCuotasModal = ({
     const montoObligatorio = cuotasObligatorias > 0 ? montoTotal / cuotasObligatorias : 0;
     const montoGracia = cuotasGracia > 0 ? montoTotal / cuotasGracia : 0;
     
-    setMontosCalculados({
-      montoObligatorio,
-      montoGracia
-    });
+    setMontosCalculados({ montoObligatorio, montoGracia });
     
     const cuotasPrevias = [];
     let fechaActual = new Date(fechaPrimeraCuota);

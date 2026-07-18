@@ -37,6 +37,54 @@ const cuotaController = {
     }
   },
 
+  // Obtener contratos por cédula de aprobación
+async getByCedulaAprob(req, res) {
+  try {
+    const { id_cedula_aprob } = req.params;
+    
+    if (!id_cedula_aprob) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'ID de cédula de aprobación requerido' 
+      });
+    }
+    
+    // Actualizar estados de mora primero
+    await CuotaModel.actualizarEstadosMora();
+    
+    // Obtener contratos por cédula
+    const contratos = await CuotaModel.getByCedulaAprob(id_cedula_aprob);
+    
+    // Obtener cuotas para cada contrato
+    const contratosConCuotas = await Promise.all(
+      contratos.map(async (contrato) => {
+        try {
+          const cuotas = await CuotaModel.getCuotasByContratoId(contrato.id_contrato);
+          return {
+            ...contrato,
+            cuotas: cuotas || []
+          };
+        } catch (error) {
+          console.error(`Error obteniendo cuotas para contrato ${contrato.id_contrato}:`, error);
+          return {
+            ...contrato,
+            cuotas: []
+          };
+        }
+      })
+    );
+    
+    res.json({ success: true, data: contratosConCuotas });
+  } catch (error) {
+    console.error('Error en getByCedulaAprob:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      details: 'Error al obtener los contratos por cédula'
+    });
+  }
+},
+
   // Obtener cuotas de un contrato específico
   async getCuotasByContrato(req, res) {
     try {

@@ -59,6 +59,21 @@ CREATE TABLE Permisos (
 );
 
 -- =============================================
+-- TABLA: recuperacion_tokens
+-- =============================================
+CREATE TABLE recuperacion_tokens (
+    id SERIAL PRIMARY KEY,
+    id_cedula_usuario INT NOT NULL,
+    intentos_fallidos INT,
+    token VARCHAR(255) NOT NULL,
+    codigo VARCHAR(10) NOT NULL,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_expiracion TIMESTAMP NOT NULL,
+    usado BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (id_cedula_usuario) REFERENCES usuario(id)
+);
+
+-- =============================================
 -- TABLA: clasificacion_emprendimiento
 -- =============================================
 CREATE TABLE clasificacion_emprendimiento ( 

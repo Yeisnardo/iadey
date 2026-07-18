@@ -14,7 +14,7 @@ const personaController = {
   // Obtener persona por ID
   async getById(req, res) {
     try {
-      const persona = await PersonaModel.getById(req.params.id);
+      const persona = await PersonaModel.getById(req.params.cedula);
       if (!persona) {
         return res.status(404).json({ success: false, error: 'Persona no encontrada' });
       }
@@ -62,7 +62,7 @@ const personaController = {
   // Actualizar persona
   async update(req, res) {
     try {
-      const persona = await PersonaModel.update(req.params.id, req.body);
+      const persona = await PersonaModel.update(req.params.cedula, req.body);
       if (!persona) {
         return res.status(404).json({ success: false, error: 'Persona no encontrada' });
       }
@@ -75,7 +75,7 @@ const personaController = {
   // Eliminar persona
   async delete(req, res) {
     try {
-      const persona = await PersonaModel.delete(req.params.id);
+      const persona = await PersonaModel.delete(req.params.cedula);
       if (!persona) {
         return res.status(404).json({ success: false, error: 'Persona no encontrada' });
       }

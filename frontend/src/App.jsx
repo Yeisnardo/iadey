@@ -2,6 +2,11 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
+// Recuperacion de contraseña
+import SolicitarRecuperacion from './pages/SolicitarRecuperacion';
+import VerificarCodigo from './pages/VerificarCodigo';
+import CambiarContrasena from './pages/CambiarContrasena';
+
 // Importación de páginas
 import Cierre_sesion from './pages/Cierre_sesion.jsx';
 import Index from "./pages/Index";
@@ -53,6 +58,12 @@ function App() {
   return (
     <Router>
       <Routes>
+
+        {/* Recuperar contraseña */}
+        <Route path="/solicitar-recuperacion" element={<SolicitarRecuperacion />} />
+        <Route path="/verificar-codigo" element={<VerificarCodigo />} />
+        <Route path="/cambiar-contrasena" element={<CambiarContrasena />} />
+
         {/* Rutas públicas */}
         <Route path="/" element={<Index />} />
         <Route path="/Login" element={<Login />} />

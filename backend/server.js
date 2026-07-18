@@ -20,6 +20,8 @@ const desembolsoRoutes = require('../backend/routes/desembolsoRoutes');
 const cuotasRoutes = require('../backend/routes/cuotaRoute');
 const permisosRoutes = require('../backend/routes/permisosRoutes');
 
+const recuperacionRoutes = require('../backend/routes/recuperacionRoutes');
+
 dotenv.config();
 
 const app = express();
@@ -49,6 +51,8 @@ app.use('/api/contrato', contratoRoutes);
 app.use('/api/desembolso', desembolsoRoutes);
 app.use('/api/cuota', cuotasRoutes);
 app.use('/api/permisos', permisosRoutes);
+
+app.use('/api/recuperacion', recuperacionRoutes);
 
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Servidor funcionando' });
