@@ -6,10 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "vercel-build": "npm run build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "vercel-build": "npm install && npm run build"
+    "vercel-build": "npm install && vite build"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
